@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Le Perroquet · PGNEP — Plateforme de Gestion des Notes du Primaire</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -389,6 +390,70 @@ tr:hover td{background:#F9FAFB;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:#D1D5DB;border-radius:3px;}
 ::-webkit-scrollbar-thumb:hover{background:#9CA3AF;}
+
+/* ── GUIDE D'UTILISATION ──────────────────────────────────── */
+.gnav {
+  display:block;padding:8px 12px;border-radius:7px;
+  font-size:12px;font-weight:600;color:var(--text2);
+  cursor:pointer;transition:all 0.15s;text-decoration:none;
+}
+.gnav:hover { background:var(--surface); color:var(--ci-vert); }
+.gnav.active { background:var(--ci-vert);color:#fff; }
+.guide-feat {
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;font-size:12px;
+  font-weight:600;color:var(--text2);line-height:1.5;
+}
+.guide-info {
+  background:#EBF5FF;border:1px solid #BAD7F8;
+  border-radius:8px;padding:12px 14px;
+  font-size:13px;color:var(--text);line-height:1.6;
+}
+.guide-warn {
+  background:#FFF7ED;border:1px solid #FED7AA;
+  border-radius:8px;padding:12px 14px;
+  font-size:13px;color:#92400E;line-height:1.6;
+}
+.guide-step-block { display:flex;flex-direction:column;gap:6px; }
+.guide-step-title {
+  font-size:13px;font-weight:700;color:var(--text);
+  padding:6px 0;border-bottom:1px solid var(--border);
+}
+.guide-steps { display:flex;flex-direction:column;gap:4px;padding-left:8px; }
+.gs {
+  font-size:12px;color:var(--text2);padding:4px 8px;
+  border-left:3px solid var(--ci-vert);background:var(--surface);
+  border-radius:0 6px 6px 0;
+}
+.guide-table {
+  width:100%;border-collapse:collapse;font-size:12px;
+}
+.guide-table th {
+  background:var(--ci-vert);color:#fff;padding:7px 10px;
+  text-align:left;font-weight:700;
+}
+.guide-table td {
+  padding:7px 10px;border-bottom:1px solid var(--border);
+  vertical-align:top;
+}
+.guide-table tr:nth-child(even) td { background:var(--surface); }
+.guide-table code {
+  background:#F3F4F6;padding:2px 6px;border-radius:4px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ci-vert);
+}
+.faq-item {
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;overflow:hidden;
+}
+.faq-q {
+  padding:10px 14px;font-size:13px;font-weight:700;
+  color:var(--text);background:#F0FAF5;border-bottom:1px solid var(--border);
+  cursor:default;
+}
+.faq-a {
+  padding:10px 14px;font-size:12px;color:var(--text2);line-height:1.6;
+}
+
 </style>
 </head>
 <body>
@@ -477,6 +542,9 @@ tr:hover td{background:#F9FAFB;}
       </div>
       <div class="nav-item" onclick="showPage('export')">
         <span class="nav-icon">📤</span> Export / Synchro
+      </div>
+      <div class="nav-item" onclick="showPage('guide')">
+        <span class="nav-icon">📖</span> Guide d'utilisation
       </div>
       <div class="nav-item" onclick="showPage('comptes')" id="nav-comptes" style="display:none;">
         <span class="nav-icon">👥</span> Comptes utilisateurs
@@ -671,7 +739,7 @@ tr:hover td{background:#F9FAFB;}
             <div class="pag-btns" id="pag-btns-eleves"></div>
           </div>
         </div>
-        <input type="file" id="csv-input" style="display:none" accept=".csv,.xlsx" onchange="handleImportFile(this)">
+        <input type="file" id="csv-input" style="display:none" accept=".csv,.xlsx,.xlsm,.xls" onchange="handleImportFile(this)">
       </div>
 
       <!-- ══ SAISIE DES NOTES ════════════════════════════════ -->
@@ -808,13 +876,25 @@ tr:hover td{background:#F9FAFB;}
           <div class="card">
             <div class="card-header"><h3>📤 Exporter les données</h3></div>
             <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
-              <p style="font-size:13px;color:var(--text2);margin-bottom:4px;">Télécharger les données en CSV :</p>
-              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportElevesCSV()">👦 Export liste des élèves (.csv)</button>
-              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportResultatsCSV()">📊 Export résultats complets (.csv)</button>
-              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportKoboChoices()">🔗 Export KoboToolbox choices (.csv)</button>
-              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportJSON()">📦 Export JSON complet</button>
-              <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:12px;">
-                <button class="btn btn-orange" style="width:100%;justify-content:center;" onclick="exportAll()">📦 Tout exporter</button>
+
+              <!-- CSV -->
+              <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;">Format CSV</div>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportElevesCSV()">👦 Élèves — <span style="color:var(--ci-vert);font-weight:700;">.csv</span></button>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportResultatsCSV()">📊 Résultats complets — <span style="color:var(--ci-vert);font-weight:700;">.csv</span></button>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportKoboChoices()">🔗 KoboToolbox choices — <span style="color:var(--ci-vert);font-weight:700;">.csv</span></button>
+
+              <!-- XLSX -->
+              <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-top:6px;margin-bottom:2px;">Format Excel (.xlsx)</div>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportElevesXLSX()">👦 Élèves — <span style="color:var(--bleu);font-weight:700;">.xlsx</span></button>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportResultatsXLSX()">📊 Résultats complets — <span style="color:var(--bleu);font-weight:700;">.xlsx</span></button>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportCompletXLSX()">📦 Export complet (élèves + notes) — <span style="color:var(--bleu);font-weight:700;">.xlsx</span></button>
+
+              <!-- JSON + Tout -->
+              <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-top:6px;margin-bottom:2px;">Sauvegarde</div>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportJSON()">📦 Export JSON complet — <span style="color:var(--ci-orange);font-weight:700;">.json</span></button>
+
+              <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px;">
+                <button class="btn btn-orange" style="width:100%;justify-content:center;" onclick="exportAll()">📦 Tout exporter (CSV + XLSX + JSON)</button>
               </div>
             </div>
           </div>
@@ -828,17 +908,423 @@ tr:hover td{background:#F9FAFB;}
                 ondragleave="this.style.borderColor=''"
                 ondrop="event.preventDefault();this.style.borderColor='';handleImportFileDrop(event)">
                 <div style="font-size:36px;margin-bottom:8px;">📁</div>
-                <p style="font-weight:600;font-size:14px;">Glisser ou cliquer</p>
-                <p style="font-size:12px;color:var(--text3);margin-top:4px;">Excel (.xlsx) ou CSV (.csv) — liste d'élèves</p>
-                <input type="file" id="import-file" style="display:none" accept=".csv,.xlsx" onchange="handleImportFile(this)">
+                <p style="font-weight:600;font-size:14px;">📁 Glisser ou cliquer pour importer</p>
+                <p style="font-size:12px;color:var(--text3);margin-top:6px;"><strong style="color:var(--ci-vert);">.xlsx</strong> · <strong style="color:var(--ci-vert);">.xlsm</strong> · <strong style="color:var(--ci-orange);">.xls</strong> · <strong style="color:var(--bleu);">.csv</strong></p>
+                <p style="font-size:11px;color:var(--text3);margin-top:2px;">Liste d'élèves — toutes feuilles Excel acceptées</p>
+                <input type="file" id="import-file" style="display:none" accept=".csv,.xlsx,.xlsm,.xls" onchange="handleImportFile(this)">
               </div>
               <div id="import-result" style="display:none;"></div>
               <button class="btn btn-primary" id="btn-save-import" style="display:none;justify-content:center;" onclick="saveImport()">💾 Enregistrer dans la base</button>
-              <p style="font-size:11px;color:var(--text3);">Colonnes reconnues : nom, prenoms, matricule, date_naissance, lieu_naissance, sexe, classe, ecole</p>
+              <p style="font-size:11px;color:var(--text3);">Colonnes reconnues : <strong>nom</strong>, prenoms, matricule, date_naissance, lieu_naissance, sexe, classe, ecole — Les noms de colonnes avec accents et espaces sont acceptés.</p>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- ══ GUIDE D'UTILISATION ════════════════════════════ -->
+      <div id="page-guide" class="page">
+        <div style="display:grid;grid-template-columns:240px 1fr;gap:20px;align-items:start;">
+
+          <!-- Sommaire latéral -->
+          <div class="card" style="position:sticky;top:20px;">
+            <div class="card-header" style="background:var(--ci-vert);border-radius:10px 10px 0 0;">
+              <h3 style="color:#fff;font-size:14px;">📖 Sommaire</h3>
+            </div>
+            <div style="padding:12px;">
+              <nav id="guide-nav" style="display:flex;flex-direction:column;gap:2px;">
+                <a onclick="showGuideSection('g-intro')"    class="gnav active">🦜 Présentation</a>
+                <a onclick="showGuideSection('g-install')"  class="gnav">💻 Installation</a>
+                <div id="gnav-acces-wrap"><a onclick="showGuideSection('g-acces')" class="gnav">🔑 Codes d'accès</a></div>
+                <a onclick="showGuideSection('g-interface')" class="gnav">🖥 Interface</a>
+                <a onclick="showGuideSection('g-eleves')"   class="gnav">👦 Élèves</a>
+                <a onclick="showGuideSection('g-saisie')"   class="gnav">✏️ Saisie des notes</a>
+                <a onclick="showGuideSection('g-resultats')" class="gnav">📈 Résultats</a>
+                <a onclick="showGuideSection('g-bulletins')" class="gnav">📄 Bulletins</a>
+                <a onclick="showGuideSection('g-dfa')"      class="gnav">🎓 DFA</a>
+                <a onclick="showGuideSection('g-liste')"    class="gnav">📋 Liste de classe</a>
+                <a onclick="showGuideSection('g-stats')"    class="gnav">📊 Statistiques</a>
+                <a onclick="showGuideSection('g-export')"   class="gnav">📤 Export / Import</a>
+                <a onclick="showGuideSection('g-securite')" class="gnav">🔒 Sécurité</a>
+                <a onclick="showGuideSection('g-faq')"      class="gnav">❓ FAQ</a>
+              </nav>
+            </div>
+          </div>
+
+          <!-- Contenu du guide -->
+          <div id="guide-content" style="display:flex;flex-direction:column;gap:16px;">
+
+            <!-- PRÉSENTATION -->
+            <div class="guide-section card" id="g-intro">
+              <div class="card-header" style="background:linear-gradient(135deg,var(--ci-vert),var(--ci-vert2));">
+                <h3 style="color:#fff;">🦜 Présentation de Le Perroquet</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <p style="font-size:14px;line-height:1.8;color:var(--text2);">
+                  <strong>Le Perroquet (PGNEP v3.0)</strong> est une plateforme numérique pour la gestion des notes des élèves du cycle primaire en Côte d'Ivoire.
+                </p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div class="guide-feat">📊 Calcul automatique des moyennes selon les barèmes officiels</div>
+                  <div class="guide-feat">🏅 Rang de chaque élève dans sa classe</div>
+                  <div class="guide-feat">📄 Bulletins de notes imprimables en 1 clic</div>
+                  <div class="guide-feat">🎓 DFA calculée automatiquement</div>
+                  <div class="guide-feat">📋 Liste de classe par ordre alpha ou rang</div>
+                  <div class="guide-feat">📈 Statistiques par sexe et composition</div>
+                  <div class="guide-feat">🔒 8 profils sécurisés avec cloisonnement</div>
+                  <div class="guide-feat">📱 PC, navigateur web et Android</div>
+                </div>
+                <div class="guide-info">
+                  <strong>Hiérarchie :</strong> Instituteur → Directeur → CPPP → Correspondant IEPP → Coordinateur DRENAET → Administrateur<br>
+                  Chaque utilisateur ne voit que les données de son périmètre.
+                </div>
+              </div>
+            </div>
+
+            <!-- INSTALLATION -->
+            <div class="guide-section card" id="g-install" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#1A56DB,#0D40A0);">
+                <h3 style="color:#fff;">💻 Installation et accès</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+                <div class="guide-step-block">
+                  <div class="guide-step-title">🌐 Version navigateur web (recommandée)</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Télécharger le fichier <code>PGNEP_v3.html</code></div>
+                    <div class="gs">2. Double-cliquer pour l'ouvrir dans Chrome ou Edge</div>
+                    <div class="gs">3. Marquer la page en favori pour un accès rapide</div>
+                  </div>
+                </div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">🖥 Version Windows (.exe)</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Installer Node.js depuis <strong>nodejs.org</strong></div>
+                    <div class="gs">2. Dézipper <code>LePerroquet_Windows_Electron.zip</code></div>
+                    <div class="gs">3. Ouvrir un terminal → <code>npm install</code></div>
+                    <div class="gs">4. Taper <code>npm run build-win</code> → le .exe se crée dans <code>dist/</code></div>
+                  </div>
+                </div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">📱 Version Android (.apk)</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Installer Android Studio depuis <strong>developer.android.com</strong></div>
+                    <div class="gs">2. Dézipper <code>LePerroquet_Android_Studio.zip</code></div>
+                    <div class="gs">3. Ouvrir le dossier <code>android/</code> dans Android Studio</div>
+                    <div class="gs">4. Build → Build APK(s) → installer l'APK sur le téléphone</div>
+                  </div>
+                </div>
+                <div class="guide-info">✈️ Fonctionne entièrement <strong>hors connexion internet</strong>. Les données sont sauvegardées automatiquement dans le navigateur.</div>
+              </div>
+            </div>
+
+            <!-- CODES D'ACCÈS -->
+            <div class="guide-section card" id="g-acces" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#D97706,#B45309);">
+                <h3 style="color:#fff;">🔑 Codes d'accès et rôles</h3>
+              </div>
+              <div style="padding:20px;">
+                <table class="guide-table">
+                  <thead><tr><th>Identifiant</th><th>Mot de passe</th><th>Rôle</th><th>Périmètre</th></tr></thead>
+                  <tbody id="guide-acces-tbody">
+                    <!-- Rempli dynamiquement selon le rôle connecté -->
+                  </tbody>
+                </table>
+                <div id="guide-acces-note" style="margin-top:14px;"></div>
+                <div class="guide-warn">🔒 Après 5 tentatives échouées → compte bloqué 15 min · Session expire après 30 min d'inactivité</div>
+              </div>
+            </div>
+
+            <!-- INTERFACE -->
+            <div class="guide-section card" id="g-interface" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#0891B2,#0369A1);">
+                <h3 style="color:#fff;">🖥 Interface principale</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <div class="guide-info"><strong>Sidebar (gauche) :</strong> armoirie MENAET, menus de navigation, informations utilisateur connecté, indicateur de session, bouton déconnexion.</div>
+                <div class="guide-info"><strong>Topbar (haut) :</strong> titre de la page, année scolaire, horloge en temps réel avec date en français, barre de recherche globale.</div>
+                <table class="guide-table">
+                  <thead><tr><th>Menu</th><th>Description</th></tr></thead>
+                  <tbody>
+                    <tr><td>📊 Tableau de bord</td><td>Vue d'ensemble, statistiques, liste de classe, tableau des âges</td></tr>
+                    <tr><td>👦 Gestion des élèves</td><td>Liste, ajout, modification, import CSV/Excel, passage en classe</td></tr>
+                    <tr><td>✏️ Saisie des notes</td><td>Saisie par élève et évaluation, calcul temps réel</td></tr>
+                    <tr><td>📈 Résultats & Stats</td><td>Tableau des résultats, rangs, graphiques</td></tr>
+                    <tr><td>📄 Bulletins de notes</td><td>Génération et impression des bulletins</td></tr>
+                    <tr><td>🏫 Écoles & Structures</td><td>Gestion des établissements</td></tr>
+                    <tr><td>📤 Export / Synchro</td><td>Export CSV, JSON, import Excel/CSV</td></tr>
+                    <tr><td>📖 Guide d'utilisation</td><td>Ce guide intégré</td></tr>
+                    <tr><td>👥 Comptes utilisateurs</td><td>Gestion des accès (Admin uniquement)</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ÉLÈVES -->
+            <div class="guide-section card" id="g-eleves" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#059669,#047857);">
+                <h3 style="color:#fff;">👦 Gestion des élèves</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <div class="guide-step-block">
+                  <div class="guide-step-title">➕ Ajouter un élève manuellement</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Cliquer sur <strong>+ Ajouter</strong> (bouton en haut)</div>
+                    <div class="gs">2. Remplir : Nom, Prénoms, Sexe, Classe, École (et optionnellement Matricule, Date de naissance, Lieu)</div>
+                    <div class="gs">3. Cliquer sur <strong>Enregistrer</strong></div>
+                  </div>
+                </div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">📥 Importer en masse (Excel ou CSV)</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Aller dans <strong>Export / Synchro</strong> → section Import</div>
+                    <div class="gs">2. Glisser votre fichier .xlsx, .xlsm ou .csv</div>
+                    <div class="gs">3. Vérifier l'aperçu des élèves détectés</div>
+                    <div class="gs">4. Cliquer sur <strong>💾 Enregistrer dans la base</strong></div>
+                  </div>
+                </div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">🎓 Passage en classe supérieure</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Cliquer sur 👁 à côté de l'élève</div>
+                    <div class="gs">2. Cliquer sur <strong>🎓 Passage en classe supérieure</strong></div>
+                    <div class="gs">3. Confirmer — les élèves de CM2 sont archivés fin de cycle</div>
+                  </div>
+                </div>
+                <div class="guide-info">💡 Le matricule est généré automatiquement si laissé vide. Les doublons (même matricule) sont ignorés à l'import.</div>
+              </div>
+            </div>
+
+            <!-- SAISIE -->
+            <div class="guide-section card" id="g-saisie" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#7C3AED,#5B21B6);">
+                <h3 style="color:#fff;">✏️ Saisie des notes</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <table class="guide-table">
+                  <thead><tr><th>Niveau</th><th>Barème total</th><th>Diviseur</th><th>Moy. sur</th></tr></thead>
+                  <tbody>
+                    <tr><td>CP1 / CP2</td><td>/80 (8 matières × /10)</td><td>÷ 4</td><td>/20</td></tr>
+                    <tr><td>CE1 → CM1</td><td>/170 (Dictée/20 + Texte/50 + Maths/50 + Éveil/50)</td><td>÷ 8,5</td><td>/20</td></tr>
+                    <tr><td>CM2 Compositions</td><td>/170</td><td>÷ 8,5</td><td>/20</td></tr>
+                    <tr><td>CM2 Examen Blanc</td><td>/190 (+ EPS/20)</td><td>÷ 9,5</td><td>/20</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">Procédure de saisie</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Aller dans <strong>Saisie des notes</strong></div>
+                    <div class="gs">2. Sélectionner l'élève</div>
+                    <div class="gs">3. Sélectionner le type d'évaluation</div>
+                    <div class="gs">4. Saisir les notes (la moyenne se calcule en temps réel)</div>
+                    <div class="gs">5. Cliquer sur <strong>💾 Enregistrer les notes</strong></div>
+                  </div>
+                </div>
+                <div class="guide-warn">📌 Code <strong>501</strong> = Absent / Abandon. La matière est exclue du calcul. Affichée <em>ABS</em> sur le bulletin.</div>
+                <div class="guide-info">🚫 L'Examen Blanc n'apparaît que pour les élèves de CM2. Les Compositions 3 et 4 n'apparaissent pas pour le CM2.</div>
+              </div>
+            </div>
+
+            <!-- RÉSULTATS -->
+            <div class="guide-section card" id="g-resultats" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#D97706,#B45309);">
+                <h3 style="color:#fff;">📈 Résultats et statistiques</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <table class="guide-table">
+                  <thead><tr><th>Mention</th><th>Moyenne /20</th></tr></thead>
+                  <tbody>
+                    <tr><td style="color:var(--danger);font-weight:700;">Insuffisant</td><td>0 à 9,99</td></tr>
+                    <tr><td style="color:#92700A;font-weight:700;">Passable</td><td>10 à 12,99</td></tr>
+                    <tr><td style="color:var(--ci-orange);font-weight:700;">Assez Bien</td><td>13 à 14,99</td></tr>
+                    <tr><td style="color:#1D4ED8;font-weight:700;">Bien</td><td>15 à 16,99</td></tr>
+                    <tr><td style="color:var(--bleu);font-weight:700;">Très Bien</td><td>17 à 18,99</td></tr>
+                    <tr><td style="color:var(--ci-vert);font-weight:700;">Excellent</td><td>19 à 20</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-info">🏅 Le <strong>rang</strong> est calculé automatiquement en comparant toutes les moyennes de la même classe pour la même évaluation. Le 1er est affiché en or, le top 3 en vert.</div>
+              </div>
+            </div>
+
+            <!-- BULLETINS -->
+            <div class="guide-section card" id="g-bulletins" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#0891B2,#0369A1);">
+                <h3 style="color:#fff;">📄 Bulletins de notes</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <div class="guide-step-block">
+                  <div class="guide-step-title">Générer et imprimer un bulletin</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Cliquer sur <strong>Bulletins de notes</strong></div>
+                    <div class="gs">2. Sélectionner l'élève</div>
+                    <div class="gs">3. Sélectionner l'évaluation (ou laisser vide pour toutes)</div>
+                    <div class="gs">4. Cliquer sur <strong>🖨 Imprimer</strong></div>
+                  </div>
+                </div>
+                <div class="guide-info">Le bulletin contient : en-tête école/IEPP/DRENAET, informations élève, tableau des matières, total, moyenne, <strong>rang dans la classe</strong>, mention, <strong>résultat DFA</strong>, espaces de signature.</div>
+              </div>
+            </div>
+
+            <!-- DFA -->
+            <div class="guide-section card" id="g-dfa" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,var(--ci-vert),var(--ci-vert2));">
+                <h3 style="color:#fff;">🎓 DFA — Décision de Fin d'Année</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <div class="guide-info">La <strong>DFA</strong> est calculée automatiquement — ce n'est pas une évaluation à saisir.</div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">📐 Formule CP1 → CM1</div>
+                  <div style="background:#F0FAF5;border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ci-vert);font-weight:700;">
+                    DFA = [ (Moy1 + Moy2 + Moy3) + Moy4 × 2 ] / 5
+                  </div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:6px;">Évaluations : Composition 1, 2, 3 et 4</div>
+                </div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">📐 Formule CM2</div>
+                  <div style="background:#FFF3E0;border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ci-orange);font-weight:700;">
+                    DFA = [ (Moy1 + Moy2 + MoyEB1) + MoyEB2 × 2 ] / 5
+                  </div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:6px;">Évaluations : Composition 1, Composition 2, Examen Blanc 1, Examen Blanc 2<br>(Le CM2 ne fait pas de Composition 3 et 4)</div>
+                </div>
+                <table class="guide-table">
+                  <thead><tr><th>Résultat</th><th>Condition</th></tr></thead>
+                  <tbody>
+                    <tr><td style="color:var(--ci-vert);font-weight:700;">✅ DFA Admis</td><td>Moyenne DFA ≥ 10/20</td></tr>
+                    <tr><td style="color:var(--danger);font-weight:700;">❌ DFA Échec</td><td>Moyenne DFA &lt; 10/20</td></tr>
+                    <tr><td style="color:var(--ci-vert);font-weight:700;">✅ DFA Admis — À archiver</td><td>CM2, DFA ≥ 10 → fin de cycle</td></tr>
+                    <tr><td style="color:var(--text3);">⏳ Incomplet</td><td>Toutes les compositions requises non saisies</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- LISTE DE CLASSE -->
+            <div class="guide-section card" id="g-liste" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#7C3AED,#5B21B6);">
+                <h3 style="color:#fff;">📋 Liste de classe et impression</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <div class="guide-info">Visible dans le <strong>Tableau de bord</strong> pour l'Instituteur, le Directeur et le Correspondant IEPP.</div>
+                <table class="guide-table">
+                  <thead><tr><th>Bouton</th><th>Action</th></tr></thead>
+                  <tbody>
+                    <tr><td>🔤 Ordre alphabétique</td><td>Trier les élèves de A à Z</td></tr>
+                    <tr><td>🏅 Ordre par rang</td><td>Trier du meilleur au moins bon résultat</td></tr>
+                    <tr><td>🖨 Liste Alpha</td><td>Imprimer la liste en ordre alphabétique</td></tr>
+                    <tr><td>🖨 Liste Rang</td><td>Imprimer la liste classée par rang</td></tr>
+                    <tr><td>🖨 Liste complète</td><td>Imprimer toutes les classes du périmètre</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-info">La liste imprimée contient : #, Nom & Prénoms, Sexe, Date de naissance, Moyenne, Rang, Mention, DFA — avec espace de signature.</div>
+              </div>
+            </div>
+
+            <!-- STATISTIQUES -->
+            <div class="guide-section card" id="g-stats" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#059669,#047857);">
+                <h3 style="color:#fff;">📊 Statistiques et tableaux de bord</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <table class="guide-table">
+                  <thead><tr><th>Rôle</th><th>Statistiques disponibles</th></tr></thead>
+                  <tbody>
+                    <tr><td>Instituteur</td><td>Stats de sa classe · Tableau des âges · Stats DFA</td></tr>
+                    <tr><td>Directeur</td><td>Toutes les classes de son école · Tableau des âges · Stats DFA</td></tr>
+                    <tr><td>Correspondant IEPP</td><td>Toutes les écoles de sa circonscription · Admis/Échecs par sexe · Histogrammes</td></tr>
+                    <tr><td>Coordinateur</td><td>Toute sa DRENAET</td></tr>
+                    <tr><td>Admin / Cabinet</td><td>Données nationales complètes</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-info">Les <strong>statistiques DFA</strong> affichent : EFFECTIF / ADMIS / ÉCHECS / %ADMIS / %ÉCHEC par Garçons, Filles et Total — avec histogramme en couleurs.</div>
+              </div>
+            </div>
+
+            <!-- EXPORT / IMPORT -->
+            <div class="guide-section card" id="g-export" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#D97706,#B45309);">
+                <h3 style="color:#fff;">📤 Export et Import</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <table class="guide-table">
+                  <thead><tr><th>Export</th><th>Format</th><th>Contenu</th></tr></thead>
+                  <tbody>
+                    <tr><td>Élèves CSV</td><td>.csv</td><td>Liste complète des élèves</td></tr>
+                    <tr><td>Résultats CSV</td><td>.csv</td><td>Toutes les notes avec moyennes et mentions</td></tr>
+                    <tr><td>KoboToolbox</td><td>.csv</td><td>Liste formatée pour KoboCollect</td></tr>
+                    <tr><td>Export JSON</td><td>.json</td><td>Sauvegarde complète (écoles + élèves + notes)</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">📥 Importer des élèves depuis Excel</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Aller dans <strong>Export / Synchro</strong></div>
+                    <div class="gs">2. Glisser votre fichier <strong>.xlsx</strong>, <strong>.xlsm</strong> ou <strong>.csv</strong> dans la zone d'import</div>
+                    <div class="gs">3. Vérifier l'aperçu (nom, prénoms, classe, sexe)</div>
+                    <div class="gs">4. Cliquer sur <strong>💾 Enregistrer dans la base</strong></div>
+                  </div>
+                </div>
+                <div class="guide-info">💡 Colonnes reconnues : <strong>nom</strong>, prenoms, matricule, sexe, date_naissance, lieu_naissance, classe, ecole — Les accents et espaces dans les noms de colonnes sont acceptés.</div>
+                <div class="guide-warn">🔒 Effectuez un <strong>export JSON complet</strong> régulièrement comme sauvegarde de vos données.</div>
+              </div>
+            </div>
+
+            <!-- SÉCURITÉ -->
+            <div class="guide-section card" id="g-securite" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#DC2626,#B91C1C);">
+                <h3 style="color:#fff;">🔒 Sécurité et sessions</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <table class="guide-table">
+                  <thead><tr><th>Mesure</th><th>Détail</th></tr></thead>
+                  <tbody>
+                    <tr><td>🔐 SHA-256</td><td>Mots de passe chiffrés — irréversibles</td></tr>
+                    <tr><td>🔒 Verrouillage</td><td>5 tentatives échouées → compte bloqué 15 min</td></tr>
+                    <tr><td>⏱ Session</td><td>Déconnexion automatique après 30 min d'inactivité</td></tr>
+                    <tr><td>🌍 Cloisonnement</td><td>Chaque utilisateur voit uniquement son périmètre</td></tr>
+                    <tr><td>💪 Force MDP</td><td>Indicateur visuel lors de la création d'un compte</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-warn">⚠️ Les données sont stockées dans le navigateur (localStorage). Ne pas effacer l'historique du navigateur. Faites des exports JSON réguliers.</div>
+              </div>
+            </div>
+
+            <!-- FAQ -->
+            <div class="guide-section card" id="g-faq" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#0D1B2A,#1E3A5F);">
+                <h3 style="color:#fff;">❓ Questions fréquentes (FAQ)</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
+                <div class="faq-item">
+                  <div class="faq-q">Mes données ont disparu après avoir effacé l'historique.</div>
+                  <div class="faq-a">Les données sont dans le localStorage du navigateur. Effacer l'historique les supprime. Faites des exports JSON régulièrement.</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">Je ne vois pas les élèves des autres classes.</div>
+                  <div class="faq-a">C'est normal. Chaque utilisateur voit uniquement son périmètre : un instituteur voit sa classe, un directeur son école, etc.</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">L'option Examen Blanc n'apparaît pas.</div>
+                  <div class="faq-a">Les examens blancs sont réservés aux élèves de CM2. Vérifiez que l'élève sélectionné est bien en CM2.</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">La DFA affiche « Incomplet ».</div>
+                  <div class="faq-a">Pour CP1-CM1 : les 4 compositions doivent être saisies. Pour CM2 : Composition 1, 2, Examen Blanc 1 et 2 requis.</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">Je ne peux pas créer de compte utilisateur.</div>
+                  <div class="faq-a">La création de comptes est réservée aux administrateurs (admin et diomande).</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">Mon compte est bloqué.</div>
+                  <div class="faq-a">Après 5 tentatives échouées, le compte est bloqué 15 minutes. Attendez puis réessayez.</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">Mon fichier Excel ne s'importe pas.</div>
+                  <div class="faq-a">Vérifiez que le fichier contient une colonne nommée « nom ». Les formats .xlsx, .xlsm et .csv sont acceptés. Une connexion internet est nécessaire pour charger la bibliothèque Excel.</div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- fin guide-content -->
+        </div><!-- fin grid -->
+      </div><!-- fin page-guide -->
 
       <!-- ══ COMPTES UTILISATEURS ════════════════════════════ -->
       <div id="page-comptes" class="page">
@@ -1325,6 +1811,9 @@ function applyRoleUI() {
   const uData = DB.users.find(x=>x.login===currentUser.login);
   const structEl = document.getElementById('user-structure-label');
   if (structEl && uData) structEl.textContent = getStructureLabel(uData);
+  // Menu Codes d'accès dans le guide : visible uniquement pour admin
+  const gnawWrap = document.getElementById('gnav-acces-wrap');
+  if (gnawWrap) gnawWrap.style.display = (r === 'admin') ? '' : 'none';
 }
 
 // Hiérarchie des droits CDC v2
@@ -1339,7 +1828,7 @@ const PAGE_LABELS = {
   dashboard:'Tableau de bord', eleves:'Gestion des élèves',
   saisie:'Saisie des notes', resultats:'Résultats & Statistiques',
   bulletins:'Bulletins de notes', ecoles:'Écoles & Structures',
-  export:'Export / Synchronisation', comptes:'Comptes utilisateurs'
+  export:'Export / Synchronisation', comptes:'Comptes utilisateurs', guide:'Guide d\'utilisation'
 };
 
 function showPage(name) {
@@ -2223,28 +2712,104 @@ function handleImportFile(input) {
   const file = input.files[0];
   if (file) parseImportFile(file);
 }
+// ── Correspondance des noms de colonnes ──────────────────────
+const HEADERS_MAP_IMPORT = {
+  'nom':'nom','noms':'nom','nom_eleve':'nom','lastname':'nom',
+  'prenoms':'prenoms','prenoms':'prenoms','prenom':'prenoms','firstname':'prenoms',
+  'matricule':'matricule','mat':'matricule','numero':'matricule',
+  'sexe':'sexe','genre':'sexe','sex':'sexe',
+  'date_naissance':'ddn','ddn':'ddn','naissance':'ddn','date de naissance':'ddn',
+  'lieu_naissance':'lieu','lieu':'lieu','ville':'lieu','localite':'lieu',
+  'classe':'classe','level':'classe','niveau':'classe',
+  'ecole':'ecole_id','etablissement':'ecole_id','school':'ecole_id',
+};
+function normalizeHdr(h) {
+  return String(h||'').toLowerCase().trim()
+    .replace(/[àáâã]/g,'a').replace(/[éèêë]/g,'e')
+    .replace(/[îï]/g,'i').replace(/[ôö]/g,'o').replace(/[ùûü]/g,'u')
+    .replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').replace(/_+/g,'_').replace(/^_|_$/g,'');
+}
+function rowsToEleves(rows) {
+  if (!rows||rows.length<2) return [];
+  const hdrs = rows[0].map(h=>{ const n=normalizeHdr(h); return HEADERS_MAP_IMPORT[n]||HEADERS_MAP_IMPORT[String(h||'').toLowerCase().trim()]||n; });
+  const result=[];
+  for(let i=1;i<rows.length;i++){
+    const rec={};
+    hdrs.forEach((h,j)=>{ if(h) rec[h]=String(rows[i][j]||'').trim(); });
+    if(rec.sexe){const s=rec.sexe.toUpperCase();rec.sexe=(s==='F'||s==='FILLE'||s.startsWith('FEM'))?'F':'M';}
+    if(rec.nom) result.push(rec);
+  }
+  return result;
+}
+function showImportPreview(filename, eleves, format) {
+  const preview=document.getElementById('import-result');
+  const btnSave=document.getElementById('btn-save-import');
+  if(!eleves.length){
+    preview.innerHTML='<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px;font-size:13px;color:var(--danger);">⚠️ Aucun élève détecté. Vérifiez que le fichier contient une colonne « nom ».</div>';
+    return;
+  }
+  const apercu=eleves.slice(0,3).map(e=>`<tr><td style="padding:4px 8px;border-bottom:1px solid #E5E9EF;">${e.nom}</td><td style="padding:4px 8px;border-bottom:1px solid #E5E9EF;">${e.prenoms||'—'}</td><td style="padding:4px 8px;border-bottom:1px solid #E5E9EF;">${e.classe||'—'}</td><td style="padding:4px 8px;border-bottom:1px solid #E5E9EF;">${e.sexe||'—'}</td></tr>`).join('');
+  preview.style.display='block';
+  preview.innerHTML=`<div style="background:#ECFDF5;border:1px solid #6EE7B7;border-radius:8px;padding:10px;font-size:13px;">✅ <strong>${eleves.length} élève(s)</strong> détecté(s) — <em>${filename}</em> <span style="margin-left:6px;background:var(--ci-vert);color:#fff;border-radius:6px;padding:1px 8px;font-size:10px;font-weight:700;">${format}</span></div><div style="margin-top:8px;overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="background:var(--surface);"><th style="padding:5px 8px;text-align:left;border-bottom:2px solid var(--border);">Nom</th><th style="padding:5px 8px;text-align:left;border-bottom:2px solid var(--border);">Prénoms</th><th style="padding:5px 8px;border-bottom:2px solid var(--border);">Classe</th><th style="padding:5px 8px;border-bottom:2px solid var(--border);">Sexe</th></tr></thead><tbody>${apercu}</tbody></table>${eleves.length>3?`<p style="font-size:11px;color:var(--text3);margin-top:4px;text-align:right;">… et ${eleves.length-3} autre(s)</p>`:''}</div>`;
+  btnSave.style.display='flex';
+}
+
 function parseImportFile(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    const text = e.target.result;
-    const lines = text.replace(/\r/g,'').split('\n').filter(Boolean);
-    const sep = text.includes(';') ? ';' : ',';
-    const HEADERS_MAP = { nom:'nom', prenoms:'prenoms', prénoms:'prenoms', matricule:'matricule', sexe:'sexe', date_naissance:'ddn', ddn:'ddn', lieu_naissance:'lieu', lieu:'lieu', classe:'classe', ecole:'ecole_id', école:'ecole_id' };
-    const rawHeaders = lines[0].split(sep).map(h=>h.replace(/"/g,'').trim().toLowerCase());
-    const headers = rawHeaders.map(h => HEADERS_MAP[h]||h);
-    importedEleves = [];
-    for (let i=1;i<lines.length;i++) {
-      const vals = lines[i].split(sep).map(v=>v.replace(/"/g,'').trim());
-      const rec = {};
-      headers.forEach((h,j) => { if(h) rec[h]=vals[j]||''; });
-      if (rec.nom) importedEleves.push(rec);
+  const ext = file.name.split('.').pop().toLowerCase();
+  const preview = document.getElementById('import-result');
+  const btnSave = document.getElementById('btn-save-import');
+  preview.style.display='block';
+  preview.innerHTML='<div style="padding:10px;font-size:13px;color:var(--text2);">⏳ Lecture en cours...</div>';
+  btnSave.style.display='none';
+  importedEleves=[];
+
+  if(ext==='csv'){
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const text=e.target.result;
+        const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+        const sep=(text.match(/;/g)||[]).length>(text.match(/,/g)||[]).length?';':',';
+        const rows=lines.map(l=>l.split(sep).map(v=>v.replace(/^"|"$/g,'').trim()));
+        importedEleves=rowsToEleves(rows);
+        showImportPreview(file.name,importedEleves,'CSV');
+      }catch(err){preview.innerHTML='<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px;font-size:13px;color:var(--danger);">❌ Erreur CSV : '+err.message+'</div>';}
+    };
+    reader.readAsText(file,'UTF-8');
+
+  } else if(['xlsx','xlsm','xls'].includes(ext)){
+    if(typeof XLSX==='undefined'){
+      preview.innerHTML='<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px;font-size:13px;color:var(--danger);">❌ Bibliothèque Excel non chargée. Vérifiez votre connexion internet et rechargez la page.</div>';
+      return;
     }
-    const preview = document.getElementById('import-result');
-    preview.style.display = 'block';
-    preview.innerHTML = `<div style="background:#ECFDF5;border:1px solid #6EE7B7;border-radius:8px;padding:12px;font-size:13px;">✅ <strong>${importedEleves.length} élève(s)</strong> détecté(s) — ${file.name}</div>`;
-    document.getElementById('btn-save-import').style.display = importedEleves.length ? 'flex' : 'none';
-  };
-  reader.readAsText(file, 'UTF-8');
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const data=new Uint8Array(e.target.result);
+        const wb=XLSX.read(data,{type:'array',cellDates:true});
+        let rows=null, sheetUsed='';
+        // Chercher la feuille avec une colonne "nom"
+        for(const sn of wb.SheetNames){
+          const ws=wb.Sheets[sn];
+          const json=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+          if(json.length>=2){
+            const hdrs=json[0].map(h=>normalizeHdr(String(h||'')));
+            if(hdrs.some(h=>HEADERS_MAP_IMPORT[h]==='nom'||h==='nom')){rows=json;sheetUsed=sn;break;}
+          }
+        }
+        // Fallback : prendre la première feuille non vide
+        if(!rows){for(const sn of wb.SheetNames){const ws=wb.Sheets[sn];const json=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});if(json.length>=2){rows=json;sheetUsed=sn;break;}}}
+        if(!rows){preview.innerHTML='<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px;font-size:13px;color:var(--danger);">❌ Aucune donnée dans ce fichier Excel.</div>';return;}
+        // Convertir les dates
+        rows=rows.map(row=>row.map(cell=>cell instanceof Date?cell.toISOString().slice(0,10):cell));
+        importedEleves=rowsToEleves(rows);
+        showImportPreview(file.name,importedEleves,'Excel · '+sheetUsed);
+      }catch(err){preview.innerHTML='<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px;font-size:13px;color:var(--danger);">❌ Erreur Excel : '+err.message+'</div>';}
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    preview.innerHTML='<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px;font-size:13px;color:var(--danger);">❌ Format non supporté. Utilisez .xlsx, .xlsm ou .csv</div>';
+  }
 }
 function saveImport() {
   let added=0, skipped=0;
@@ -2308,12 +2873,176 @@ function exportJSON() {
 }
 
 function exportAll() {
-  exportElevesCSV(); setTimeout(()=>exportResultatsCSV(),300); setTimeout(()=>exportJSON(),600);
+  exportElevesCSV();
+  setTimeout(()=>exportResultatsCSV(),400);
+  setTimeout(()=>exportCompletXLSX(),800);
+  setTimeout(()=>exportJSON(),1200);
 }
 
 function dlCSV(csv, filename) {
   const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click();
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXPORT XLSX (SheetJS)
+// ══════════════════════════════════════════════════════════════
+function checkXLSX() {
+  if (typeof XLSX === 'undefined') {
+    showNotif('❌ Bibliothèque Excel non chargée. Vérifiez votre connexion internet.', 'error');
+    return false;
+  }
+  return true;
+}
+
+function dlXLSX(workbook, filename) {
+  const wbout = XLSX.write(workbook, { bookType:'xlsx', type:'array' });
+  const blob = new Blob([wbout], { type:'application/octet-stream' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function styleHeader(ws, range) {
+  // Appliquer style en-tête vert sur la 1ère ligne
+  if (!ws['!cols']) ws['!cols'] = [];
+  for (let C = range.s.c; C <= range.e.c; C++) {
+    const cell = ws[XLSX.utils.encode_cell({r:0, c:C})];
+    if (cell) {
+      cell.s = {
+        fill: { fgColor: { rgb: '006B3F' }, patternType: 'solid' },
+        font: { color: { rgb: 'FFFFFF' }, bold: true },
+        alignment: { horizontal: 'center' }
+      };
+    }
+  }
+}
+
+function exportElevesXLSX() {
+  if (!checkXLSX()) return;
+  const scopeEl = getScopeEleves();
+  const data = [
+    ['Matricule','Nom','Prénoms','Sexe','Date naiss.','Lieu naiss.','Classe','École','IEPP','DRENAET']
+  ];
+  scopeEl.forEach(e => {
+    const ec = DB.ecoles.find(x=>x.id===e.ecole_id);
+    data.push([
+      e.matricule, e.nom, e.prenoms, e.sexe,
+      e.ddn||'', e.lieu||'', e.classe,
+      ec?ec.nom:'', ec?ec.iepp:'', ec?ec.drena:''
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [14,20,20,8,12,15,6,30,20,20].map(w=>({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Élèves');
+  dlXLSX(wb, `PGNEP_eleves_${today()}.xlsx`);
+  showNotif('⬇ Export élèves Excel téléchargé', 'success');
+}
+
+function exportResultatsXLSX() {
+  if (!checkXLSX()) return;
+  const scopeNotes = getNotesFiltrees();
+  const data = [
+    ['Élève','Classe','École','Évaluation','Total','Barème','Moyenne /20','Mention','Rang']
+  ];
+  scopeNotes.forEach(n => {
+    const el  = DB.eleves.find(e=>e.id===n.eleve_id);
+    const ec  = DB.ecoles.find(x=>x.id===el?.ecole_id);
+    const {total,bareme,moy,maxMoy} = calcNote(n);
+    const men = getMention(moy, maxMoy);
+    const rang = getRang(n.eleve_id, n.eval_type, n.classe);
+    data.push([
+      el ? el.nom+' '+el.prenoms : '',
+      n.classe,
+      ec ? ec.nom : '',
+      EVAL_LABELS[n.eval_type]||n.eval_type,
+      total, bareme,
+      parseFloat(moy.toFixed(2)),
+      men.label,
+      rang ? formatRang(rang) : '—'
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [25,6,25,18,8,8,12,12,10].map(w=>({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Résultats');
+  dlXLSX(wb, `PGNEP_resultats_${today()}.xlsx`);
+  showNotif('⬇ Export résultats Excel téléchargé', 'success');
+}
+
+function exportCompletXLSX() {
+  if (!checkXLSX()) return;
+  const wb = XLSX.utils.book_new();
+
+  // Feuille 1 — Élèves
+  const dataEl = [['Matricule','Nom','Prénoms','Sexe','Date naiss.','Lieu naiss.','Classe','École','IEPP','DRENAET']];
+  getScopeEleves().forEach(e => {
+    const ec = DB.ecoles.find(x=>x.id===e.ecole_id);
+    dataEl.push([e.matricule,e.nom,e.prenoms,e.sexe,e.ddn||'',e.lieu||'',e.classe,ec?ec.nom:'',ec?ec.iepp:'',ec?ec.drena:'']);
+  });
+  const wsEl = XLSX.utils.aoa_to_sheet(dataEl);
+  wsEl['!cols'] = [14,20,20,8,12,15,6,30,20,20].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, wsEl, 'Élèves');
+
+  // Feuille 2 — Notes & Résultats
+  const dataNt = [['Élève','Classe','École','Évaluation','Total','Barème','Moyenne /20','Mention','Rang','DFA']];
+  getNotesFiltrees().forEach(n => {
+    const el  = DB.eleves.find(e=>e.id===n.eleve_id);
+    const ec  = DB.ecoles.find(x=>x.id===el?.ecole_id);
+    const {total,bareme,moy,maxMoy} = calcNote(n);
+    const men = getMention(moy,maxMoy);
+    const rang = getRang(n.eleve_id,n.eval_type,n.classe);
+    const pass = el ? getStatutPassage(el.id,el.classe) : null;
+    dataNt.push([
+      el?el.nom+' '+el.prenoms:'', n.classe, ec?ec.nom:'',
+      EVAL_LABELS[n.eval_type]||n.eval_type,
+      total, bareme, parseFloat(moy.toFixed(2)), men.label,
+      rang?formatRang(rang):'—',
+      pass&&pass.moy!==null?pass.moy+'  '+pass.label:'—'
+    ]);
+  });
+  const wsNt = XLSX.utils.aoa_to_sheet(dataNt);
+  wsNt['!cols'] = [25,6,25,18,8,8,12,12,10,20].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, wsNt, 'Résultats & Notes');
+
+  // Feuille 3 — Écoles
+  const dataEc = [['ID','Nom de l\'école','Code','IEPP','DRENAET','Nb élèves']];
+  getScopeEcoles().forEach(ec => {
+    const nb = DB.eleves.filter(e=>e.ecole_id===ec.id).length;
+    dataEc.push([ec.id, ec.nom, ec.code||'', ec.iepp||'', ec.drena||'', nb]);
+  });
+  const wsEc = XLSX.utils.aoa_to_sheet(dataEc);
+  wsEc['!cols'] = [10,35,12,22,22,10].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, wsEc, 'Écoles');
+
+  // Feuille 4 — DFA
+  const dataDFA = [['Élève','Classe','École','Moy1','Moy2','Moy3 ou EB1','Moy4 ou EB2','DFA /20','Résultat DFA']];
+  getScopeEleves().forEach(e => {
+    const ec = DB.ecoles.find(x=>x.id===e.ecole_id);
+    const evals = e.classe==='CM2'
+      ? ['composition1','composition2','examen_blanc1','examen_blanc2']
+      : ['composition1','composition2','composition3','composition4'];
+    const moys = evals.map(ev => {
+      const n = DB.notes.find(x=>x.eleve_id===e.id&&x.eval_type===ev);
+      if (!n) return '';
+      const {moy,maxMoy}=calcNote(n); return maxMoy>0?(moy/maxMoy*20).toFixed(2):'';
+    });
+    const pass = getStatutPassage(e.id, e.classe);
+    dataDFA.push([
+      e.nom+' '+e.prenoms, e.classe, ec?ec.nom:'',
+      moys[0]||'—', moys[1]||'—', moys[2]||'—', moys[3]||'—',
+      pass.moy!==null?pass.moy:'—',
+      pass.label
+    ]);
+  });
+  const wsDFA = XLSX.utils.aoa_to_sheet(dataDFA);
+  wsDFA['!cols'] = [25,6,25,8,8,10,10,10,20].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, wsDFA, 'DFA');
+
+  dlXLSX(wb, `PGNEP_complet_${today()}.xlsx`);
+  showNotif('⬇ Export complet Excel téléchargé (4 feuilles)', 'success');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2452,6 +3181,81 @@ function showNotif(msg, type='info') {
 }
 
 function importElevesCSV() { document.getElementById('csv-input').click(); }
+
+// ── Guide d'utilisation ──────────────────────────────────────
+function showGuideSection(id) {
+  document.querySelectorAll('.guide-section').forEach(s => s.style.display='none');
+  document.querySelectorAll('.gnav').forEach(n => n.classList.remove('active'));
+  const sec = document.getElementById(id);
+  if (sec) sec.style.display='';
+  const link = document.querySelector(`.gnav[onclick="showGuideSection('${id}')"]`);
+  if (link) link.classList.add('active');
+  // Codes d'accès : remplir selon le rôle
+  if (id === 'g-acces') renderGuideAcces();
+}
+
+function renderGuideAcces() {
+  const tbody = document.getElementById('guide-acces-tbody');
+  const note  = document.getElementById('guide-acces-note');
+  if (!tbody) return;
+  const isAdmin = currentUser && currentUser.role === 'admin';
+
+  if (isAdmin) {
+    // Admin et diomande voient TOUS les comptes avec mots de passe
+    const rows = DB.users.map(u => {
+      const roleLabel = ROLE_LABELS[u.role] || u.role;
+      const roleColor = ROLE_COLORS[u.role] || '#6B7280';
+      const struct = getStructureLabel(u);
+      return `<tr>
+        <td><code>${u.login}</code></td>
+        <td><code style="background:#FEF2F2;color:var(--danger);">••••••••</code>
+          <button onclick="togglePassGuide(this,'${u.login}')" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:10px;cursor:pointer;">👁</button>
+          <span id="gp-${u.login}" style="display:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--danger);margin-left:4px;"></span>
+        </td>
+        <td style="color:${roleColor};font-weight:700;">${roleLabel}</td>
+        <td style="font-size:12px;">${struct}</td>
+      </tr>`;
+    }).join('');
+    tbody.innerHTML = rows;
+    if (note) note.innerHTML = '<div class="guide-info">👁 Cliquez sur l\u2019ic\u00f4ne \u0153il pour r\u00e9v\u00e9ler un mot de passe. Visible uniquement pour les administrateurs.</div>';
+  } else {
+    // Non-admin : afficher uniquement les rôles sans mot de passe
+    const rows = DB.users.map(u => {
+      const roleLabel = ROLE_LABELS[u.role] || u.role;
+      const roleColor = ROLE_COLORS[u.role] || '#6B7280';
+      const struct = getStructureLabel(u);
+      return `<tr>
+        <td><code>${u.login}</code></td>
+        <td><code style="color:var(--text3);">— confidentiel —</code></td>
+        <td style="color:${roleColor};font-weight:700;">${roleLabel}</td>
+        <td style="font-size:12px;">${struct}</td>
+      </tr>`;
+    }).join('');
+    tbody.innerHTML = rows;
+    if (note) note.innerHTML = '<div class="guide-warn">🔒 Les mots de passe sont confidentiels. Seul un administrateur peut les consulter ou les modifier dans « Comptes utilisateurs ».</div>';
+  }
+}
+
+function togglePassGuide(btn, login) {
+  const span = document.getElementById('gp-' + login);
+  if (!span) return;
+  if (span.style.display === 'none') {
+    // Décoder depuis la base
+    const u = DB.users.find(x => x.login === login);
+    if (u) {
+      // Les mots de passe sont hashés SHA-256 — on ne peut pas les décoder
+      // Mais on affiche l'identifiant pour repérage
+      span.textContent = '[hashé SHA-256]';
+      span.style.color = 'var(--text3)';
+      span.style.fontStyle = 'italic';
+    }
+    span.style.display = 'inline';
+    btn.textContent = '🙈';
+  } else {
+    span.style.display = 'none';
+    btn.textContent = '👁';
+  }
+}
 
 // ══════════════════════════════════════════════════════════════
 // LISTE DE CLASSE — Dashboard (Instituteur, Directeur, Correspondant)
