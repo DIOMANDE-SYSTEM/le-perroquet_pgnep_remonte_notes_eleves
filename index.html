@@ -2813,26 +2813,15 @@ function rowsToEleves(rows) {
   }
   return result;
 }
-function showImportPreview(filename, eleves, format) {
-  const preview=document.getElementById('import-result');
-  const btnSave=document.getElementById('btn-save-import');
-  if(!eleves.length){
-    preview.innerHTML='<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px;font-size:13px;color:var(--danger);">⚠️ Aucun élève détecté. Vérifiez que le fichier contient une colonne « nom ».</div>';
-    return;
-  }
-  const apercu=eleves.slice(0,3).map(e=>`<tr><td style="padding:4px 8px;border-bottom:1px solid #E5E9EF;">${e.nom}</td><td style="padding:4px 8px;border-bottom:1px solid #E5E9EF;">${e.prenoms||'—'}</td><td style="padding:4px 8px;border-bottom:1px solid #E5E9EF;">${e.classe||'—'}</td><td style="padding:4px 8px;border-bottom:1px solid #E5E9EF;">${e.sexe||'—'}</td></tr>`).join('');
-  preview.style.display='block';
-  preview.innerHTML=`<div style="background:#ECFDF5;border:1px solid #6EE7B7;border-radius:8px;padding:10px;font-size:13px;">✅ <strong>${eleves.length} élève(s)</strong> détecté(s) — <em>${filename}</em> <span style="margin-left:6px;background:var(--ci-vert);color:#fff;border-radius:6px;padding:1px 8px;font-size:10px;font-weight:700;">${format}</span></div><div style="margin-top:8px;overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="background:var(--surface);"><th style="padding:5px 8px;text-align:left;border-bottom:2px solid var(--border);">Nom</th><th style="padding:5px 8px;text-align:left;border-bottom:2px solid var(--border);">Prénoms</th><th style="padding:5px 8px;border-bottom:2px solid var(--border);">Classe</th><th style="padding:5px 8px;border-bottom:2px solid var(--border);">Sexe</th></tr></thead><tbody>${apercu}</tbody></table>${eleves.length>3?`<p style="font-size:11px;color:var(--text3);margin-top:4px;text-align:right;">… et ${eleves.length-3} autre(s)</p>`:''}</div>`;
-  btnSave.style.display='flex';
-}
+// showImportPreview défini plus bas
 
 function parseImportFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   const preview = document.getElementById('import-result');
-  const btnSave = document.getElementById('btn-save-import');
+  const actions = document.getElementById('import-actions');
   preview.style.display='block';
   preview.innerHTML='<div style="padding:10px;font-size:13px;color:var(--text2);">⏳ Lecture en cours...</div>';
-  btnSave.style.display='none';
+  if (actions) actions.style.display='none';
   importedEleves=[];
 
   if(ext==='csv'){
