@@ -597,9 +597,7 @@ tr:hover td{background:#F9FAFB;}
         <input type="text" id="global-search" placeholder="Rechercher un élève, une école…" oninput="onSearch(this.value)">
       </div>
       <button class="btn btn-primary" id="btn-add" onclick="openAddEleve()">＋ Ajouter</button>
-      <button id="btn-install-pwa" onclick="installPWA()" style="display:none;align-items:center;gap:6px;padding:8px 16px;background:var(--ci-orange);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;box-shadow:0 2px 8px rgba(247,127,0,0.4);animation:pulse-btn 2s infinite;">
-        📲 Installer l'app
-      </button>
+
     </div>
 
     <div class="content">
@@ -607,18 +605,6 @@ tr:hover td{background:#F9FAFB;}
       <!-- ══ DASHBOARD ══════════════════════════════════════ -->
       <div id="page-dashboard" class="page active">
 
-        <!-- Bannière installation PWA -->
-        <div id="pwa-install-banner" style="display:none;background:linear-gradient(135deg,#FFF7ED,#FFF3E0);border:1.5px solid #FED7AA;border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-          <span style="font-size:28px;">📲</span>
-          <div style="flex:1;min-width:200px;">
-            <div style="font-weight:800;font-size:14px;color:#92400E;">Installer Le Perroquet sur votre appareil</div>
-            <div style="font-size:12px;color:#B45309;margin-top:2px;">Accédez à l'application comme une vraie app — icône sur l'écran d'accueil, fonctionne hors connexion.</div>
-          </div>
-          <button onclick="installPWA()" style="padding:9px 18px;background:#F77F00;color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">
-            📲 Installer maintenant
-          </button>
-          <button onclick="document.getElementById('pwa-install-banner').style.display='none'" style="padding:8px;background:none;border:none;cursor:pointer;font-size:16px;color:#9CA3AF;">✕</button>
-        </div>
 
         <div class="stats-grid">
           <div class="stat-card vert">
@@ -911,7 +897,6 @@ tr:hover td{background:#F9FAFB;}
               <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;">Format CSV</div>
               <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportElevesCSV()">👦 Élèves — <span style="color:var(--ci-vert);font-weight:700;">.csv</span></button>
               <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportResultatsCSV()">📊 Résultats complets — <span style="color:var(--ci-vert);font-weight:700;">.csv</span></button>
-              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportKoboChoices()">🔗 KoboToolbox choices — <span style="color:var(--ci-vert);font-weight:700;">.csv</span></button>
 
               <!-- XLSX -->
               <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-top:6px;margin-bottom:2px;">Format Excel (.xlsx)</div>
@@ -1318,7 +1303,6 @@ tr:hover td{background:#F9FAFB;}
                   <tbody>
                     <tr><td>Élèves CSV</td><td>.csv</td><td>Liste complète des élèves</td></tr>
                     <tr><td>Résultats CSV</td><td>.csv</td><td>Toutes les notes avec moyennes et mentions</td></tr>
-                    <tr><td>KoboToolbox</td><td>.csv</td><td>Liste formatée pour KoboCollect</td></tr>
                     <tr><td>Export JSON</td><td>.json</td><td>Sauvegarde complète (écoles + élèves + notes)</td></tr>
                   </tbody>
                 </table>
@@ -3180,22 +3164,6 @@ function exportResultatsCSV() {
   showNotif('⬇ Export résultats téléchargé', 'success');
 }
 
-function exportKoboChoices() {
-  let csv='list_name;name;label;nom;prenoms;date_naissance;lieu_naissance;matricule;classe\n';
-  DB.eleves.forEach(e => {
-    csv += `"eleves";"${e.id}";"${e.nom} ${e.prenoms}";"${e.nom}";"${e.prenoms}";"${e.ddn||''}";"${e.lieu||''}";"${e.matricule}";"${e.classe}"
-`;
-  });
-  dlCSV(csv, `PGNEP_kobo_choices_${today()}.csv`);
-  showNotif('⬇ Export KoboToolbox choices téléchargé', 'success');
-}
-
-function exportJSON() {
-  const data = { meta:{ export_date:new Date().toISOString(), annee_scolaire:'2025-2026', programme:'PGNEP', source:'PGNEP v2.0' }, ecoles:DB.ecoles, eleves:DB.eleves, notes:DB.notes };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`PGNEP_export_${today()}.json`; a.click();
-  showNotif('⬇ Export JSON téléchargé', 'success');
-}
 
 function exportAll() {
   exportElevesCSV();
@@ -3507,34 +3475,12 @@ function showNotif(msg, type='info') {
 
 function importElevesCSV() { document.getElementById('csv-input').click(); }
 
-// ── PWA Service Worker ───────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
-      .then(reg => console.log('SW enregistré:', reg.scope))
-      .catch(err => console.log('SW erreur:', err));
-  });
-}
+// Service Worker désactivé (fichier local)
 
 // ── Bouton d'installation PWA ────────────────────────────────
 let deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
-  const btn = document.getElementById('btn-install-pwa');
-  if (btn) btn.style.display = 'flex';
-  // Afficher la bannière dans le dashboard
-  const banner = document.getElementById('pwa-install-banner');
-  if (banner) banner.style.display = 'flex';
-});
-window.addEventListener('appinstalled', () => {
-  deferredPrompt = null;
-  const btn = document.getElementById('btn-install-pwa');
-  if (btn) btn.style.display = 'none';
-  const banner = document.getElementById('pwa-install-banner');
-  if (banner) banner.style.display = 'none';
-  showNotif('✅ Le Perroquet installé avec succès sur votre appareil !', 'success');
-});
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; });
 function installPWA() {
   if (!deferredPrompt) {
     // Fallback : afficher les instructions manuelles
@@ -3542,16 +3488,7 @@ function installPWA() {
     return;
   }
   deferredPrompt.prompt();
-  deferredPrompt.userChoice.then(c => {
-    deferredPrompt = null;
-    const btn = document.getElementById('btn-install-pwa');
-    if (btn) btn.style.display = 'none';
-    const banner = document.getElementById('pwa-install-banner');
-    if (banner) banner.style.display = 'none';
-    if (c.outcome === 'accepted') {
-      showNotif('✅ Installation en cours...', 'success');
-    }
-  });
+  deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
 }
 
 // ══════════════════════════════════════════════════════════════
