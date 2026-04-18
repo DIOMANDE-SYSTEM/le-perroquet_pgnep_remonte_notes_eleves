@@ -607,6 +607,9 @@ tr:hover td{background:#F9FAFB;}
       <div class="nav-item" onclick="showPage('export')">
         <span class="nav-icon">📤</span> Export / Synchro
       </div>
+      <div class="nav-item" onclick="showPage('rapport')">
+        <span class="nav-icon">📑</span> Rapports d'activité
+      </div>
       <div class="nav-item" onclick="showPage('guide')">
         <span class="nav-icon">📖</span> Guide d'utilisation
       </div>
@@ -1033,6 +1036,64 @@ tr:hover td{background:#F9FAFB;}
           </div>
         </div>
       </div>
+
+      <!-- ══ RAPPORTS D'ACTIVITÉ ════════════════════════════ -->
+      <div id="page-rapport" class="page">
+        <div style="display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start;">
+
+          <!-- Panneau de contrôle -->
+          <div class="card" style="padding:20px;">
+            <div class="section-title" style="margin-bottom:14px;">⚙️ Paramètres du rapport</div>
+
+            <div class="form-field">
+              <label style="font-size:12px;font-weight:700;">Type de rapport</label>
+              <select class="filter-select" id="rpt-type" style="width:100%;padding:9px;" onchange="genRapport()">
+                <option value="composition">📝 Après composition</option>
+                <option value="trim1">📅 Rapport 1er Trimestre</option>
+                <option value="trim2">📅 Rapport 2e Trimestre</option>
+                <option value="trim3">📅 Rapport 3e Trimestre</option>
+                <option value="annuel">📊 Rapport Annuel</option>
+              </select>
+            </div>
+
+            <div class="form-field" id="rpt-field-eval">
+              <label style="font-size:12px;font-weight:700;">Composition concernée</label>
+              <select class="filter-select" id="rpt-eval" style="width:100%;padding:9px;" onchange="genRapport()">
+                <option value="composition1">Composition 1</option>
+                <option value="composition2">Composition 2</option>
+                <option value="composition3">Composition 3</option>
+                <option value="composition4">Composition 4</option>
+                <option value="examen_blanc1">Examen Blanc 1</option>
+                <option value="examen_blanc2">Examen Blanc 2</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label style="font-size:12px;font-weight:700;">Filtre classe</label>
+              <select class="filter-select" id="rpt-classe" style="width:100%;padding:9px;" onchange="genRapport()">
+                <option value="">Toutes les classes</option>
+                <option>CP1</option><option>CP2</option><option>CE1</option>
+                <option>CE2</option><option>CM1</option><option>CM2</option>
+              </select>
+            </div>
+
+            <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;display:flex;flex-direction:column;gap:8px;">
+              <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="printRapport()">🖨️ Imprimer le rapport</button>
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="exportRapportXLSX()">📊 Exporter Excel (.xlsx)</button>
+            </div>
+          </div>
+
+          <!-- Aperçu du rapport -->
+          <div id="rapport-preview">
+            <div class="card" style="padding:32px;text-align:center;color:var(--text3);">
+              <div style="font-size:48px;margin-bottom:12px;">📑</div>
+              <p>Sélectionner un type de rapport pour le générer</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
 
       <!-- ══ GUIDE D'UTILISATION ════════════════════════════ -->
       <div id="page-guide" class="page">
@@ -1940,7 +2001,7 @@ const PAGE_LABELS = {
   dashboard:'Tableau de bord', eleves:'Gestion des élèves',
   saisie:'Saisie des notes', resultats:'Résultats & Statistiques',
   bulletins:'Bulletins de notes', ecoles:'Écoles & Structures',
-  export:'Export / Synchronisation', comptes:'Comptes utilisateurs', guide:'Guide d\'utilisation'
+  export:'Export / Synchronisation', comptes:'Comptes utilisateurs', rapport:'Rapports d\'activité', guide:'Guide d\'utilisation'
 };
 
 function showPage(name) {
@@ -1956,6 +2017,7 @@ function showPage(name) {
   if (name==='eleves')    { renderEleves(); populateEcoleFilter(); }
   if (name==='resultats') { renderResultats(); renderStatsCharts(); }
   if (name==='bulletins') { populateBulletinSelects(); }
+  if (name==='rapport') { genRapport(); }
   if (name==='comptes')   { renderUsersList(); }
   if (name==='ecoles')    { renderEcoles(); }
   if (name==='saisie')    { populateSaisieEleves(); }
@@ -3530,6 +3592,395 @@ function showNotif(msg, type='info') {
   el.className=`notif notif-${type}`;el.textContent=msg;
   document.body.appendChild(el);
   setTimeout(()=>el.remove(),3500);
+}
+
+// ══════════════════════════════════════════════════════════════
+// RAPPORTS D'ACTIVITÉ (Composition / Trimestriel / Annuel)
+// ══════════════════════════════════════════════════════════════
+
+// Correspondance trimestres
+const TRIM_EVALS = {
+  trim1: ['composition1'],
+  trim2: ['composition2'],
+  trim3: ['composition3','composition4','examen_blanc1','examen_blanc2'],
+  annuel: ['composition1','composition2','composition3','composition4','examen_blanc1','examen_blanc2']
+};
+const TRIM_LABELS = {
+  composition:'Après Composition',
+  trim1:'1er Trimestre',
+  trim2:'2e Trimestre',
+  trim3:'3e Trimestre',
+  annuel:'Rapport Annuel'
+};
+
+function getRapportEvals(type, evalSel) {
+  if (type === 'composition') return evalSel ? [evalSel] : ['composition1'];
+  return TRIM_EVALS[type] || [];
+}
+
+function buildRapportData(type, evalSel, classeFilter) {
+  const evals   = getRapportEvals(type, evalSel);
+  const eleves  = getScopeEleves().filter(e => !classeFilter || e.classe === classeFilter);
+  const classes = classeFilter ? [classeFilter] : ['CP1','CP2','CE1','CE2','CM1','CM2'].filter(c => eleves.some(e => e.classe === c));
+  const ecoles  = getScopeEcoles();
+
+  // Stats par classe
+  const statsByClasse = classes.map(cl => {
+    const elevesC = eleves.filter(e => e.classe === cl);
+    const G = elevesC.filter(e => e.sexe === 'M');
+    const F = elevesC.filter(e => e.sexe === 'F');
+
+    // Moyenne globale sur les évaluations concernées
+    let totalMoy = 0, countMoy = 0;
+    const admisSet = new Set();
+    const echecsSet = new Set();
+
+    evals.forEach(ev => {
+      elevesC.forEach(e => {
+        const n = DB.notes.find(x => x.eleve_id === e.id && x.eval_type === ev);
+        if (!n) return;
+        const { moy, maxMoy } = calcNote(n);
+        const m20 = maxMoy > 0 ? moy / maxMoy * 20 : 0;
+        totalMoy += m20; countMoy++;
+        if (m20 >= 10) admisSet.add(e.id); else echecsSet.add(e.id);
+      });
+    });
+
+    const moyGlobale = countMoy > 0 ? (totalMoy / countMoy).toFixed(2) : '—';
+
+    // DFA si annuel ou trim3
+    const dfaStats = ['annuel','trim3'].includes(type) ? (() => {
+      let dAdmis=0, dEchec=0, dIncomp=0;
+      elevesC.forEach(e => {
+        const p = getStatutPassage(e.id, e.classe);
+        if (p.statut === 'admis') dAdmis++;
+        else if (p.statut === 'echec') dEchec++;
+        else dIncomp++;
+      });
+      return { admis: dAdmis, echec: dEchec, incomplet: dIncomp };
+    })() : null;
+
+    // Meilleur et moins bon élève
+    let best = null, worst = null;
+    if (countMoy > 0) {
+      const scores = elevesC.map(e => {
+        let s=0, c=0;
+        evals.forEach(ev => {
+          const n = DB.notes.find(x=>x.eleve_id===e.id&&x.eval_type===ev);
+          if (!n) return;
+          const {moy,maxMoy}=calcNote(n);
+          s += maxMoy>0?moy/maxMoy*20:0; c++;
+        });
+        return { e, moy: c>0?s/c:0 };
+      }).filter(x=>x.moy>0).sort((a,b)=>b.moy-a.moy);
+      if (scores.length>0) { best=scores[0]; worst=scores[scores.length-1]; }
+    }
+
+    // Taux de participation (ayant au moins une note saisie)
+    const avecNotes = elevesC.filter(e => evals.some(ev => DB.notes.find(x=>x.eleve_id===e.id&&x.eval_type===ev)));
+
+    return {
+      cl, total:elevesC.length, G:G.length, F:F.length,
+      avecNotes: avecNotes.length, taux: elevesC.length>0?Math.round(avecNotes.length/elevesC.length*100):0,
+      moyGlobale, admis:admisSet.size, echecs:echecsSet.size,
+      best, worst, dfaStats
+    };
+  });
+
+  return { statsByClasse, classes, evals, eleves, ecoles, type, evalSel };
+}
+
+function genRapport() {
+  const type      = document.getElementById('rpt-type').value;
+  const evalSel   = document.getElementById('rpt-eval').value;
+  const classeFil = document.getElementById('rpt-classe').value;
+  const preview   = document.getElementById('rapport-preview');
+
+  // Afficher/masquer le select eval
+  const fieldEval = document.getElementById('rpt-field-eval');
+  if (fieldEval) fieldEval.style.display = type === 'composition' ? '' : 'none';
+
+  const data = buildRapportData(type, evalSel, classeFil);
+  if (!data.eleves.length) {
+    preview.innerHTML = '<div class="card" style="padding:24px;text-align:center;color:var(--text3);"><p>Aucun élève dans votre périmètre.</p></div>';
+    return;
+  }
+
+  const u = getCurrentUserData();
+  const ec0 = data.ecoles[0];
+  const evalLabel = type === 'composition' ? (EVAL_LABELS[evalSel]||evalSel) : TRIM_LABELS[type];
+  const dateGen = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+
+  let html = '<div class="card" style="overflow:hidden;">';
+
+  // ── En-tête du rapport ──
+  html += '<div style="background:var(--vert);padding:16px 24px;color:#fff;display:flex;justify-content:space-between;align-items:center;">'
+    + '<div style="font-size:20px;font-weight:900;">📑 Rapport — ' + TRIM_LABELS[type] + '</div>'
+    + '<div style="font-size:12px;opacity:0.8;">Année scolaire 2025–2026 · Généré le ' + dateGen + '</div>'
+    + '</div>';
+
+  // ── Bandeau contexte ──
+  html += '<div style="padding:12px 24px;background:#F0FAF5;border-bottom:1px solid var(--border);display:flex;gap:20px;flex-wrap:wrap;">';
+  if (ec0) html += '<span style="font-size:12px;font-weight:700;">🏫 ' + (ec0.nom||'') + '</span>';
+  if (ec0 && ec0.iepp) html += '<span style="font-size:12px;color:var(--text2);">🏛 ' + ec0.iepp + '</span>';
+  if (type === 'composition') html += '<span style="font-size:12px;font-weight:700;color:var(--ci-orange);">📝 ' + evalLabel + '</span>';
+  if (classeFil) html += '<span style="font-size:12px;font-weight:700;color:var(--bleu);">📚 Classe ' + classeFil + '</span>';
+  html += '</div>';
+
+  // ── Tableau des statistiques ──
+  html += '<div style="padding:20px;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  html += '<thead><tr style="background:var(--navy);color:#fff;">'
+    + '<th style="padding:9px 10px;text-align:left;">Classe</th>'
+    + '<th style="padding:9px 10px;text-align:center;">Effectif</th>'
+    + '<th style="padding:9px 10px;text-align:center;">👦 G</th>'
+    + '<th style="padding:9px 10px;text-align:center;">👧 F</th>'
+    + '<th style="padding:9px 10px;text-align:center;">Notes saisies</th>'
+    + '<th style="padding:9px 10px;text-align:center;">Taux saisie</th>'
+    + '<th style="padding:9px 10px;text-align:center;">Moy. générale /20</th>'
+    + '<th style="padding:9px 10px;text-align:center;">✅ ≥10</th>'
+    + '<th style="padding:9px 10px;text-align:center;">❌ &lt;10</th>'
+    + (data.statsByClasse.some(s=>s.dfaStats) ? '<th style="padding:9px 10px;text-align:center;">DFA Admis</th><th style="padding:9px 10px;text-align:center;">DFA Échec</th>' : '')
+    + '</tr></thead><tbody>';
+
+  let totEff=0, totG=0, totF=0, totNotes=0, totAdmis=0, totEchecs=0, totDfaAdm=0, totDfaEch=0;
+
+  data.statsByClasse.forEach((s, i) => {
+    totEff+=s.total; totG+=s.G; totF+=s.F; totNotes+=s.avecNotes; totAdmis+=s.admis; totEchecs+=s.echecs;
+    if (s.dfaStats) { totDfaAdm+=s.dfaStats.admis; totDfaEch+=s.dfaStats.echec; }
+    const bg = i%2===0?'#fff':'#F7FAFB';
+    html += '<tr style="background:'+bg+';">'
+      + '<td style="padding:8px 10px;font-weight:700;"><span class="badge badge-vert">'+s.cl+'</span></td>'
+      + '<td style="padding:8px 10px;text-align:center;font-weight:700;">'+s.total+'</td>'
+      + '<td style="padding:8px 10px;text-align:center;color:var(--bleu);">'+s.G+'</td>'
+      + '<td style="padding:8px 10px;text-align:center;color:var(--ci-orange);">'+s.F+'</td>'
+      + '<td style="padding:8px 10px;text-align:center;">'+s.avecNotes+'</td>'
+      + '<td style="padding:8px 10px;text-align:center;"><span style="font-weight:700;color:'+(s.taux>=80?'var(--ci-vert)':s.taux>=50?'var(--ci-orange)':'var(--danger)')+';">'+s.taux+'%</span></td>'
+      + '<td style="padding:8px 10px;text-align:center;font-weight:800;color:var(--ci-vert);">'+s.moyGlobale+'</td>'
+      + '<td style="padding:8px 10px;text-align:center;color:var(--ci-vert);font-weight:700;">'+s.admis+'</td>'
+      + '<td style="padding:8px 10px;text-align:center;color:var(--danger);font-weight:700;">'+s.echecs+'</td>'
+      + (s.dfaStats ? '<td style="padding:8px 10px;text-align:center;color:var(--ci-vert);font-weight:700;">'+s.dfaStats.admis+'</td><td style="padding:8px 10px;text-align:center;color:var(--danger);font-weight:700;">'+s.dfaStats.echec+'</td>' : (data.statsByClasse.some(x=>x.dfaStats)?'<td>—</td><td>—</td>':''))
+      + '</tr>';
+  });
+
+  // Ligne total
+  const hasDFA = data.statsByClasse.some(s=>s.dfaStats);
+  html += '<tr style="background:#E8F5EF;font-weight:700;border-top:2px solid var(--ci-vert);">'
+    + '<td style="padding:9px 10px;">TOTAL</td>'
+    + '<td style="padding:9px 10px;text-align:center;">'+totEff+'</td>'
+    + '<td style="padding:9px 10px;text-align:center;color:var(--bleu);">'+totG+'</td>'
+    + '<td style="padding:9px 10px;text-align:center;color:var(--ci-orange);">'+totF+'</td>'
+    + '<td style="padding:9px 10px;text-align:center;">'+totNotes+'</td>'
+    + '<td style="padding:9px 10px;text-align:center;">'+(totEff>0?Math.round(totNotes/totEff*100):0)+'%</td>'
+    + '<td style="padding:9px 10px;text-align:center;">—</td>'
+    + '<td style="padding:9px 10px;text-align:center;color:var(--ci-vert);">'+totAdmis+'</td>'
+    + '<td style="padding:9px 10px;text-align:center;color:var(--danger);">'+totEchecs+'</td>'
+    + (hasDFA ? '<td style="padding:9px 10px;text-align:center;color:var(--ci-vert);">'+totDfaAdm+'</td><td style="padding:9px 10px;text-align:center;color:var(--danger);">'+totDfaEch+'</td>' : '')
+    + '</tr>';
+
+  html += '</tbody></table></div>';
+
+  // ── Meilleurs et moins bons élèves ──
+  const topEleves = data.statsByClasse.filter(s=>s.best).map(s=>({
+    nom:s.best.e.nom+' '+s.best.e.prenoms, classe:s.cl, moy:s.best.moy.toFixed(2),
+    type:'top'
+  }));
+  if (topEleves.length) {
+    html += '<div style="padding:0 20px 20px;">';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--ci-vert);margin-bottom:10px;border-left:4px solid var(--ci-vert);padding-left:10px;">🏅 Meilleur(e) élève par classe</div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">';
+    topEleves.forEach(x => {
+      html += '<div style="background:var(--vertL);border:1px solid rgba(0,107,63,0.2);border-radius:8px;padding:10px;">'
+        + '<div style="font-weight:700;font-size:12px;">'+x.nom+'</div>'
+        + '<div style="font-size:11px;color:var(--text2);">'+x.classe+' · Moyenne : <strong style="color:var(--ci-vert);">'+x.moy+'/20</strong></div>'
+        + '</div>';
+    });
+    html += '</div></div>';
+  }
+
+  // ── Observations (zone éditable) ──
+  html += '<div style="padding:0 20px 20px;">';
+  html += '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px;border-left:4px solid var(--navy);padding-left:10px;">📝 Observations et recommandations</div>';
+  html += '<textarea id="rpt-observations" style="width:100%;min-height:90px;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px;resize:vertical;" placeholder="Saisir ici les observations, points forts, difficultés rencontrées et recommandations pour la période concernée..."></textarea>';
+  html += '</div>';
+
+  html += '</div>'; // fin card
+  preview.innerHTML = html;
+}
+
+function printRapport() {
+  const type      = document.getElementById('rpt-type').value;
+  const evalSel   = document.getElementById('rpt-eval').value;
+  const classeFil = document.getElementById('rpt-classe').value;
+  const obsEl     = document.getElementById('rpt-observations');
+  const obs       = obsEl ? obsEl.value.replace(/\n/g,'<br>') : '';
+
+  const data = buildRapportData(type, evalSel, classeFil);
+  const u    = getCurrentUserData();
+  const ec0  = data.ecoles[0];
+  const evalLabel = type === 'composition' ? (EVAL_LABELS[evalSel]||evalSel) : TRIM_LABELS[type];
+  const dateGen   = new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  const armoSrc   = "data:image/jpeg;base64,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";
+
+  // Construire les lignes du tableau
+  const hasDFA = data.statsByClasse.some(s=>s.dfaStats);
+  let rows = data.statsByClasse.map((s,i) => {
+    const bg = i%2===0?'#F9FAFB':'#fff';
+    return '<tr style="background:'+bg+';">'
+      + '<td style="padding:7px 9px;font-weight:700;color:#006B3F;">'+s.cl+'</td>'
+      + '<td style="padding:7px 9px;text-align:center;">'+s.total+'</td>'
+      + '<td style="padding:7px 9px;text-align:center;">'+s.G+'</td>'
+      + '<td style="padding:7px 9px;text-align:center;">'+s.F+'</td>'
+      + '<td style="padding:7px 9px;text-align:center;">'+s.avecNotes+'</td>'
+      + '<td style="padding:7px 9px;text-align:center;font-weight:700;color:'+(s.taux>=80?'#006B3F':s.taux>=50?'#F77F00':'#DC2626')+';">'+s.taux+'%</td>'
+      + '<td style="padding:7px 9px;text-align:center;font-weight:800;color:#006B3F;">'+s.moyGlobale+'</td>'
+      + '<td style="padding:7px 9px;text-align:center;color:#006B3F;">'+s.admis+'</td>'
+      + '<td style="padding:7px 9px;text-align:center;color:#DC2626;">'+s.echecs+'</td>'
+      + (hasDFA ? '<td style="padding:7px 9px;text-align:center;color:#006B3F;">'+(s.dfaStats?s.dfaStats.admis:'—')+'</td>'
+               + '<td style="padding:7px 9px;text-align:center;color:#DC2626;">'+(s.dfaStats?s.dfaStats.echec:'—')+'</td>' : '')
+      + '</tr>';
+  }).join('');
+
+  // Meilleurs élèves
+  let topRows = data.statsByClasse.filter(s=>s.best).map(s=>
+    '<tr><td style="padding:5px 8px;font-weight:700;color:#006B3F;">'+s.cl+'</td>'
+    + '<td style="padding:5px 8px;">'+s.best.e.nom+' '+s.best.e.prenoms+'</td>'
+    + '<td style="padding:5px 8px;text-align:center;font-weight:700;color:#006B3F;">'+s.best.moy.toFixed(2)+'/20</td>'
+    + '<td style="padding:5px 8px;">'+s.worst.e.nom+' '+s.worst.e.prenoms+'</td>'
+    + '<td style="padding:5px 8px;text-align:center;font-weight:700;color:#DC2626;">'+s.worst.moy.toFixed(2)+'/20</td>'
+    + '</tr>'
+  ).join('');
+
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html>
+<html><head><title>Rapport — ${evalLabel}</title>
+<style>
+  @media print { body { margin:0; } @page { margin:1.5cm; size:A4; } }
+  body { font-family:Arial,sans-serif; font-size:11px; color:#1A2E22; background:#fff; padding:20px; }
+  .entete { display:flex; justify-content:space-between; align-items:flex-start;
+    border-bottom:3px solid #006B3F; padding-bottom:12px; margin-bottom:14px; }
+  .entete-ci { display:flex; align-items:flex-start; gap:6px; font-size:10px; line-height:1.6; }
+  .entete-titre { text-align:center; flex:1; padding:0 10px; }
+  .entete-titre h1 { font-size:15px; font-weight:800; color:#006B3F; margin:0 0 3px; }
+  .entete-titre .badge { background:#F77F00; color:#fff; border-radius:5px;
+    padding:2px 10px; font-weight:700; font-size:11px; display:inline-block; margin-top:3px; }
+  .entete-ecole { font-size:10px; line-height:1.6; text-align:right;
+    display:flex; align-items:flex-start; gap:6px; }
+  .contexte { display:flex; gap:16px; flex-wrap:wrap; padding:8px 12px;
+    background:#F0FAF5; border-radius:6px; margin-bottom:12px; font-size:11px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:12px; font-size:11px; }
+  th { background:#006B3F; color:#fff; padding:7px 8px; text-align:center; }
+  th:first-child { text-align:left; }
+  td { padding:6px 8px; border-bottom:1px solid #E5E9EF; }
+  .total-row { background:#E8F5EF; font-weight:700; border-top:2px solid #006B3F; }
+  .obs-box { border:1.5px solid #006B3F; border-radius:6px; padding:10px 14px; margin-bottom:12px; }
+  .obs-box h3 { font-size:12px; color:#006B3F; margin:0 0 8px; }
+  .obs-text { font-size:11px; line-height:1.8; color:#1A2E22; min-height:60px; }
+  .sig-row { display:flex; justify-content:space-between; margin-top:16px;
+    padding-top:10px; border-top:1px solid #E5E9EF; font-size:10px; color:#6B7280; }
+  .sig-item { text-align:center; }
+  .tricolor { display:flex; height:5px; margin-top:16px; border-radius:0 0 4px 4px; }
+  .tri-o{background:#F77F00;flex:1;} .tri-w{background:#E5E9EF;flex:.5;} .tri-g{background:#006B3F;flex:1;}
+  h2 { font-size:12px; color:#006B3F; border-left:3px solid #006B3F; padding-left:8px; margin:12px 0 8px; }
+</style></head><body>
+
+<div class="entete">
+  <div class="entete-ci">
+    <img src="${armoSrc}" style="height:50px;width:auto;" alt="Armoirie">
+    <div><strong>RÉPUBLIQUE DE CÔTE D'IVOIRE</strong><br>Union – Discipline – Travail<br>MENAET</div>
+  </div>
+  <div class="entete-titre">
+    <h1>RAPPORT D'ACTIVITÉ</h1>
+    <p style="margin:2px 0;font-size:11px;color:#6B7280;">${TRIM_LABELS[type]} — Cycle Primaire</p>
+    <p style="margin:2px 0;font-size:11px;color:#6B7280;">Année scolaire 2025–2026</p>
+    <span class="badge">${evalLabel}</span>
+  </div>
+  <div class="entete-ecole">
+    <div><strong>${ec0?ec0.nom:'—'}</strong><br>${ec0?ec0.iepp:''}<br>${ec0?ec0.drena:''}</div>
+    <img src="${armoSrc}" style="height:50px;width:auto;" alt="Armoirie">
+  </div>
+</div>
+
+<div class="contexte">
+  <span>📅 Généré le : <strong>${dateGen}</strong></span>
+  <span>👤 Par : <strong>${u?u.nom:'—'}</strong></span>
+  ${classeFil?'<span>📚 Classe : <strong>'+classeFil+'</strong></span>':''}
+  <span>👦 Effectif total : <strong>${data.eleves.length}</strong></span>
+</div>
+
+<h2>📊 Tableau des résultats par classe</h2>
+<table>
+  <thead><tr>
+    <th>Classe</th><th>Effectif</th><th>G</th><th>F</th>
+    <th>Saisies</th><th>Taux</th><th>Moy/20</th>
+    <th>≥10</th><th>&lt;10</th>
+    ${hasDFA?'<th>DFA Admis</th><th>DFA Échec</th>':''}
+  </tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+
+${topRows ? '<h2>🏅 Tableau des meilleures et moins bonnes performances</h2><table><thead><tr><th>Classe</th><th>Meilleur(e) élève</th><th>Moyenne</th><th>Élève en difficulté</th><th>Moyenne</th></tr></thead><tbody>'+topRows+'</tbody></table>' : ''}
+
+<div class="obs-box">
+  <h3>📝 Observations et recommandations</h3>
+  <div class="obs-text">${obs || '&nbsp;'.repeat(10) + '<br>&nbsp;'.repeat(10) + '<br>&nbsp;'.repeat(10)}</div>
+</div>
+
+<div class="sig-row">
+  <div class="sig-item">L'Instituteur / la Directrice<br><br><br>___________________</div>
+  <div class="sig-item">Le CPPP / CPI<br><br><br>___________________</div>
+  <div class="sig-item">Le Correspondant IEPP<br><br><br>___________________</div>
+  <div class="sig-item">Cachet de l'école</div>
+</div>
+
+<div class="tricolor"><div class="tri-o"></div><div class="tri-w"></div><div class="tri-g"></div></div>
+</body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
+}
+
+function exportRapportXLSX() {
+  if (!checkXLSX()) return;
+  const type      = document.getElementById('rpt-type').value;
+  const evalSel   = document.getElementById('rpt-eval').value;
+  const classeFil = document.getElementById('rpt-classe').value;
+  const data      = buildRapportData(type, evalSel, classeFil);
+  const evalLabel = type === 'composition' ? (EVAL_LABELS[evalSel]||evalSel) : TRIM_LABELS[type];
+
+  const wb = XLSX.utils.book_new();
+  const hasDFA = data.statsByClasse.some(s=>s.dfaStats);
+
+  // Feuille 1 — Statistiques globales
+  const headers = ['Classe','Effectif','Garçons','Filles','Notes saisies','Taux saisie (%)','Moyenne /20','≥10 (Admis)','<10 (Échecs)'];
+  if (hasDFA) { headers.push('DFA Admis','DFA Échec'); }
+  const rows1 = [headers];
+  data.statsByClasse.forEach(s => {
+    const row = [s.cl, s.total, s.G, s.F, s.avecNotes, s.taux, s.moyGlobale, s.admis, s.echecs];
+    if (hasDFA) row.push(s.dfaStats?s.dfaStats.admis:'—', s.dfaStats?s.dfaStats.echec:'—');
+    rows1.push(row);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(rows1);
+  ws1['!cols'] = [8,10,10,10,12,14,12,12,12,12,12].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws1, 'Statistiques');
+
+  // Feuille 2 — Détail élèves
+  const rows2 = [['Nom','Prénoms','Classe','Sexe','École',...data.evals.map(e=>EVAL_LABELS[e]||e),'Moyenne DFA','Résultat DFA']];
+  data.eleves.forEach(e => {
+    const ec = DB.ecoles.find(x=>x.id===e.ecole_id);
+    const moys = data.evals.map(ev => {
+      const n = DB.notes.find(x=>x.eleve_id===e.id&&x.eval_type===ev);
+      if (!n) return '—';
+      const {moy,maxMoy}=calcNote(n);
+      return maxMoy>0?(moy/maxMoy*20).toFixed(2):'—';
+    });
+    const pass = getStatutPassage(e.id, e.classe);
+    rows2.push([e.nom, e.prenoms, e.classe, e.sexe, ec?ec.nom:'', ...moys, pass.moy!==null?pass.moy:'—', pass.label]);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(rows2);
+  ws2['!cols'] = [20,20,6,6,25,...data.evals.map(()=>({wch:12})),12,20].map(w=>typeof w==='number'?{wch:w}:w);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Détail élèves');
+
+  dlXLSX(wb, 'Rapport_'+evalLabel.replace(/ /g,'_')+'_'+today()+'.xlsx');
+  showNotif('📊 Rapport Excel téléchargé', 'success');
 }
 
 function importElevesCSV() { document.getElementById('csv-input').click(); }
