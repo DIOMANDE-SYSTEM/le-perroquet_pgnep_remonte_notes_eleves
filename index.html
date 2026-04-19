@@ -546,6 +546,7 @@ tr:hover td{background:#F9FAFB;}
           onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <button class="login-btn" onclick="doLogin()">Se connecter →</button>
+    <button onclick="resetComptes()" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:10px;cursor:pointer;margin-top:8px;text-decoration:underline;display:block;width:100%;">Problème de connexion ? Réinitialiser les comptes</button>
       <div class="login-error" id="login-error">Identifiant ou mot de passe incorrect.</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;font-size:10px;color:var(--text3);"><span>🔒</span><span>SHA-256 · Session 30 min · Verrouillage après 5 tentatives</span></div>
     </div>
@@ -1523,7 +1524,8 @@ tr:hover td{background:#F9FAFB;}
                   <option value="coordinateur">🟡 Coordonnateur régional</option>
                   <option value="correspondant">🟢 Correspondant IEPP</option>
                   <option value="directeur">🟣 Directeur d&#39;école</option>
-                  <option value="instituteur">🔵 Instituteur / Bénévole</option>
+                  <option value="instituteur">🔵 Instituteur</option>
+                  <option value="benevole">🟩 Bénévole</option>
                   <option value="cppp">🔷 CPPP / CPI</option>
                   <option value="cabinet">⚫ Cabinet / Décideur</option>
                   <option value="lecteur">⚪ Lecteur</option>
@@ -1685,7 +1687,8 @@ const DEFAUT_USERS = [
   { login:'coordinateur',  nom:'Coordonnateur DRENAET',  pass:_enc('Coord@2026'),   role:'coordinateur',  structure_type:'drena',   structure_val:'DRENAET Abidjan 1' },
   { login:'correspondant', nom:'Correspondant IEPP',       pass:_enc('Corresp@2026'), role:'correspondant', structure_type:'iepp',    structure_val:'IEPP Cocody' },
   { login:'directeur',    nom:"Directeur d\u2019\u00c9cole", pass:_enc('Direc@2026'), role:'directeur',    structure_type:'ecole',   structure_val:'ec1' },
-  { login:'instituteur',  nom:'Instituteur / Bénévole', pass:_enc('Instit@2026'), role:'instituteur',  structure_type:'classe',  structure_val:'CE1', ecole_val:'ec1' },
+  { login:'instituteur',  nom:'Instituteur',            pass:_enc('Instit@2026'), role:'instituteur',  structure_type:'classe',  structure_val:'CE1', ecole_val:'ec1' },
+  { login:'benevole',     nom:'Bénévole',               pass:_enc('Benev@2026'),  role:'benevole',     structure_type:'classe',  structure_val:'CP1', ecole_val:'ec1' },
   { login:'cppp',         nom:'CPPP / CPI',             pass:_enc('Cppp@2026'),   role:'cppp',         structure_type:'iepp',    structure_val:'IEPP Cocody' },
   { login:'cabinet',      nom:'Cabinet / Décideur',     pass:_enc('Cabin@2026'),  role:'cabinet',      structure_type:'national', structure_val:'' },
   { login:'lecteur',      nom:'Lecteur',                pass:_enc('Lect@2026'),   role:'lecteur',      structure_type:'national', structure_val:'' },
@@ -1732,7 +1735,14 @@ const DEFAUT_NOTES = [
 // ── Chargement DB ──
 const DB = { users:[], ecoles:[], eleves:[], notes:[] };
 function loadDB() {
-  DB.users   = JSON.parse(localStorage.getItem('pgnep_users')   || 'null') || [...DEFAUT_USERS];
+  const savedUsers = JSON.parse(localStorage.getItem('pgnep_users') || 'null');
+  if (savedUsers && savedUsers.length>0 && savedUsers.every(u=>u.login&&u.pass)) {
+    DB.users = savedUsers;
+    DEFAUT_USERS.forEach(du => { if (!DB.users.find(u=>u.login===du.login)) DB.users.push(du); });
+  } else {
+    DB.users = [...DEFAUT_USERS];
+    localStorage.removeItem('pgnep_users');
+  }
   DB.ecoles  = JSON.parse(localStorage.getItem('pgnep_ecoles')  || 'null') || [...DEFAUT_ECOLES];
   DB.eleves  = JSON.parse(localStorage.getItem('pgnep_eleves')  || 'null') || [...DEFAUT_ELEVES];
   DB.notes   = JSON.parse(localStorage.getItem('pgnep_notes')   || 'null') || [...DEFAUT_NOTES];
@@ -1796,13 +1806,13 @@ function getRemainingLockTime(login) {
 function clearAttempts(login) { delete loginAttempts[login]; }
 const ROLE_COLORS = {
   admin:'#DC2626', coordinateur:'#D97706', correspondant:'#059669',
-  directeur:'#7C3AED', instituteur:'#0891B2', cppp:'#1A56DB',
+  directeur:'#7C3AED', instituteur:'#0891B2', benevole:'#16A34A', cppp:'#1A56DB',
   cabinet:'#0D1B2A', lecteur:'#6B7280'
 };
 const ROLE_LABELS = {
   admin:'Administrateur', coordinateur:'Coordonnateur régional',
   correspondant:'Correspondant IEPP', directeur:"Directeur d\u2019\u00e9cole",
-  instituteur:'Instituteur / Bénévole', cppp:'CPPP / CPI',
+  instituteur:'Instituteur', benevole:'Bénévole', cppp:'CPPP / CPI',
   cabinet:'Cabinet / Décideur', lecteur:'Lecteur'
 };
 
@@ -1831,7 +1841,7 @@ function getScopeEcoles() {
   if(u.role==='correspondant') return DB.ecoles.filter(ec=>ec.iepp===u.structure_val);
   if(u.role==='cppp') return DB.ecoles.filter(ec=>ec.iepp===u.structure_val);
   if(u.role==='directeur') return DB.ecoles.filter(ec=>ec.id===u.structure_val);
-  if(u.role==='instituteur') return DB.ecoles.filter(ec=>ec.id===u.ecole_val);
+  if(u.role==='instituteur'||u.role==='benevole') return DB.ecoles.filter(ec=>ec.id===u.ecole_val);
   return [];
 }
 
@@ -1842,7 +1852,7 @@ function getScopeEleves() {
   if(u.role==='correspondant') { const ids=getScopeEcoles().map(ec=>ec.id); return DB.eleves.filter(e=>ids.includes(e.ecole_id)); }
   if(u.role==='cppp') { const ids=getScopeEcoles().map(ec=>ec.id); return DB.eleves.filter(e=>ids.includes(e.ecole_id)); }
   if(u.role==='directeur') return DB.eleves.filter(e=>e.ecole_id===u.structure_val);
-  if(u.role==='instituteur') return DB.eleves.filter(e=>e.ecole_id===u.ecole_val && e.classe===u.structure_val);
+  if(u.role==='instituteur'||u.role==='benevole') return DB.eleves.filter(e=>e.ecole_id===u.ecole_val && e.classe===u.structure_val);
   return [];
 }
 
@@ -1979,7 +1989,7 @@ function applyRoleUI() {
   document.getElementById('user-avatar').style.background = ROLE_COLORS[r] || 'var(--ci-vert)';
   // Admin uniquement
   document.getElementById('nav-comptes').style.display = (r==='admin'||r==='correspondant') ? 'flex' : 'none';
-  document.getElementById('btn-add').style.display = r==='lecteur' ? 'none' : 'flex';
+  document.getElementById('btn-add').style.display = ['lecteur','cabinet','cppp'].includes(r) ? 'none' : 'flex';
   // Structure label sidebar
   const uData = DB.users.find(x=>x.login===currentUser.login);
   const structEl = document.getElementById('user-structure-label');
@@ -1990,9 +2000,10 @@ function applyRoleUI() {
 }
 
 // Hiérarchie des droits CDC v2
+// Droits : correspondant=saisie+export sans suppression/passage ; instituteur/benevole=sa classe avec suppression+passage
 function canEdit()   { return currentUser && !['lecteur','cabinet','cppp'].includes(currentUser.role); }
-function canDelete() { return currentUser && ['admin','directeur'].includes(currentUser.role); }
-function canPassage(){ return currentUser && ['instituteur','directeur','admin'].includes(currentUser.role); }
+function canDelete() { return currentUser && ['admin','directeur','instituteur','benevole'].includes(currentUser.role); }
+function canPassage(){ return currentUser && ['instituteur','benevole','directeur','admin'].includes(currentUser.role); }
 
 // ══════════════════════════════════════════════════════════════
 // NAVIGATION
@@ -2030,6 +2041,13 @@ window.onload = function() {
   loadDB();
   setTimeout(() => document.getElementById('login-user').focus(), 100);
 };
+
+function resetComptes() {
+  if (!confirm('Réinitialiser les comptes aux valeurs par défaut ?\nLes élèves et notes sont conservés.')) return;
+  localStorage.removeItem('pgnep_users');
+  DB.users = [...DEFAUT_USERS];
+  showNotif('✅ Comptes réinitialisés — reconnectez-vous', 'success');
+}
 
 function initApp() {
   updateStats();
@@ -2132,19 +2150,19 @@ function renderDashboard() {
   document.getElementById('dash-chart').innerHTML=`<div class="bar-chart">${classes.map((c,i)=>`<div class="bar-row"><div class="bar-label">${c}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(counts[i]/maxC*100)}%;background:${colors[i]};"><span>${counts[i]}</span></div></div><div class="bar-val">${counts[i]} élève${counts[i]>1?'s':''}</div></div>`).join('')}</div>`;
 
   // Liste de classe : instituteur + directeur + correspondant
-  const rolesListe = ['instituteur','directeur','correspondant'];
+  const rolesListe = ['instituteur','benevole','directeur','correspondant'];
   if (u && rolesListe.includes(u.role)) {
     const listeCard = document.getElementById('dash-liste-card');
     if (listeCard) { listeCard.style.display=''; renderDashListe(); }
   }
   // Tableau des âges : directeur + instituteur + correspondant
-  const rolesAge = ['directeur','instituteur','correspondant'];
+  const rolesAge = ['directeur','instituteur','benevole','correspondant'];
   if (u && rolesAge.includes(u.role)) {
     const ageCard = document.getElementById('dash-ages-card');
     if (ageCard) { ageCard.style.display=''; renderTableauAges('dash-ages-container'); }
   }
   // Stats composition + IEPP : correspondant + directeur + instituteur
-  const rolesStats = ['correspondant','directeur','instituteur'];
+  const rolesStats = ['correspondant','directeur','instituteur','benevole'];
   if (u && rolesStats.includes(u.role)) {
     const ieppCard = document.getElementById('dash-iepp-card');
     if (ieppCard) { ieppCard.style.display=''; renderStatsIEPP('dash-iepp-container'); }
@@ -2311,9 +2329,13 @@ function saveEleve() {
   const sexe     = document.getElementById('e-sexe').value;
   const ddn      = document.getElementById('e-ddn').value;
   const lieu     = document.getElementById('e-lieu').value.trim();
-  const classe   = document.getElementById('e-classe').value;
-  const ecole_id = document.getElementById('e-ecole').value;
+  let   classe   = document.getElementById('e-classe').value;
+  let   ecole_id = document.getElementById('e-ecole').value;
   if (!nom||!prenoms) { showNotif('Nom et prénom obligatoires', 'error'); return; }
+  if (['instituteur','benevole'].includes(currentUser.role)) {
+    const u = DB.users.find(x=>x.login===currentUser.login);
+    if (u) { classe = u.structure_val; ecole_id = u.ecole_val; }
+  }
   const rec = { nom, prenoms, matricule:matric||genId('CI-2025'), sexe, ddn, lieu, classe, ecole_id };
   if (editingEleveIdx !== null) { DB.eleves[editingEleveIdx] = { ...DB.eleves[editingEleveIdx], ...rec }; showNotif('✅ Élève modifié', 'success'); }
   else { rec.id = genId('el'); DB.eleves.unshift(rec); showNotif('✅ Élève ajouté', 'success'); }
@@ -2325,6 +2347,13 @@ function saveEleve() {
 }
 function deleteEleve(idx) {
   if (!canDelete()) { showNotif('🔒 Accès refusé', 'error'); return; }
+  const eleve = DB.eleves[idx];
+  if (['instituteur','benevole'].includes(currentUser.role)) {
+    const u = DB.users.find(x=>x.login===currentUser.login);
+    if (!u || eleve.classe!==u.structure_val || eleve.ecole_id!==u.ecole_val) {
+      showNotif('🔒 Suppression limitée à votre classe', 'error'); return;
+    }
+  }
   if (!confirm('Supprimer cet élève et toutes ses notes ?')) return;
   const id = DB.eleves[idx].id;
   DB.eleves.splice(idx,1);
@@ -2650,6 +2679,11 @@ function editNoteFromResult(noteId) {
 
 function deleteNote(noteId) {
   if (!canDelete()) { showNotif('🔒 Accès refusé', 'error'); return; }
+  if (['instituteur','benevole'].includes(currentUser.role)) {
+    const note=DB.notes.find(n=>n.id===noteId);
+    const u=DB.users.find(x=>x.login===currentUser.login);
+    if (note&&u&&note.classe!==u.structure_val) { showNotif('🔒 Suppression limitée à votre classe','error'); return; }
+  }
   if (!confirm('Supprimer ces notes ?')) return;
   DB.notes = DB.notes.filter(n=>n.id!==noteId);
   save('notes'); updateStats(); renderResultats(); renderDashboard();
@@ -3027,7 +3061,7 @@ function updateImportUI() {
   // Masquer le mode remplacer pour les non-admins
   const modeRow = document.getElementById('import-mode-row');
   if (modeRow) {
-    const canReplace = currentUser && ['admin','directeur','instituteur'].includes(currentUser.role);
+    const canReplace = currentUser && ['admin','directeur','instituteur','benevole'].includes(currentUser.role);
     const replaceLabel = modeRow.querySelector('input[value="remplacer"]')?.closest('label');
     if (replaceLabel) replaceLabel.style.display = canReplace ? '' : 'none';
   }
