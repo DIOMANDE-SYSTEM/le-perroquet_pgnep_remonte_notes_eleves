@@ -3146,6 +3146,11 @@ function resetImport() {
 
 // ── Trouver l’école dans la base ─────────────────────────────
 function resolveEcole(val) {
+  // Pour instituteur/benevole : forcer leur école
+  if (currentUser && ['instituteur','benevole'].includes(currentUser.role)) {
+    const u = DB.users.find(x=>x.login===currentUser.login);
+    if (u && u.ecole_val) return u.ecole_val;
+  }
   if (!val) return '';
   const v = val.toLowerCase().trim();
   const found = DB.ecoles.find(x =>
@@ -3282,6 +3287,8 @@ function saveImport() {
       }
     });
     save('notes'); updateStats(); renderDashboard();
+    // Rafraîchir aussi la page résultats si visible
+    if (typeof renderResultats === 'function') renderResultats();
     const msg = `✅ ${added} note(s) ajoutée(s)${updated?`, ${updated} mise(s) à jour`:''}`;
     document.getElementById('import-result').innerHTML = `<div style="background:#ECFDF5;border:1px solid #6EE7B7;border-radius:8px;padding:12px;font-size:13px;">${msg}</div>`;
     document.getElementById('import-actions').style.display='none';
@@ -3311,6 +3318,12 @@ function saveImport() {
 
   importedEleves.forEach(e => {
     const ecole_id = resolveEcole(e.ecole_id);
+    // Pour instituteur/benevole : forcer leur classe
+    let classeImport = e.classe||'CP1';
+    if (currentUser && ['instituteur','benevole'].includes(currentUser.role)) {
+      const u = DB.users.find(x=>x.login===currentUser.login);
+      if (u && u.structure_val) classeImport = u.structure_val;
+    }
     const rec = {
       nom: (e.nom||'').toUpperCase().trim(),
       prenoms: e.prenoms||'',
@@ -3318,7 +3331,7 @@ function saveImport() {
       sexe: e.sexe||'M',
       ddn: e.ddn||'',
       lieu: e.lieu||'',
-      classe: e.classe||'CP1',
+      classe: classeImport,
       ecole_id
     };
 
@@ -3340,7 +3353,13 @@ function saveImport() {
     }
   });
 
-  save('eleves'); if(removed>0) save('notes'); updateStats(); renderDashboard();
+  save('eleves'); if(removed>0) save('notes'); updateStats();
+  // Rafraîchir toutes les vues concernées
+  renderEleves();
+  renderDashboard();
+  if (typeof populateEcoleFilter === 'function') populateEcoleFilter();
+  if (typeof populateBulletinSelects === 'function') populateBulletinSelects();
+  if (typeof renderResultats === 'function') renderResultats();
   const parts = [];
   if (removed>0) parts.push(`🗑 ${removed} supprimé(s)`);
   if (added>0)   parts.push(`✅ ${added} ajouté(s)`);
@@ -3351,7 +3370,6 @@ function saveImport() {
   document.getElementById('import-actions').style.display='none';
   importedEleves=[];
   showNotif(msg, 'success');
-  renderEleves();
 }
 
 function exportElevesCSV() {
