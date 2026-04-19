@@ -1673,6 +1673,1623 @@ tr:hover td{background:#F9FAFB;}
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ci-vert:    #006B3F;
+  --ci-vert2:   #00843D;
+  --ci-orange:  #F77F00;
+  --ci-blanc:   #FFFFFF;
+  --ci-or:      #FCD116;
+  --bleu:       #1A56DB;
+  --bleu-light: #EBF5FF;
+  --navy:       #0D1B2A;
+  --surface:    #F8FAFB;
+  --card:       #FFFFFF;
+  --border:     #E5E9EF;
+  --text:       #111827;
+  --text2:      #4B5563;
+  --text3:      #9CA3AF;
+  --success:    #059669;
+  --warning:    #D97706;
+  --danger:     #DC2626;
+  --info:       #0284C7;
+  --shadow:     0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  --shadow-lg:  0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+  --radius:     10px;
+  --sidebar-w:  260px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--surface);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+/* ── LOGIN ─────────────────────────────────────────────────── */
+#login-screen{
+  display:flex;position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(135deg,var(--ci-vert) 0%,#004d2c 50%,var(--navy) 100%);
+  align-items:center;justify-content:center;
+}
+#login-screen::before{
+  content:'';position:absolute;inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.login-card{
+  background:rgba(255,255,255,0.97);border-radius:20px;
+  width:440px;max-width:95vw;padding:0;
+  box-shadow:0 25px 60px rgba(0,0,0,0.35);
+  overflow:hidden;position:relative;z-index:1;
+}
+.login-header{
+  background:linear-gradient(135deg,var(--ci-vert),var(--ci-vert2));
+  padding:32px 36px 28px;text-align:center;
+}
+.login-header .flags{display:flex;gap:4px;justify-content:center;margin-bottom:16px;}
+.flag{height:5px;border-radius:2px;flex:1;max-width:40px;}
+.flag.orange{background:var(--ci-orange);}
+.flag.white{background:rgba(255,255,255,0.8);}
+.flag.green{background:rgba(255,255,255,0.3);}
+.login-header h1{font-size:15px;font-weight:800;color:#fff;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;}
+.login-header p{font-size:12px;color:rgba(255,255,255,0.7);}
+.login-badge{
+  display:inline-block;background:rgba(255,255,255,0.15);
+  border:1px solid rgba(255,255,255,0.25);
+  border-radius:20px;padding:4px 14px;font-size:11px;color:#fff;
+  margin-top:10px;letter-spacing:1px;
+}
+.login-body{padding:32px 36px;}
+.login-body h2{font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.login-body .sub{font-size:13px;color:var(--text2);margin-bottom:24px;}
+.form-field{margin-bottom:16px;}
+.form-field label{display:block;font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}
+.form-field input,.form-field select,.form-field textarea{
+  width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:8px;
+  font-family:inherit;font-size:14px;color:var(--text);background:#fff;
+  outline:none;transition:border-color 0.2s,box-shadow 0.2s;
+}
+.form-field input:focus,.form-field select:focus{border-color:var(--ci-vert);box-shadow:0 0 0 3px rgba(0,107,63,0.1);}
+.login-btn{
+  width:100%;padding:12px;background:var(--ci-vert);color:#fff;
+  border:none;border-radius:8px;font-family:inherit;font-size:15px;font-weight:700;
+  cursor:pointer;transition:all 0.2s;margin-top:4px;letter-spacing:0.3px;
+}
+.login-btn:hover{background:var(--ci-vert2);transform:translateY(-1px);box-shadow:var(--shadow-md);}
+.login-error{
+  background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;
+  padding:10px 14px;font-size:13px;color:var(--danger);margin-top:10px;display:none;
+}
+.login-footer{font-size:11px;color:var(--text3);text-align:center;margin-top:20px;}
+
+/* ── LAYOUT ────────────────────────────────────────────────── */
+.app{display:none;min-height:100vh;}
+.app.visible{display:flex;}
+
+/* ── SIDEBAR ───────────────────────────────────────────────── */
+.sidebar{
+  width:var(--sidebar-w);background:var(--navy);
+  display:flex;flex-direction:column;position:fixed;
+  top:0;left:0;bottom:0;z-index:100;
+  overflow-y:auto;transition:transform 0.3s;
+}
+.sidebar-brand{
+  padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,0.08);
+}
+.sidebar-brand .ci-stripe{
+  display:flex;gap:3px;margin-bottom:12px;
+}
+.stripe{height:4px;border-radius:2px;}
+.stripe.g{background:var(--ci-vert);flex:1;}
+.stripe.w{background:#fff;flex:0.6;}
+.stripe.o{background:var(--ci-orange);flex:1;}
+.brand-title{font-size:13px;font-weight:800;color:#fff;letter-spacing:1.5px;text-transform:uppercase;line-height:1.3;}
+.brand-sub{font-size:10px;color:rgba(255,255,255,0.4);margin-top:3px;letter-spacing:0.5px;}
+.brand-badge{
+  display:inline-block;background:var(--ci-orange);color:#fff;
+  font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-top:6px;
+  letter-spacing:0.5px;
+}
+.nav-group{padding:12px 12px 4px;}
+.nav-group-label{font-size:9px;font-weight:700;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;padding:0 8px;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 16px;margin:2px 8px;border-radius:8px;
+  cursor:pointer;font-size:13px;font-weight:500;color:rgba(255,255,255,0.55);
+  transition:all 0.15s;user-select:none;
+}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.9);}
+.nav-item.active{
+  background:linear-gradient(135deg,rgba(0,107,63,0.5),rgba(0,107,63,0.2));
+  color:#fff;border-left:3px solid var(--ci-vert2);margin-left:5px;
+}
+.nav-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;}
+.nav-badge{margin-left:auto;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);font-size:10px;padding:2px 7px;border-radius:10px;font-family:'JetBrains Mono',monospace;}
+.sidebar-user{
+  margin-top:auto;padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08);
+}
+.user-info{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.user-avatar{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:14px;color:#fff;flex-shrink:0;
+}
+.user-name{font-size:12px;font-weight:600;color:#fff;line-height:1.3;}
+.user-role{font-size:10px;color:rgba(255,255,255,0.4);}
+.logout-btn{
+  width:100%;padding:7px;background:rgba(239,68,68,0.15);
+  border:1px solid rgba(239,68,68,0.2);border-radius:7px;
+  color:#FCA5A5;font-family:inherit;font-size:12px;font-weight:600;
+  cursor:pointer;transition:all 0.15s;
+}
+.logout-btn:hover{background:rgba(239,68,68,0.25);}
+
+/* ── MAIN ──────────────────────────────────────────────────── */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;}
+.topbar{
+  height:58px;background:#fff;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;gap:16px;
+  position:sticky;top:0;z-index:50;box-shadow:var(--shadow);
+}
+.topbar-title{font-size:16px;font-weight:700;flex:1;}
+.topbar-year{
+  background:var(--bleu-light);color:var(--bleu);
+  font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;
+}
+.clock-widget{
+  display:flex;align-items:center;gap:10px;
+  background:var(--navy);border-radius:12px;
+  padding:6px 14px;flex-shrink:0;
+}
+.clock-time{
+  font-family:'JetBrains Mono',monospace;
+  font-size:15px;font-weight:700;color:#fff;letter-spacing:1px;
+  line-height:1;
+}
+.clock-date{
+  font-size:10px;color:rgba(255,255,255,0.55);
+  text-align:right;line-height:1.4;white-space:nowrap;
+}
+.clock-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--ci-vert);flex-shrink:0;
+  animation:pulse-dot 1s ease-in-out infinite;
+}
+@keyframes pulse-dot{
+  0%,100%{opacity:1;transform:scale(1);}
+  50%{opacity:0.4;transform:scale(0.7);}
+}
+.search-wrap{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface);border:1.5px solid var(--border);border-radius:8px;
+  padding:7px 12px;min-width:260px;
+}
+.search-wrap input{background:none;border:none;outline:none;font-family:inherit;font-size:13px;flex:1;color:var(--text);}
+.search-wrap input::placeholder{color:var(--text3);}
+.btn{
+  padding:8px 16px;border-radius:8px;border:none;cursor:pointer;
+  font-family:inherit;font-size:13px;font-weight:600;
+  display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;
+}
+.btn-primary{background:var(--ci-vert);color:#fff;}
+.btn-primary:hover{background:var(--ci-vert2);box-shadow:var(--shadow-md);}
+.btn-secondary{background:#fff;color:var(--text);border:1.5px solid var(--border);}
+.btn-secondary:hover{border-color:var(--ci-vert);color:var(--ci-vert);}
+.btn-danger{background:#FEF2F2;color:var(--danger);border:1.5px solid #FECACA;}
+.btn-orange{background:var(--ci-orange);color:#fff;}
+.btn-orange:hover{background:#e07000;}
+.btn-sm{padding:5px 11px;font-size:12px;}
+.btn-icon{padding:6px 9px;font-size:15px;}
+
+.content{flex:1;padding:24px;}
+.page{display:none;}
+.page.active{display:block;}
+
+/* ── CARDS & GRIDS ─────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+.stat-card{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;position:relative;overflow:hidden;
+  box-shadow:var(--shadow);transition:transform 0.2s,box-shadow 0.2s;
+}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.stat-card::after{content:'';position:absolute;top:0;right:0;width:4px;height:100%;border-radius:0 var(--radius) var(--radius) 0;}
+.stat-card.vert::after{background:var(--ci-vert);}
+.stat-card.orange::after{background:var(--ci-orange);}
+.stat-card.bleu::after{background:var(--bleu);}
+.stat-card.gold::after{background:var(--ci-or);}
+.stat-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.stat-value{font-size:30px;font-weight:800;line-height:1;}
+.stat-card.vert .stat-value{color:var(--ci-vert);}
+.stat-card.orange .stat-value{color:var(--ci-orange);}
+.stat-card.bleu .stat-value{color:var(--bleu);}
+.stat-card.gold .stat-value{color:#92700A;}
+.stat-sub{font-size:12px;color:var(--text3);margin-top:6px;}
+
+/* ── TABLE ─────────────────────────────────────────────────── */
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+.card-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;border-bottom:1px solid var(--border);
+}
+.card-header h3{font-size:14px;font-weight:700;}
+.card-actions{display:flex;gap:8px;align-items:center;}
+.filter-bar{padding:10px 20px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;}
+.filter-select{
+  background:#fff;border:1.5px solid var(--border);color:var(--text);
+  padding:6px 10px;border-radius:7px;font-family:inherit;font-size:12px;
+  cursor:pointer;outline:none;transition:border-color 0.15s;
+}
+.filter-select:focus{border-color:var(--ci-vert);}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+thead{background:var(--surface);}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px;white-space:nowrap;border-bottom:1.5px solid var(--border);}
+td{padding:10px 14px;font-size:13px;border-bottom:1px solid #F3F4F6;vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#F9FAFB;}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.badge-vert{background:#ECFDF5;color:var(--ci-vert);}
+.badge-orange{background:#FFF7ED;color:var(--ci-orange);}
+.badge-bleu{background:var(--bleu-light);color:var(--bleu);}
+.badge-gray{background:#F3F4F6;color:var(--text2);}
+.badge-red{background:#FEF2F2;color:var(--danger);}
+.badge-gold{background:#FFFBEB;color:#92700A;}
+.actions-cell{display:flex;gap:5px;}
+.icon-btn{background:none;border:none;cursor:pointer;padding:5px;border-radius:6px;font-size:14px;transition:background 0.15s;}
+.icon-btn:hover{background:#F3F4F6;}
+.pag-row{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid var(--border);}
+.pag-info{font-size:12px;color:var(--text3);}
+.pag-btns{display:flex;gap:4px;}
+.pag-btn{padding:4px 10px;border-radius:6px;background:#fff;border:1.5px solid var(--border);font-size:12px;cursor:pointer;transition:all 0.15s;font-family:inherit;}
+.pag-btn:hover{border-color:var(--ci-vert);color:var(--ci-vert);}
+.pag-btn.active{background:var(--ci-vert);border-color:var(--ci-vert);color:#fff;}
+.pag-btn:disabled{opacity:0.4;cursor:default;}
+
+/* ── MODAL ─────────────────────────────────────────────────── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
+.modal-overlay.active{display:flex;}
+.modal{background:#fff;border-radius:16px;width:680px;max-width:96vw;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:modalIn 0.25s ease;}
+@keyframes modalIn{from{transform:translateY(20px) scale(0.98);opacity:0;}to{transform:none;opacity:1;}}
+.modal-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.modal-header h3{font-size:16px;font-weight:700;}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:4px;line-height:1;border-radius:6px;}
+.modal-close:hover{background:#F3F4F6;color:var(--text);}
+.modal-body{padding:24px;}
+.modal-footer{padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form-group.full{grid-column:1/-1;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+
+/* ── SAISIE DES NOTES ─────────────────────────────────────── */
+.notes-form{max-width:700px;}
+.notes-group{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+.notes-group-title{font-size:13px;font-weight:700;color:var(--ci-vert);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.note-row{display:grid;grid-template-columns:1fr 140px 100px;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);}
+.note-row:last-of-type{border-bottom:none;}
+.note-label{font-size:13px;font-weight:500;}
+.note-bareme{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+.note-input{
+  width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;
+  font-family:inherit;font-size:14px;font-weight:600;text-align:center;outline:none;
+  transition:border-color 0.15s,box-shadow 0.15s;
+}
+.note-input:focus{border-color:var(--ci-vert);box-shadow:0 0 0 3px rgba(0,107,63,0.1);}
+.note-input.error{border-color:var(--danger);background:#FEF2F2;}
+.note-input.valid{border-color:var(--success);}
+.result-bar{
+  background:linear-gradient(135deg,var(--ci-vert),var(--ci-vert2));
+  border-radius:var(--radius);padding:16px 20px;color:#fff;
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:8px;
+}
+.result-total{font-size:14px;font-weight:600;}
+.result-moyenne{font-size:22px;font-weight:800;}
+.result-mention{font-size:12px;background:rgba(255,255,255,0.2);padding:3px 10px;border-radius:10px;margin-top:4px;display:inline-block;}
+
+/* ── STATISTIQUES & GRAPHIQUES ─────────────────────────────── */
+.stats-section{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);}
+.chart-title{font-size:13px;font-weight:700;margin-bottom:16px;color:var(--text);}
+.bar-chart{display:flex;flex-direction:column;gap:10px;}
+.bar-row{display:flex;align-items:center;gap:10px;}
+.bar-label{font-size:12px;color:var(--text2);width:120px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bar-track{flex:1;height:22px;background:#F3F4F6;border-radius:4px;overflow:hidden;position:relative;}
+.bar-fill{height:100%;border-radius:4px;transition:width 0.6s ease;display:flex;align-items:center;padding-left:8px;}
+.bar-fill span{font-size:11px;font-weight:700;color:#fff;}
+.bar-val{font-size:12px;font-weight:600;color:var(--text2);width:45px;text-align:right;flex-shrink:0;}
+.donut-wrap{display:flex;align-items:center;gap:20px;}
+.donut-legend{display:flex;flex-direction:column;gap:8px;}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px;}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* ── BULLETIN ──────────────────────────────────────────────── */
+.bulletin{background:#fff;border:2px solid var(--ci-vert);border-radius:var(--radius);padding:24px;max-width:640px;}
+.bulletin-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid var(--ci-vert);}
+.bulletin-ci{text-align:center;font-size:11px;color:var(--text2);line-height:1.6;}
+.bulletin-title{text-align:center;flex:1;padding:0 16px;}
+.bulletin-title h2{font-size:16px;font-weight:800;color:var(--ci-vert);}
+.bulletin-title p{font-size:11px;color:var(--text2);}
+.bulletin-eleve-info{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;font-size:12px;}
+.bi-row{display:flex;gap:6px;}
+.bi-label{font-weight:600;color:var(--text2);min-width:90px;}
+.bi-val{color:var(--text);}
+.bulletin-table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;}
+.bulletin-table th{background:var(--ci-vert);color:#fff;padding:6px 10px;text-align:left;}
+.bulletin-table td{padding:6px 10px;border-bottom:1px solid #E5E9EF;}
+.bulletin-table tr:nth-child(even) td{background:#F0FAF5;}
+.bulletin-total-row td{font-weight:700;background:linear-gradient(135deg,#E6F4EE,#D1EAE0)!important;}
+.bulletin-mention{text-align:center;margin-top:12px;}
+.mention-badge{
+  display:inline-block;padding:6px 20px;border-radius:20px;
+  font-weight:800;font-size:14px;letter-spacing:0.5px;
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────────── */
+@media(max-width:900px){
+  .stats-grid{grid-template-columns:1fr 1fr;}
+  .stats-section{grid-template-columns:1fr;}
+  .hide-sm{display:none!important;}
+}
+
+/* ── NOTIF ──────────────────────────────────────────────────── */
+.notif{
+  position:fixed;top:20px;right:20px;z-index:9999;
+  padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;
+  display:flex;align-items:center;gap:8px;
+  box-shadow:var(--shadow-lg);animation:notifIn 0.3s ease;
+}
+@keyframes notifIn{from{transform:translateX(80px);opacity:0;}}
+.notif-success{background:#ECFDF5;border:1px solid #6EE7B7;color:var(--success);}
+.notif-error{background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);}
+.notif-info{background:var(--bleu-light);border:1px solid #BAE6FD;color:var(--info);}
+
+/* ── EMPTY STATE ────────────────────────────────────────────── */
+.empty-state{text-align:center;padding:48px 20px;color:var(--text3);}
+.empty-icon{font-size:44px;margin-bottom:12px;}
+
+/* ── SECTION TITLE ──────────────────────────────────────────── */
+.section-title{
+  font-size:11px;font-weight:700;color:var(--text3);
+  text-transform:uppercase;letter-spacing:1.5px;
+  margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── SCROLLBAR ──────────────────────────────────────────────── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#D1D5DB;border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:#9CA3AF;}
+
+/* ── GUIDE D'UTILISATION ──────────────────────────────────── */
+.gnav {
+  display:block;padding:8px 12px;border-radius:7px;
+  font-size:12px;font-weight:600;color:var(--text2);
+  cursor:pointer;transition:all 0.15s;text-decoration:none;
+}
+.gnav:hover { background:var(--surface); color:var(--ci-vert); }
+.gnav.active { background:var(--ci-vert);color:#fff; }
+.guide-feat {
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;font-size:12px;
+  font-weight:600;color:var(--text2);line-height:1.5;
+}
+.guide-info {
+  background:#EBF5FF;border:1px solid #BAD7F8;
+  border-radius:8px;padding:12px 14px;
+  font-size:13px;color:var(--text);line-height:1.6;
+}
+.guide-warn {
+  background:#FFF7ED;border:1px solid #FED7AA;
+  border-radius:8px;padding:12px 14px;
+  font-size:13px;color:#92400E;line-height:1.6;
+}
+.guide-step-block { display:flex;flex-direction:column;gap:6px; }
+.guide-step-title {
+  font-size:13px;font-weight:700;color:var(--text);
+  padding:6px 0;border-bottom:1px solid var(--border);
+}
+.guide-steps { display:flex;flex-direction:column;gap:4px;padding-left:8px; }
+.gs {
+  font-size:12px;color:var(--text2);padding:4px 8px;
+  border-left:3px solid var(--ci-vert);background:var(--surface);
+  border-radius:0 6px 6px 0;
+}
+.guide-table {
+  width:100%;border-collapse:collapse;font-size:12px;
+}
+.guide-table th {
+  background:var(--ci-vert);color:#fff;padding:7px 10px;
+  text-align:left;font-weight:700;
+}
+.guide-table td {
+  padding:7px 10px;border-bottom:1px solid var(--border);
+  vertical-align:top;
+}
+.guide-table tr:nth-child(even) td { background:var(--surface); }
+.guide-table code {
+  background:#F3F4F6;padding:2px 6px;border-radius:4px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ci-vert);
+}
+.faq-item {
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;overflow:hidden;
+}
+.faq-q {
+  padding:10px 14px;font-size:13px;font-weight:700;
+  color:var(--text);background:#F0FAF5;border-bottom:1px solid var(--border);
+  cursor:default;
+}
+.faq-a {
+  padding:10px 14px;font-size:12px;color:var(--text2);line-height:1.6;
+}
+
+</style>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkxlIFBlcnJvcXVldCBQR05FUCIsCiAgInNob3J0X25hbWUiOiAiTGUgUGVycm9xdWV0IiwKICAiZGVzY3JpcHRpb24iOiAiUGxhdGVmb3JtZSBkZSBHZXN0aW9uIGRlcyBOb3RlcyBkdSBQcmltYWlyZSAtIEPDtHRlIGQnSXZvaXJlIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJvcmllbnRhdGlvbiI6ICJwb3J0cmFpdCIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzAwNkIzRiIsCiAgInRoZW1lX2NvbG9yIjogIiMwMDZCM0YiLAogICJsYW5nIjogImZyIiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sLCUzQ3N2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCA1MTIgNTEyJyUzRSUzQ3JlY3Qgd2lkdGg9JzUxMicgaGVpZ2h0PSc1MTInIHJ4PSc4MCcgZmlsbD0nJTIzMDA2QjNGJy8lM0UlM0N0ZXh0IHg9JzI1NicgeT0nMzQwJyBmb250LXNpemU9JzI4MCcgdGV4dC1hbmNob3I9J21pZGRsZSclM0UlRjAlOUYlQTYlOUMlM0MvdGV4dCUzRSUzQy9zdmclM0UiLAogICAgICAic2l6ZXMiOiAiMTkyeDE5MiIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiLAogICAgICAicHVycG9zZSI6ICJhbnkgbWFza2FibGUiCiAgICB9LAogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbCwlM0NzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgNTEyIDUxMiclM0UlM0NyZWN0IHdpZHRoPSc1MTInIGhlaWdodD0nNTEyJyByeD0nODAnIGZpbGw9JyUyMzAwNkIzRicvJTNFJTNDdGV4dCB4PScyNTYnIHk9JzM0MCcgZm9udC1zaXplPScyODAnIHRleHQtYW5jaG9yPSdtaWRkbGUnJTNFJUYwJTlGJUE2JTlDJTNDL3RleHQlM0UlM0Mvc3ZnJTNFIiwKICAgICAgInNpemVzIjogIjUxMng1MTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIiwKICAgICAgInB1cnBvc2UiOiAiYW55IG1hc2thYmxlIgogICAgfQogIF0sCiAgImNhdGVnb3JpZXMiOiBbImVkdWNhdGlvbiIsICJwcm9kdWN0aXZpdHkiXSwKICAic2hvcnRjdXRzIjogWwogICAgewogICAgICAibmFtZSI6ICJUYWJsZWF1IGRlIGJvcmQiLAogICAgICAidXJsIjogIi4iLAogICAgICAiZGVzY3JpcHRpb24iOiAiQWNjw6lkZXIgYXUgdGFibGVhdSBkZSBib3JkIgogICAgfQogIF0KfQ==">
+  <meta name="theme-color" content="#006B3F">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Le Perroquet">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- ÉCRAN DE CONNEXION                                         -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-header">
+      <div style="display:flex;justify-content:center;margin-bottom:10px;"><img src="data:image/jpeg;base64,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" alt="Armoirie MENAET" style="height:80px;width:auto;filter:drop-shadow(0 3px 10px rgba(0,0,0,0.4));border-radius:4px;"></div>
+      <h1>LE PERROQUET · PGNEP</h1>
+      <div class="login-badge">PGNEP — Plateforme de Gestion des Notes</div>
+    </div>
+    <div class="login-body">
+      <h2>Connexion</h2>
+      <p class="sub">Accès réservé au personnel autorisé — Année scolaire 2025–2026</p>
+      <div class="form-field">
+        <label>Identifiant</label>
+        <input type="text" id="login-user" placeholder="Votre identifiant" autocomplete="username"
+          onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+      </div>
+      <div class="form-field">
+        <label>Mot de passe</label>
+        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="login-btn" onclick="doLogin()">Se connecter →</button>
+    <button onclick="resetComptes()" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:10px;cursor:pointer;margin-top:8px;text-decoration:underline;display:block;width:100%;">Problème de connexion ? Réinitialiser les comptes</button>
+      <div class="login-error" id="login-error">Identifiant ou mot de passe incorrect.</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;font-size:10px;color:var(--text3);"><span>🔒</span><span>SHA-256 · Session 30 min · Verrouillage après 5 tentatives</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- APPLICATION PRINCIPALE                                     -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="app" id="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <img src="data:image/jpeg;base64,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" alt="Armoirie MENAET" style="height:46px;width:auto;border-radius:3px;flex-shrink:0;filter:drop-shadow(0 1px 4px rgba(0,0,0,0.5));">
+        <div>
+          <div class="brand-title">Le Perroquet</div>
+          <div class="brand-sub">PGNEP · MENAET</div>
+          <div class="brand-badge">v3.0</div>
+        </div>
+      </div>
+      <div class="ci-stripe"><div class="stripe g"></div><div class="stripe w"></div><div class="stripe o"></div></div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Principal</div>
+      <div class="nav-item active" onclick="showPage('dashboard')">
+        <span class="nav-icon">📊</span> Tableau de bord
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Élèves</div>
+      <div class="nav-item" onclick="showPage('eleves')">
+        <span class="nav-icon">👦</span> Gestion des élèves
+        <span class="nav-badge" id="badge-eleves">0</span>
+      </div>
+      <div class="nav-item" onclick="showPage('saisie')">
+        <span class="nav-icon">✏️</span> Saisie des notes
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Résultats</div>
+      <div class="nav-item" onclick="showPage('resultats')">
+        <span class="nav-icon">📈</span> Résultats & Stats
+      </div>
+      <div class="nav-item" onclick="showPage('bulletins')">
+        <span class="nav-icon">📄</span> Bulletins de notes
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Administration</div>
+      <div class="nav-item" onclick="showPage('ecoles')" id="nav-ecoles">
+        <span class="nav-icon">🏫</span> Écoles & Structures
+      </div>
+      <div class="nav-item" onclick="showPage('export')">
+        <span class="nav-icon">📤</span> Export / Synchro
+      </div>
+      <div class="nav-item" onclick="showPage('rapport')">
+        <span class="nav-icon">📑</span> Rapports d'activité
+      </div>
+      <div class="nav-item" onclick="showPage('guide')">
+        <span class="nav-icon">📖</span> Guide d'utilisation
+      </div>
+      <div class="nav-item" onclick="showPage('comptes')" id="nav-comptes" style="display:none;">
+        <span class="nav-icon">👥</span> Comptes utilisateurs
+      </div>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar" style="background:var(--ci-vert);">D</div>
+        <div>
+          <div class="user-name" id="user-name">—</div>
+          <div class="user-role" id="user-role-label">—</div>
+          <div class="user-role" id="user-structure-label" style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:1px;">—</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-bottom:6px;display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#22C55E;flex-shrink:0;"></span>
+        <span id="session-timer-label">Session active</span>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">🚪 Déconnexion</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Tableau de bord</div>
+      <span class="topbar-year">2025–2026</span>
+      <div class="clock-widget">
+        <div class="clock-dot"></div>
+        <div>
+          <div class="clock-time" id="clock-time">--:--:--</div>
+          <div class="clock-date" id="clock-date">-- --- ----</div>
+        </div>
+      </div>
+      <div class="search-wrap">
+        <span>🔍</span>
+        <input type="text" id="global-search" placeholder="Rechercher un élève, une école…" oninput="onSearch(this.value)">
+      </div>
+      <button class="btn btn-primary" id="btn-add" onclick="openAddEleve()">＋ Ajouter</button>
+
+    </div>
+
+    <div class="content">
+
+      <!-- ══ DASHBOARD ══════════════════════════════════════ -->
+      <div id="page-dashboard" class="page active">
+
+
+        <div class="stats-grid">
+          <div class="stat-card vert">
+            <div class="stat-label">Total élèves</div>
+            <div class="stat-value" id="stat-eleves">0</div>
+            <div class="stat-sub">Inscrits dans la base</div>
+          </div>
+          <div class="stat-card orange">
+            <div class="stat-label">Notes saisies</div>
+            <div class="stat-value" id="stat-notes">0</div>
+            <div class="stat-sub">Enregistrements</div>
+          </div>
+          <div class="stat-card bleu">
+            <div class="stat-label">Écoles</div>
+            <div class="stat-value" id="stat-ecoles">0</div>
+            <div class="stat-sub">Dans la base</div>
+          </div>
+          <div class="stat-card gold">
+            <div class="stat-label">Taux de saisie</div>
+            <div class="stat-value" id="stat-taux">—</div>
+            <div class="stat-sub">Dernière évaluation</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+          <div class="card">
+            <div class="card-header"><h3>📋 Derniers élèves enregistrés</h3>
+              <button class="btn btn-secondary btn-sm" onclick="showPage('eleves')">Voir tout →</button>
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Nom & Prénoms</th><th>Classe</th><th>École</th><th>Matric.</th></tr></thead>
+              <tbody id="dash-eleves-table"></tbody></table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>📊 Dernières notes saisies</h3>
+              <button class="btn btn-secondary btn-sm" onclick="showPage('resultats')">Voir →</button>
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Élève</th><th>Éval.</th><th>Moy.</th><th>Mention</th></tr></thead>
+              <tbody id="dash-notes-table"></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3>📉 Répartition par classe</h3></div>
+          <div style="padding:20px;" id="dash-chart"></div>
+        </div>
+
+        <!-- Tableau des âges — Directeur uniquement -->
+        <div class="card" id="dash-ages-card" style="display:none;margin-top:16px;">
+          <div class="card-header">
+            <h3>📊 Tableau des âges par classe et sexe</h3>
+            <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨 Imprimer</button>
+          </div>
+          <div style="padding:16px;" id="dash-ages-container"></div>
+        </div>
+
+        <!-- Statistiques IEPP par sexe + composition -->
+        <div class="card" id="dash-iepp-card" style="display:none;margin-top:16px;">
+          <div class="card-header">
+            <h3>📈 Statistiques — Résultats par sexe et composition</h3>
+            <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨 Imprimer</button>
+          </div>
+          <div style="padding:16px;" id="dash-iepp-container"></div>
+        </div>
+
+        <!-- Liste de classe — Instituteur, Directeur, Correspondant -->
+        <div class="card" id="dash-liste-card" style="display:none;margin-top:16px;">
+          <div class="card-header">
+            <h3>📋 Liste de classe</h3>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <select id="dash-liste-tri" class="filter-select" style="padding:5px 10px;font-size:12px;" onchange="renderDashListe()">
+                <option value="alpha">🔤 Ordre alphabétique</option>
+                <option value="rang">🏅 Ordre par rang</option>
+              </select>
+              <select id="dash-liste-eval" class="filter-select" style="padding:5px 10px;font-size:12px;" onchange="renderDashListe()">
+                <option value="">— Toutes évaluations —</option>
+                <option value="composition1">Composition 1</option>
+                <option value="composition2">Composition 2</option>
+                <option value="composition3">Composition 3</option>
+                <option value="composition4">Composition 4</option>
+                <option value="examen_blanc1">Examen Blanc 1</option>
+                <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" onclick="printDashListe('alpha')">🖨 Liste Alpha</button>
+              <button class="btn btn-secondary btn-sm" onclick="printDashListe('rang')">🖨 Liste Rang</button>
+              <button class="btn btn-primary btn-sm" onclick="printDashListe('complet')">🖨 Liste complète</button>
+            </div>
+          </div>
+          <div style="padding:0;" id="dash-liste-container"></div>
+        </div>
+
+        <!-- Tableau statistique composition DFA + Histogramme -->
+        <div class="card" id="dash-comp-card" style="display:none;margin-top:16px;">
+          <div class="card-header">
+            <h3>📊 Statistiques de composition DFA — Admis / Échecs par sexe</h3>
+            <button class="btn btn-secondary btn-sm" onclick="printStatsComposition()">🖨 Imprimer</button>
+          </div>
+          <div style="padding:16px;" id="dash-comp-container"></div>
+        </div>
+      </div>
+
+      <!-- ══ GESTION DES ÉLÈVES ══════════════════════════════ -->
+      <div id="page-eleves" class="page">
+        <div class="card">
+          <div class="card-header" style="gap:12px;">
+            <img src="data:image/jpeg;base64,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" alt="Armoirie CI" style="height:42px;width:auto;flex-shrink:0;border-radius:3px;">
+            <h3>👦 Base des élèves</h3>
+            <div class="card-actions">
+              <button class="btn btn-secondary btn-sm" onclick="importElevesCSV()">📥 Import CSV</button>
+              <button class="btn btn-secondary btn-sm" onclick="exportElevesCSV()">⬇ Export</button>
+              <button class="btn btn-primary btn-sm" onclick="openAddEleve()">＋ Ajouter</button>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <select class="filter-select" id="filt-classe" onchange="renderEleves()">
+              <option value="">Toutes les classes</option>
+              <option>CP1</option><option>CP2</option><option>CE1</option>
+              <option>CE2</option><option>CM1</option><option>CM2</option>
+            </select>
+            <select class="filter-select" id="filt-sexe" onchange="renderEleves()">
+              <option value="">Tous les sexes</option>
+              <option value="M">Masculin</option><option value="F">Féminin</option>
+            </select>
+            <select class="filter-select" id="filt-ecole-eleve" onchange="renderEleves()">
+              <option value="">Toutes les écoles</option>
+            </select>
+            <select class="filter-select" id="filt-tri" onchange="renderEleves()" style="min-width:160px;">
+              <option value="alpha">🔤 Ordre alphabétique</option>
+              <option value="rang">🏅 Ordre par rang</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="printListeClasse('alpha')" title="Imprimer liste alphabétique">🖨 Alpha</button>
+            <button class="btn btn-secondary btn-sm" onclick="printListeClasse('rang')" title="Imprimer liste par rang">🖨 Rang</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Matricule</th><th>Nom & Prénoms</th><th>Sexe</th><th>Classe</th>
+                <th class="hide-sm">Date naiss.</th><th>École</th><th>Rang</th><th>DFA/Passage</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="table-eleves"></tbody>
+            </table>
+          </div>
+          <div class="pag-row">
+            <div class="pag-info" id="pag-info-eleves"></div>
+            <div class="pag-btns" id="pag-btns-eleves"></div>
+          </div>
+        </div>
+        <input type="file" id="csv-input" style="display:none" accept=".csv,.xlsx,.xlsm,.xls" onchange="handleImportFile(this)">
+      </div>
+
+      <!-- ══ SAISIE DES NOTES ════════════════════════════════ -->
+      <div id="page-saisie" class="page">
+        <div style="display:grid;grid-template-columns:320px 1fr;gap:20px;">
+          <div class="card" style="padding:20px;">
+            <div class="section-title">Sélection</div>
+            <div class="form-field">
+              <label>Élève</label>
+              <select class="filter-select" id="sel-eleve" style="width:100%;padding:10px;font-size:13px;" onchange="onEleveSelect()">
+                <option value="">-- Choisir un élève --</option>
+              </select>
+            </div>
+            <div id="eleve-card" style="display:none;background:var(--surface);border-radius:8px;padding:12px;font-size:12px;margin-bottom:12px;">
+              <div style="font-weight:700;font-size:14px;margin-bottom:6px;" id="ec-nom"></div>
+              <div id="ec-info" style="color:var(--text2);line-height:1.8;"></div>
+            </div>
+            <div class="form-field">
+              <label>Type d'évaluation</label>
+              <select class="filter-select" id="sel-eval" style="width:100%;padding:10px;font-size:13px;" onchange="buildNoteForm()">
+                <option value="">-- Choisir --</option>
+                <option value="composition1">Composition 1</option>
+                <option value="composition2">Composition 2</option>
+                <option value="composition3">Composition 3</option>
+                <option value="composition4">Composition 4</option>
+                <option value="examen_blanc1">Examen Blanc 1</option>
+                <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
+              </select>
+            </div>
+            <div id="existing-note-info" style="display:none;background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px;font-size:12px;color:var(--ci-orange);margin-bottom:8px;"></div>
+          </div>
+          <div class="card" style="padding:20px;" id="note-form-card">
+            <div class="empty-state">
+              <div class="empty-icon">✏️</div>
+              <p>Sélectionner un élève et une évaluation pour commencer la saisie</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ RÉSULTATS & STATS ════════════════════════════════ -->
+      <div id="page-resultats" class="page">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-header"><h3>📈 Résultats des évaluations</h3>
+            <div class="card-actions">
+              <select class="filter-select" id="filt-res-eval" onchange="renderResultats()">
+                <option value="">Toutes évaluations</option>
+                <option value="composition1">Composition 1</option>
+                <option value="composition2">Composition 2</option>
+                <option value="composition3">Composition 3</option>
+                <option value="composition4">Composition 4</option>
+                <option value="examen_blanc1">Examen Blanc 1</option>
+                <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
+              </select>
+              <select class="filter-select" id="filt-res-classe" onchange="renderResultats()">
+                <option value="">Toutes classes</option>
+                <option>CP1</option><option>CP2</option><option>CE1</option>
+                <option>CE2</option><option>CM1</option><option>CM2</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" onclick="exportResultatsCSV()">⬇ Export</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Élève</th><th>Classe</th><th>École</th><th>Évaluation</th>
+                <th>Total</th><th>Moyenne</th><th>Mention</th><th>Rang</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="table-resultats"></tbody>
+            </table>
+          </div>
+          <div class="pag-row">
+            <div class="pag-info" id="pag-info-res"></div>
+            <div class="pag-btns" id="pag-btns-res"></div>
+          </div>
+        </div>
+        <div class="stats-section" id="stats-charts"></div>
+      </div>
+
+      <!-- ══ BULLETINS ══════════════════════════════════════ -->
+      <div id="page-bulletins" class="page">
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:20px;">
+          <div class="card" style="padding:20px;">
+            <div class="section-title">Générer un bulletin</div>
+            <div class="form-field">
+              <label>Élève</label>
+              <select class="filter-select" id="bul-eleve" style="width:100%;padding:10px;" onchange="genBulletin()">
+                <option value="">-- Choisir --</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label>Évaluation</label>
+              <select class="filter-select" id="bul-eval" style="width:100%;padding:10px;" onchange="genBulletin()">
+                <option value="">-- Toutes --</option>
+                <option value="composition1">Composition 1</option>
+                <option value="composition2">Composition 2</option>
+                <option value="composition3">Composition 3</option>
+                <option value="composition4">Composition 4</option>
+                <option value="examen_blanc1">Examen Blanc 1</option>
+                <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="printBulletin()">🖨️ Imprimer</button>
+            <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:6px;" onclick="exportBulletinWord()">📝 Exporter en Word (.docx)</button>
+            <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
+              <p style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;">📋 Composition de Passage (DFA)</p>
+              <button class="btn btn-orange" style="width:100%;justify-content:center;" onclick="printBulletinDFA()">🎓 Imprimer Bulletin DFA</button>
+            </div>
+          </div>
+          <div id="bulletin-preview">
+            <div class="card" style="padding:32px;text-align:center;color:var(--text3);">
+              <div style="font-size:48px;margin-bottom:12px;">📄</div>
+              <p>Sélectionner un élève pour générer son bulletin</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ ÉCOLES & STRUCTURES ════════════════════════════ -->
+      <div id="page-ecoles" class="page">
+        <div class="card">
+          <div class="card-header"><h3>🏫 Écoles & Circonscriptions</h3>
+            <button class="btn btn-primary btn-sm" onclick="openAddEcole()">＋ Ajouter une école</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Nom de l'école</th><th>Code</th><th>IEPP</th><th>DRENAET</th><th>Élèves</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="table-ecoles"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ EXPORT / SYNCHRO ════════════════════════════════ -->
+      <div id="page-export" class="page">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div class="card">
+            <div class="card-header"><h3>📤 Exporter les données</h3></div>
+            <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
+
+              <!-- CSV -->
+              <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:2px;">Format CSV</div>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportElevesCSV()">👦 Élèves — <span style="color:var(--ci-vert);font-weight:700;">.csv</span></button>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportResultatsCSV()">📊 Résultats complets — <span style="color:var(--ci-vert);font-weight:700;">.csv</span></button>
+
+              <!-- XLSX -->
+              <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-top:6px;margin-bottom:2px;">Format Excel (.xlsx)</div>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportElevesXLSX()">👦 Élèves — <span style="color:var(--bleu);font-weight:700;">.xlsx</span></button>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportResultatsXLSX()">📊 Résultats complets — <span style="color:var(--bleu);font-weight:700;">.xlsx</span></button>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportCompletXLSX()">📦 Export complet (élèves + notes) — <span style="color:var(--bleu);font-weight:700;">.xlsx</span></button>
+
+              <!-- JSON + Tout -->
+              <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-top:6px;margin-bottom:2px;">Sauvegarde</div>
+              <button class="btn btn-secondary" style="justify-content:flex-start;" onclick="exportJSON()">📦 Export JSON complet — <span style="color:var(--ci-orange);font-weight:700;">.json</span></button>
+
+              <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px;">
+                <button class="btn btn-orange" style="width:100%;justify-content:center;" onclick="exportAll()">📦 Tout exporter (CSV + XLSX + JSON)</button>
+              </div>
+
+              <!-- Export classe instituteur / bénévole -->
+              <div id="export-classe-section" style="display:none;border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
+                <div style="font-size:11px;font-weight:700;color:var(--ci-vert);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">📦 Export de ma classe</div>
+                <button class="btn btn-secondary" style="justify-content:flex-start;width:100%;" onclick="exportClasseCompletXLSX()">📊 Export complet — liste + notes + moyennes + rangs <span style="color:var(--ci-vert);font-weight:700;">.xlsx</span></button>
+                <p style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.5;">3 feuilles : Élèves &amp; Moyennes · Classement · Notes détaillées</p>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>📥 Importer des données</h3></div>
+            <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+
+              <!-- Type d'import -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid var(--ci-vert);border-radius:8px;cursor:pointer;background:var(--surface);">
+                  <input type="radio" name="import-type" value="eleves" checked onchange="updateImportUI()"> <span style="font-size:12px;font-weight:700;">👦 Élèves</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:2px solid var(--border);border-radius:8px;cursor:pointer;background:var(--surface);">
+                  <input type="radio" name="import-type" value="notes" onchange="updateImportUI()"> <span style="font-size:12px;font-weight:700;">📊 Résultats / Notes</span>
+                </label>
+              </div>
+
+              <!-- Mode import -->
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;" id="import-mode-row">
+                <label style="display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">
+                  <input type="radio" name="import-mode" value="ajouter" checked onchange="updateImportUI()"> ➕ Ajouter seulement
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">
+                  <input type="radio" name="import-mode" value="mettre_a_jour" onchange="updateImportUI()"> 🔄 Mettre à jour
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">
+                  <input type="radio" name="import-mode" value="remplacer" onchange="updateImportUI()"> 🔁 Remplacer tout
+                </label>
+              </div>
+
+              <div id="import-mode-desc" style="font-size:11px;color:var(--text2);padding:8px 12px;background:var(--surface);border-radius:6px;border-left:3px solid var(--ci-vert);">
+                ➕ <strong>Ajouter seulement</strong> : les doublons (même matricule) sont ignorés. Seuls les nouveaux élèves sont ajoutés.
+              </div>
+
+              <!-- Zone de dépôt -->
+              <div id="import-drop"
+                style="border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;"
+                onclick="document.getElementById('import-file').click()"
+                ondragover="event.preventDefault();this.style.borderColor='var(--ci-vert)'"
+                ondragleave="this.style.borderColor=''"
+                ondrop="event.preventDefault();this.style.borderColor='';handleImportFileDrop(event)">
+                <div style="font-size:32px;margin-bottom:6px;">📁</div>
+                <p style="font-weight:700;font-size:13px;">Glisser ou cliquer pour choisir un fichier</p>
+                <p style="font-size:11px;color:var(--text3);margin-top:4px;">
+                  <strong style="color:var(--ci-vert);">.xlsx</strong> · <strong style="color:var(--ci-vert);">.xlsm</strong> · <strong style="color:var(--ci-orange);">.xls</strong> · <strong style="color:var(--bleu);">.csv</strong> · <strong style="color:#7C3AED;">.docx</strong>
+                </p>
+                <input type="file" id="import-file" style="display:none" accept=".csv,.xlsx,.xlsm,.xls,.docx,.doc" onchange="handleImportFile(this)">
+              </div>
+
+              <div id="import-result" style="display:none;"></div>
+
+              <!-- Boutons action -->
+              <div style="display:none;flex-direction:column;gap:8px;" id="import-actions">
+                <button class="btn btn-primary" id="btn-save-import" style="width:100%;justify-content:center;font-size:14px;padding:11px 20px;margin-bottom:0;" onclick="saveImport()">💾 Enregistrer dans la base</button>
+                <button class="btn btn-secondary" style="width:100%;justify-content:center;padding:9px;" onclick="resetImport()">✕ Annuler l'import</button>
+              </div>
+
+              <p style="font-size:10px;color:var(--text3);">
+                Colonnes élèves reconnues : <strong>nom</strong>, prenoms, matricule, sexe, date_naissance, classe, ecole<br>
+                Colonnes résultats reconnues : <strong>eleve / nom_eleve</strong>, eval_type / evaluation, classe, et les matières (cp_dictee, cecm_maths…)<br>
+                <span style="color:#7C3AED;font-weight:700;">📝 Word (.docx)</span> : le texte des tableaux est extrait automatiquement. Pour de meilleurs résultats, privilégier Excel ou CSV.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ RAPPORTS D'ACTIVITÉ ════════════════════════════ -->
+      <div id="page-rapport" class="page">
+        <div style="display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start;">
+
+          <!-- Panneau de contrôle -->
+          <div class="card" style="padding:20px;">
+            <div class="section-title" style="margin-bottom:14px;">⚙️ Paramètres du rapport</div>
+
+            <div class="form-field">
+              <label style="font-size:12px;font-weight:700;">Type de rapport</label>
+              <select class="filter-select" id="rpt-type" style="width:100%;padding:9px;" onchange="genRapport()">
+                <option value="composition">📝 Après composition</option>
+                <option value="trim1">📅 Rapport 1er Trimestre</option>
+                <option value="trim2">📅 Rapport 2e Trimestre</option>
+                <option value="trim3">📅 Rapport 3e Trimestre</option>
+                <option value="annuel">📊 Rapport Annuel</option>
+              </select>
+            </div>
+
+            <div class="form-field" id="rpt-field-eval">
+              <label style="font-size:12px;font-weight:700;">Composition concernée</label>
+              <select class="filter-select" id="rpt-eval" style="width:100%;padding:9px;" onchange="genRapport()">
+                <option value="composition1">Composition 1</option>
+                <option value="composition2">Composition 2</option>
+                <option value="composition3">Composition 3</option>
+                <option value="composition4">Composition 4</option>
+                <option value="examen_blanc1">Examen Blanc 1</option>
+                <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label style="font-size:12px;font-weight:700;">Filtre classe</label>
+              <select class="filter-select" id="rpt-classe" style="width:100%;padding:9px;" onchange="genRapport()">
+                <option value="">Toutes les classes</option>
+                <option>CP1</option><option>CP2</option><option>CE1</option>
+                <option>CE2</option><option>CM1</option><option>CM2</option>
+              </select>
+            </div>
+
+            <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;display:flex;flex-direction:column;gap:8px;">
+              <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="printRapport()">🖨️ Imprimer le rapport</button>
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="exportRapportXLSX()">📊 Exporter Excel (.xlsx)</button>
+            </div>
+          </div>
+
+          <!-- Aperçu du rapport -->
+          <div id="rapport-preview">
+            <div class="card" style="padding:32px;text-align:center;color:var(--text3);">
+              <div style="font-size:48px;margin-bottom:12px;">📑</div>
+              <p>Sélectionner un type de rapport pour le générer</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+
+      <!-- ══ GUIDE D'UTILISATION ════════════════════════════ -->
+      <div id="page-guide" class="page">
+        <div style="display:grid;grid-template-columns:240px 1fr;gap:20px;align-items:start;">
+
+          <!-- Sommaire latéral -->
+          <div class="card" style="position:sticky;top:20px;">
+            <div class="card-header" style="background:var(--ci-vert);border-radius:10px 10px 0 0;">
+              <h3 style="color:#fff;font-size:14px;">📖 Sommaire</h3>
+            </div>
+            <div style="padding:12px;">
+              <nav id="guide-nav" style="display:flex;flex-direction:column;gap:2px;">
+                <a onclick="showGuideSection('g-intro')"    class="gnav active">🦜 Présentation</a>
+                <a onclick="showGuideSection('g-install')"  class="gnav">💻 Installation</a>
+                <div id="gnav-acces-wrap"><a onclick="showGuideSection('g-acces')" class="gnav">🔑 Codes d'accès</a></div>
+                <a onclick="showGuideSection('g-interface')" class="gnav">🖥 Interface</a>
+                <a onclick="showGuideSection('g-eleves')"   class="gnav">👦 Élèves</a>
+                <a onclick="showGuideSection('g-saisie')"   class="gnav">✏️ Saisie des notes</a>
+                <a onclick="showGuideSection('g-resultats')" class="gnav">📈 Résultats</a>
+                <a onclick="showGuideSection('g-bulletins')" class="gnav">📄 Bulletins</a>
+                <a onclick="showGuideSection('g-dfa')"      class="gnav">🎓 DFA</a>
+                <a onclick="showGuideSection('g-liste')"    class="gnav">📋 Liste de classe</a>
+                <a onclick="showGuideSection('g-stats')"    class="gnav">📊 Statistiques</a>
+                <a onclick="showGuideSection('g-export')"   class="gnav">📤 Export / Import</a>
+                <a onclick="showGuideSection('g-securite')" class="gnav">🔒 Sécurité</a>
+                <a onclick="showGuideSection('g-faq')"      class="gnav">❓ FAQ</a>
+              </nav>
+            </div>
+          </div>
+
+          <!-- Contenu du guide -->
+          <div id="guide-content" style="display:flex;flex-direction:column;gap:16px;">
+
+            <!-- PRÉSENTATION -->
+            <div class="guide-section card" id="g-intro">
+              <div class="card-header" style="background:linear-gradient(135deg,var(--ci-vert),var(--ci-vert2));">
+                <h3 style="color:#fff;">🦜 Présentation de Le Perroquet</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <p style="font-size:14px;line-height:1.8;color:var(--text2);">
+                  <strong>Le Perroquet (PGNEP v3.0)</strong> est une plateforme numérique pour la gestion des notes des élèves du cycle primaire en Côte d'Ivoire.
+                </p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div class="guide-feat">📊 Calcul automatique des moyennes selon les barèmes officiels</div>
+                  <div class="guide-feat">🏅 Rang de chaque élève dans sa classe</div>
+                  <div class="guide-feat">📄 Bulletins de notes imprimables en 1 clic</div>
+                  <div class="guide-feat">🎓 DFA calculée automatiquement</div>
+                  <div class="guide-feat">📋 Liste de classe par ordre alpha ou rang</div>
+                  <div class="guide-feat">📈 Statistiques par sexe et composition</div>
+                  <div class="guide-feat">🔒 8 profils sécurisés avec cloisonnement</div>
+                  <div class="guide-feat">📱 PC, navigateur web et Android</div>
+                </div>
+                <div class="guide-info">
+                  <strong>Hiérarchie :</strong> Instituteur → Directeur → CPPP → Correspondant IEPP → Coordinateur DRENAET → Administrateur<br>
+                  Chaque utilisateur ne voit que les données de son périmètre.
+                </div>
+              </div>
+            </div>
+
+            <!-- INSTALLATION -->
+            <div class="guide-section card" id="g-install" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#1A56DB,#0D40A0);">
+                <h3 style="color:#fff;">💻 Installation et accès</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+                <div class="guide-step-block">
+                  <div class="guide-step-title">🌐 Version navigateur web (recommandée)</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Télécharger le fichier <code>PGNEP_v3.html</code></div>
+                    <div class="gs">2. Double-cliquer pour l'ouvrir dans Chrome ou Edge</div>
+                    <div class="gs">3. Marquer la page en favori pour un accès rapide</div>
+                  </div>
+                </div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">🖥 Version Windows (.exe)</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Installer Node.js depuis <strong>nodejs.org</strong></div>
+                    <div class="gs">2. Dézipper <code>LePerroquet_Windows_Electron.zip</code></div>
+                    <div class="gs">3. Ouvrir un terminal → <code>npm install</code></div>
+                    <div class="gs">4. Taper <code>npm run build-win</code> → le .exe se crée dans <code>dist/</code></div>
+                  </div>
+                </div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">📱 Version Android (.apk)</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Installer Android Studio depuis <strong>developer.android.com</strong></div>
+                    <div class="gs">2. Dézipper <code>LePerroquet_Android_Studio.zip</code></div>
+                    <div class="gs">3. Ouvrir le dossier <code>android/</code> dans Android Studio</div>
+                    <div class="gs">4. Build → Build APK(s) → installer l'APK sur le téléphone</div>
+                  </div>
+                </div>
+                <div class="guide-info">✈️ Fonctionne entièrement <strong>hors connexion internet</strong>. Les données sont sauvegardées automatiquement dans le navigateur.</div>
+              </div>
+            </div>
+
+            <!-- CODES D'ACCÈS -->
+            <div class="guide-section card" id="g-acces" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#D97706,#B45309);">
+                <h3 style="color:#fff;">🔑 Codes d'accès et rôles</h3>
+              </div>
+              <div style="padding:20px;">
+                <table class="guide-table">
+                  <thead><tr><th>Identifiant</th><th>Mot de passe</th><th>Rôle</th><th>Périmètre</th></tr></thead>
+                  <tbody id="guide-acces-tbody">
+                    <!-- Rempli dynamiquement selon le rôle connecté -->
+                  </tbody>
+                </table>
+                <div id="guide-acces-note" style="margin-top:14px;"></div>
+                <div class="guide-warn">🔒 Après 5 tentatives échouées → compte bloqué 15 min · Session expire après 30 min d'inactivité</div>
+              </div>
+            </div>
+
+            <!-- INTERFACE -->
+            <div class="guide-section card" id="g-interface" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#0891B2,#0369A1);">
+                <h3 style="color:#fff;">🖥 Interface principale</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <div class="guide-info"><strong>Sidebar (gauche) :</strong> armoirie MENAET, menus de navigation, informations utilisateur connecté, indicateur de session, bouton déconnexion.</div>
+                <div class="guide-info"><strong>Topbar (haut) :</strong> titre de la page, année scolaire, horloge en temps réel avec date en français, barre de recherche globale.</div>
+                <table class="guide-table">
+                  <thead><tr><th>Menu</th><th>Description</th></tr></thead>
+                  <tbody>
+                    <tr><td>📊 Tableau de bord</td><td>Vue d'ensemble, statistiques, liste de classe, tableau des âges</td></tr>
+                    <tr><td>👦 Gestion des élèves</td><td>Liste, ajout, modification, import CSV/Excel, passage en classe</td></tr>
+                    <tr><td>✏️ Saisie des notes</td><td>Saisie par élève et évaluation, calcul temps réel</td></tr>
+                    <tr><td>📈 Résultats & Stats</td><td>Tableau des résultats, rangs, graphiques</td></tr>
+                    <tr><td>📄 Bulletins de notes</td><td>Génération et impression des bulletins</td></tr>
+                    <tr><td>🏫 Écoles & Structures</td><td>Gestion des établissements</td></tr>
+                    <tr><td>📤 Export / Synchro</td><td>Export CSV, JSON, import Excel/CSV</td></tr>
+                    <tr><td>📖 Guide d'utilisation</td><td>Ce guide intégré</td></tr>
+                    <tr><td>👥 Comptes utilisateurs</td><td>Gestion des accès (Admin uniquement)</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ÉLÈVES -->
+            <div class="guide-section card" id="g-eleves" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#059669,#047857);">
+                <h3 style="color:#fff;">👦 Gestion des élèves</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <div class="guide-step-block">
+                  <div class="guide-step-title">➕ Ajouter un élève manuellement</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Cliquer sur <strong>+ Ajouter</strong> (bouton en haut)</div>
+                    <div class="gs">2. Remplir : Nom, Prénoms, Sexe, Classe, École (et optionnellement Matricule, Date de naissance, Lieu)</div>
+                    <div class="gs">3. Cliquer sur <strong>Enregistrer</strong></div>
+                  </div>
+                </div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">📥 Importer en masse (Excel ou CSV)</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Aller dans <strong>Export / Synchro</strong> → section Import</div>
+                    <div class="gs">2. Glisser votre fichier .xlsx, .xlsm ou .csv</div>
+                    <div class="gs">3. Vérifier l'aperçu des élèves détectés</div>
+                    <div class="gs">4. Cliquer sur <strong>💾 Enregistrer dans la base</strong></div>
+                  </div>
+                </div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">🎓 Passage en classe supérieure</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Cliquer sur 👁 à côté de l'élève</div>
+                    <div class="gs">2. Cliquer sur <strong>🎓 Passage en classe supérieure</strong></div>
+                    <div class="gs">3. Confirmer — les élèves de CM2 sont archivés fin de cycle</div>
+                  </div>
+                </div>
+                <div class="guide-info">💡 Le matricule est généré automatiquement si laissé vide. Les doublons (même matricule) sont ignorés à l'import.</div>
+              </div>
+            </div>
+
+            <!-- SAISIE -->
+            <div class="guide-section card" id="g-saisie" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#7C3AED,#5B21B6);">
+                <h3 style="color:#fff;">✏️ Saisie des notes</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <table class="guide-table">
+                  <thead><tr><th>Niveau</th><th>Barème total</th><th>Diviseur</th><th>Moy. sur</th></tr></thead>
+                  <tbody>
+                    <tr><td>CP1 / CP2</td><td>/80 (8 matières × /10)</td><td>÷ 4</td><td>/20</td></tr>
+                    <tr><td>CE1 → CM1</td><td>/170 (Dictée/20 + Texte/50 + Maths/50 + Éveil/50)</td><td>÷ 8,5</td><td>/20</td></tr>
+                    <tr><td>CM2 Compositions</td><td>/170</td><td>÷ 8,5</td><td>/20</td></tr>
+                    <tr><td>CM2 Examen Blanc</td><td>/190 (+ EPS/20)</td><td>÷ 9,5</td><td>/20</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">Procédure de saisie</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Aller dans <strong>Saisie des notes</strong></div>
+                    <div class="gs">2. Sélectionner l'élève</div>
+                    <div class="gs">3. Sélectionner le type d'évaluation</div>
+                    <div class="gs">4. Saisir les notes (la moyenne se calcule en temps réel)</div>
+                    <div class="gs">5. Cliquer sur <strong>💾 Enregistrer les notes</strong></div>
+                  </div>
+                </div>
+                <div class="guide-warn">📌 Code <strong>501</strong> = Absent / Abandon. La matière est exclue du calcul. Affichée <em>ABS</em> sur le bulletin.</div>
+                <div class="guide-info">🚫 L'Examen Blanc n'apparaît que pour les élèves de CM2. Les Compositions 3 et 4 n'apparaissent pas pour le CM2.</div>
+              </div>
+            </div>
+
+            <!-- RÉSULTATS -->
+            <div class="guide-section card" id="g-resultats" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#D97706,#B45309);">
+                <h3 style="color:#fff;">📈 Résultats et statistiques</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <table class="guide-table">
+                  <thead><tr><th>Mention</th><th>Moyenne /20</th></tr></thead>
+                  <tbody>
+                    <tr><td style="color:var(--danger);font-weight:700;">Insuffisant</td><td>0 à 9,99</td></tr>
+                    <tr><td style="color:#92700A;font-weight:700;">Passable</td><td>10 à 12,99</td></tr>
+                    <tr><td style="color:var(--ci-orange);font-weight:700;">Assez Bien</td><td>13 à 14,99</td></tr>
+                    <tr><td style="color:#1D4ED8;font-weight:700;">Bien</td><td>15 à 16,99</td></tr>
+                    <tr><td style="color:var(--bleu);font-weight:700;">Très Bien</td><td>17 à 18,99</td></tr>
+                    <tr><td style="color:var(--ci-vert);font-weight:700;">Excellent</td><td>19 à 20</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-info">🏅 Le <strong>rang</strong> est calculé automatiquement en comparant toutes les moyennes de la même classe pour la même évaluation. Le 1er est affiché en or, le top 3 en vert.</div>
+              </div>
+            </div>
+
+            <!-- BULLETINS -->
+            <div class="guide-section card" id="g-bulletins" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#0891B2,#0369A1);">
+                <h3 style="color:#fff;">📄 Bulletins de notes</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <div class="guide-step-block">
+                  <div class="guide-step-title">Générer et imprimer un bulletin</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Cliquer sur <strong>Bulletins de notes</strong></div>
+                    <div class="gs">2. Sélectionner l'élève</div>
+                    <div class="gs">3. Sélectionner l'évaluation (ou laisser vide pour toutes)</div>
+                    <div class="gs">4. Cliquer sur <strong>🖨 Imprimer</strong></div>
+                  </div>
+                </div>
+                <div class="guide-info">Le bulletin contient : en-tête école/IEPP/DRENAET, informations élève, tableau des matières, total, moyenne, <strong>rang dans la classe</strong>, mention, <strong>résultat DFA</strong>, espaces de signature.</div>
+              </div>
+            </div>
+
+            <!-- DFA -->
+            <div class="guide-section card" id="g-dfa" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,var(--ci-vert),var(--ci-vert2));">
+                <h3 style="color:#fff;">🎓 DFA — Décision de Fin d'Année</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <div class="guide-info">La <strong>DFA</strong> est calculée automatiquement — ce n'est pas une évaluation à saisir.</div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">📐 Formule CP1 → CM1</div>
+                  <div style="background:#F0FAF5;border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ci-vert);font-weight:700;">
+                    DFA = [ (Moy1 + Moy2 + Moy3) + Moy4 × 2 ] / 5
+                  </div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:6px;">Évaluations : Composition 1, 2, 3 et 4</div>
+                </div>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">📐 Formule CM2</div>
+                  <div style="background:#FFF3E0;border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ci-orange);font-weight:700;">
+                    DFA = [ (Moy1 + Moy2 + MoyEB1) + MoyEB2 × 2 ] / 5
+                  </div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:6px;">Évaluations : Composition 1, Composition 2, Examen Blanc 1, Examen Blanc 2<br>(Le CM2 ne fait pas de Composition 3 et 4)</div>
+                </div>
+                <table class="guide-table">
+                  <thead><tr><th>Résultat</th><th>Condition</th></tr></thead>
+                  <tbody>
+                    <tr><td style="color:var(--ci-vert);font-weight:700;">✅ DFA Admis</td><td>Moyenne DFA ≥ 10/20</td></tr>
+                    <tr><td style="color:var(--danger);font-weight:700;">❌ DFA Échec</td><td>Moyenne DFA &lt; 10/20</td></tr>
+                    <tr><td style="color:var(--ci-vert);font-weight:700;">✅ DFA Admis — À archiver</td><td>CM2, DFA ≥ 10 → fin de cycle</td></tr>
+                    <tr><td style="color:var(--text3);">⏳ Incomplet</td><td>Toutes les compositions requises non saisies</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- LISTE DE CLASSE -->
+            <div class="guide-section card" id="g-liste" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#7C3AED,#5B21B6);">
+                <h3 style="color:#fff;">📋 Liste de classe et impression</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <div class="guide-info">Visible dans le <strong>Tableau de bord</strong> pour l'Instituteur, le Directeur et le Correspondant IEPP.</div>
+                <table class="guide-table">
+                  <thead><tr><th>Bouton</th><th>Action</th></tr></thead>
+                  <tbody>
+                    <tr><td>🔤 Ordre alphabétique</td><td>Trier les élèves de A à Z</td></tr>
+                    <tr><td>🏅 Ordre par rang</td><td>Trier du meilleur au moins bon résultat</td></tr>
+                    <tr><td>🖨 Liste Alpha</td><td>Imprimer la liste en ordre alphabétique</td></tr>
+                    <tr><td>🖨 Liste Rang</td><td>Imprimer la liste classée par rang</td></tr>
+                    <tr><td>🖨 Liste complète</td><td>Imprimer toutes les classes du périmètre</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-info">La liste imprimée contient : #, Nom & Prénoms, Sexe, Date de naissance, Moyenne, Rang, Mention, DFA — avec espace de signature.</div>
+              </div>
+            </div>
+
+            <!-- STATISTIQUES -->
+            <div class="guide-section card" id="g-stats" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#059669,#047857);">
+                <h3 style="color:#fff;">📊 Statistiques et tableaux de bord</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <table class="guide-table">
+                  <thead><tr><th>Rôle</th><th>Statistiques disponibles</th></tr></thead>
+                  <tbody>
+                    <tr><td>Instituteur</td><td>Stats de sa classe · Tableau des âges · Stats DFA</td></tr>
+                    <tr><td>Directeur</td><td>Toutes les classes de son école · Tableau des âges · Stats DFA</td></tr>
+                    <tr><td>Correspondant IEPP</td><td>Toutes les écoles de sa circonscription · Admis/Échecs par sexe · Histogrammes</td></tr>
+                    <tr><td>Coordinateur</td><td>Toute sa DRENAET</td></tr>
+                    <tr><td>Admin / Cabinet</td><td>Données nationales complètes</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-info">Les <strong>statistiques DFA</strong> affichent : EFFECTIF / ADMIS / ÉCHECS / %ADMIS / %ÉCHEC par Garçons, Filles et Total — avec histogramme en couleurs.</div>
+              </div>
+            </div>
+
+            <!-- EXPORT / IMPORT -->
+            <div class="guide-section card" id="g-export" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#D97706,#B45309);">
+                <h3 style="color:#fff;">📤 Export et Import</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <table class="guide-table">
+                  <thead><tr><th>Export</th><th>Format</th><th>Contenu</th></tr></thead>
+                  <tbody>
+                    <tr><td>Élèves CSV</td><td>.csv</td><td>Liste complète des élèves</td></tr>
+                    <tr><td>Résultats CSV</td><td>.csv</td><td>Toutes les notes avec moyennes et mentions</td></tr>
+                    <tr><td>Export JSON</td><td>.json</td><td>Sauvegarde complète (écoles + élèves + notes)</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-step-block">
+                  <div class="guide-step-title">📥 Importer des élèves depuis Excel</div>
+                  <div class="guide-steps">
+                    <div class="gs">1. Aller dans <strong>Export / Synchro</strong></div>
+                    <div class="gs">2. Glisser votre fichier <strong>.xlsx</strong>, <strong>.xlsm</strong> ou <strong>.csv</strong> dans la zone d'import</div>
+                    <div class="gs">3. Vérifier l'aperçu (nom, prénoms, classe, sexe)</div>
+                    <div class="gs">4. Cliquer sur <strong>💾 Enregistrer dans la base</strong></div>
+                  </div>
+                </div>
+                <div class="guide-info">💡 Colonnes reconnues : <strong>nom</strong>, prenoms, matricule, sexe, date_naissance, lieu_naissance, classe, ecole — Les accents et espaces dans les noms de colonnes sont acceptés.</div>
+                <div class="guide-warn">🔒 Effectuez un <strong>export JSON complet</strong> régulièrement comme sauvegarde de vos données.</div>
+              </div>
+            </div>
+
+            <!-- SÉCURITÉ -->
+            <div class="guide-section card" id="g-securite" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#DC2626,#B91C1C);">
+                <h3 style="color:#fff;">🔒 Sécurité et sessions</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+                <table class="guide-table">
+                  <thead><tr><th>Mesure</th><th>Détail</th></tr></thead>
+                  <tbody>
+                    <tr><td>🔐 SHA-256</td><td>Mots de passe chiffrés — irréversibles</td></tr>
+                    <tr><td>🔒 Verrouillage</td><td>5 tentatives échouées → compte bloqué 15 min</td></tr>
+                    <tr><td>⏱ Session</td><td>Déconnexion automatique après 30 min d'inactivité</td></tr>
+                    <tr><td>🌍 Cloisonnement</td><td>Chaque utilisateur voit uniquement son périmètre</td></tr>
+                    <tr><td>💪 Force MDP</td><td>Indicateur visuel lors de la création d'un compte</td></tr>
+                  </tbody>
+                </table>
+                <div class="guide-warn">⚠️ Les données sont stockées dans le navigateur (localStorage). Ne pas effacer l'historique du navigateur. Faites des exports JSON réguliers.</div>
+              </div>
+            </div>
+
+            <!-- FAQ -->
+            <div class="guide-section card" id="g-faq" style="display:none;">
+              <div class="card-header" style="background:linear-gradient(135deg,#0D1B2A,#1E3A5F);">
+                <h3 style="color:#fff;">❓ Questions fréquentes (FAQ)</h3>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
+                <div class="faq-item">
+                  <div class="faq-q">Mes données ont disparu après avoir effacé l'historique.</div>
+                  <div class="faq-a">Les données sont dans le localStorage du navigateur. Effacer l'historique les supprime. Faites des exports JSON régulièrement.</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">Je ne vois pas les élèves des autres classes.</div>
+                  <div class="faq-a">C'est normal. Chaque utilisateur voit uniquement son périmètre : un instituteur voit sa classe, un directeur son école, etc.</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">L'option Examen Blanc n'apparaît pas.</div>
+                  <div class="faq-a">Les examens blancs sont réservés aux élèves de CM2. Vérifiez que l'élève sélectionné est bien en CM2.</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">La DFA affiche « Incomplet ».</div>
+                  <div class="faq-a">Pour CP1-CM1 : les 4 compositions doivent être saisies. Pour CM2 : Composition 1, 2, Examen Blanc 1 et 2 requis.</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">Je ne peux pas créer de compte utilisateur.</div>
+                  <div class="faq-a">La création de comptes est réservée aux administrateurs (admin et diomande).</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">Mon compte est bloqué.</div>
+                  <div class="faq-a">Après 5 tentatives échouées, le compte est bloqué 15 minutes. Attendez puis réessayez.</div>
+                </div>
+                <div class="faq-item">
+                  <div class="faq-q">Mon fichier Excel ne s'importe pas.</div>
+                  <div class="faq-a">Vérifiez que le fichier contient une colonne nommée « nom ». Les formats .xlsx, .xlsm et .csv sont acceptés. Une connexion internet est nécessaire pour charger la bibliothèque Excel.</div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- fin guide-content -->
+        </div><!-- fin grid -->
+      </div><!-- fin page-guide -->
+
+      <!-- ══ COMPTES UTILISATEURS ════════════════════════════ -->
+      <div id="page-comptes" class="page">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div class="card">
+            <div class="card-header" style="padding:14px 20px;"><div style="display:flex;align-items:center;gap:12px;"><img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCABRAIoDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9/KKKKACiiigAooooAKKK5+++KOg6feQQSajblpr7+zCytuWC5IJWKQj7jNjjdjJIA5IzMpKOsnYaTex0FFed+Gv2l9A8TS6QiC5tn1S4vrVhOAptXtFLS7+ehAyCOoIrQ8EfHvw948g057WeSJtTs5dShSZdrJaJJsFxJziNHOCu4gkHpwcc1PHYapbkqJ321Xk/1X3op05LdHaUVDp2pW+sWEN1aTw3NtcIJIpYnDpIp6MpHBB9RU1dZAUUUUAFFFFABRRRQAUUUUAFFFFAGd4v8TW/gzwrqOr3WPs2mW0lzJl1TKopY/MxCjp1JAr4M8Zf8FmtWNj5i+CR4e0u5k2QaodR+0SFdzBZUjMIEi7lKkcAgNtboa++9Y0e18QaZPZXtvFdWtwuySKRQyuPcGvzY/a4/wCCQ1zrXxU1O78A+PdDXXLuNLnR/CmrTubueMKFnla6kleXOdzDChcLjjBNeXmv1tU74V6/L9f+HOjD+zvaoS/Ar/gsZ4s+KOuWfhDWfCuieLjdahLaXl3pDzw3V3AWIRYbZQSko4wWcZGOhBNfP3i//gp54j+JHxRudP8AD/gbVnuNWvBp/wBikvmvNV1ERMypBJsj/fOhXK7gzrggs2M1p/stf8E2vEH7QMFxL4e1qKC90PXLaHWptTkfMasNz3EKpj5wqsuzIHEZ4IJrm/8AglNLo3gz4+/EK5vzu1LQtMuf7LvY7wwanE6XEiP5Bw3EoCpI2NyqTg8nPyao1M2oQo4v4JN2d90k77Wfda79T5zirF47D47B4TK6ypOrKSk+WMtIx5tFJNX00PW9Lu/i54snuXv/AIP+L7e7uZC09zq/jW0sJJXK5Iw0QZsK4BABOMA5rifjJ+0B8U/2bb03PiH4fag3h+9nthHcz6kmoaa8tsCiQyTRRBW27ifKlC5Yg4INfS/wx/4K0fCaXV/Fdq2p6BpFv4Ygii0TUZFWNHeRVEn2eI75ZnaXezbVJGFBJ+9Xyb/wU0/4KAt+0Ktp4G8O2uu2Hh618i51q61my+xajrtxGzNbGWE8okaFSCcNISCwAUCuavwbkeEhKvSlPnf/AE8m7vbXX5Pyujx+JuMJYDLKlelj3Ka0jaNGV5bJNKmtLrXa1nbY+hIf+Cv2q/Cz4S+HfEVn4DuUTxNpD3k934j1OTLyqzpG8DJGIjbLt+4gT+6ADzVj4N/8FmfFl3pNjBdaHY+O9bubeOW4Wzc6dGjMcJFDHsYs5z8zFiCcbQAMn528Af8ABPbWtc/Y10f4r3OrWcnhCTwwbqSLzZFvkm+1PGbZc5URtlTuBBClwACQa6j9nv8A4JW+Ivinoema3rvxF0LwppesFU8MfbQLm81f58SxsoeMxlQoQFCWbcDwTXpLF5h9ZWHp6aJrVfDtfVdXprqfd5bKnVwFLEVXeUoxbfm0m9v0P07/AGTf2krX9qf4SQ+J7axXTJDO9tPardC48p1xn5gFI4I4ZVYenQn02uW+EPwd0P4IeDoNE0G3litYerzTPPNKecbpJCzsBnAyTgAAcCupr7SmpKK59zCVr6BRRRViCiiigAoorwTxB/wU7+BvhTxB4m0zUfHdrZ3fhD+0xqgksrnbAdNUNfKrCPDtCGUsFz1GM0Ae90V842H/AAVa+Co8P6Nf6x4ivfDR1yGe5t7fVNMuIpY4IbiO3eaTajKieZNCu4tjMgHY46Hxd/wUZ+DHgTwDpnifVPHFlbaHrMF/c2N19luHF1HY3kVldFQIyf3dzNFGRjJLgjIyaAPba8q+Pv7Inhr49X66pNJd6D4jSJLYazppVLswoWZULEEHaXYqeqlmwcMwLvhJ+2p8Mvjnq/8AZ/hfxRb6nfrZ3t/JbfZpopYYrO5W1ui4dBtMc7qhU85PAI5rB0H/AIKRfBbxRaWN3p3ja2vNMvhY51GOyuTYWbXwU2cdxceX5dvJMHTYkrKx3px865wxGGpYim6VaKlF9H5O6+56p9GVCcovmi7M8i03/gmx44/Zvnl1T4OfEq5gunZ5LjTNXiCQXxLlwGkjBGQS2MoR8x5Ffm34w/Zi8XfBn9p+68M2HieDwj8RYZl1O3sxqu2c3EzGSJY54MhWYsxXeFAX5mIFfr54h/4KYfBDwv4I0bxHeeOrRNI8Q6Vba3psy2dy5vLS4u0s4ZUQRlvnuJEjAIzlgSAOarfE744/BDVvDvhDxZ4gtDdy+PnlsNAng8P3kuraj5UUs0kaLDEbgKsUUrnIA2qT6V4mY5I5UGsA+Sa21fL597X72Zw5llmDzOMYY+LajqnFuMk/Jxafy2Pyz8efC/8Aacg8cWFncfZdV1TWWYW2u6NNpEiykD5mfUIlVom9Wd0Y9smvO/Gn7Il18MvEkmnePPH3grQvEV6yPZ2CaidSn1R5GChvPT9ynzkqzSPww54INfpN4K8HfsYfG34n2Hg7wwlnrurahHb6jFbaW2oPaMtxA08TtIv7sbowzctwc5w1dz4W1X9lP4NajqbWmn+HbaDwBNfJda1eaXc3en6Pc2qhruIX0qPCk8YUblWTduXbjcCBx4rIcVXUV7Tl95Nu/Np1SvHrs+ttnc+Uh4d5ROr7TH1KuIS2jUm7J/Kz/H1PNPgf/wAE2/i54g+CmheBvGPj6Twr4I0G3FtbaLYBbiaZQ5k3SsAqk7ySMlsenAr6J+HH7A3g7wRdaE16o1yDw0kf9n289tHHDFLG4dJmVRhnVxvGeA53Y3YIyR/wVF+E2m+G7jUNbuvFXhmeyvrbT7rTdU8N3yajaSXTbbJpIEjd0S6PELMAJGyo+ZWUdf8ACX9t/wCG3xy+KGp+DfDGt3WpeIdFklh1C2Ol3UIspYghkikeSNVV18xAVJzk465r1f7AwMqlOtVhzzhs5atfp5rTR6rU+8p1pU6fsqXuxtay2ses0V4h4B/4KM/B74mz20WjeLJLmTUB5lgr6VeQnUohdpZtNbh4h58SXEiI8ke5ULAsVBBqrpn/AAU7+A+reGU1iP4kaLHp0kqRLLOk0HDWT3wl2ugIh+zRySeaR5YCMC2RivZMj3mivDb7/gpF8GdFSYan4w/sa5gQzSWmpaZeWd2kX2O4vVmMMkSyeU1taXMivt2t5LqCWG2sib/gq38BoNFtr4+OFZbu/XTIYV0y8a4e4a0+2qnliLdzbfvQcY2988UAfRNFVdE1iDxDotpqFqXa2voEuIi6FGKOoZcqwBBwRwRkVaoAK+S/ip+zfBr3iLxHZL+zR4N8QaXqN/qc8l9LrMEEuq/b12Xckg27x56n51JI4HoMfWleAal+yp8S7vxZdXsXxz8SQae+oXt7bWI06PbClzOkggZ92XjhSMRxDgqJJc5yu3gzDB1cTBRpV5UmnvDku/J88Jr7kmduBxdOhJyqUY1L9Jc1l5+5KL+9tHE+EvhVr3gjxBp+raf+zX4ZGqaRby2tjd3HiaG6ms4pZI5ZEjaUMUBkijbjHKiuf1L9lWPWI9Wju/2VvCNxDrSzJcwyeJ4zEqzXKXcwiT7sPmXEccr+UF3OgJyRSeN7zWPhx4tv/Bmr/HzxrPe6RZ2NsZjpARkLQCdTLLE4aSSRbS5JdUAAlCscjcZ7/TG+I/7PsPjpPjX4107RNRm0K1nuZUmiilbIhciJZyYEuZLm2ZiCDH5R7M1eR/YOM/6GFb7qH/yk9P8AtnC/9ANL763/AMtH6V+zjd6DrFrqFh+zLoNjqFo1wy3Vt4wEM8huJUmn8yRSGlEkkaMwkLZKDPSqM37JkD3WizL+yp4ShPh57KWxig8UpDCj2ePsrvGmEkaIABWkDEAAdABT/ixbah4N+J9jo2o/tD+NdBv/ABpqnl6daSWDNaRxCa3dNkqv+7t5B/oyyuRvkmIHOa2/iR8UYvFN98PToHxT8W2z+LPDdq9gdI0u51CQeVPEJruSNZNvmSC7gjdZlYooZhgqSD+wcZ/0MK33UP8A5SH9s4X/AKAaX31v/lp2/hn9gL4VXvgpIb/4P+HNPk1KG1e6sBcNKlg0Nx9rjhgYNiKOO5/eKsWxd4DYyBXX+Jv2U/BHjDwp4d0XUvB0FzYeEppbjRgdQnWbTpJY5IpGjlVxIC0csiH5uVcjpXgmkftNaN8NvgroZn+MWv6nqHhu/s9Zvr+80S7nl8QWsguLP7L5RO9gZYZZm8okIIN33ea5bxj8bdB0Dx98Qbu3+N3jK7isby31FLZLa5khFjE1kv2GCZJlDI7XsJMoKsROxyVViPo4QcYqLd7dXbXz0svuR4M5JybSt5dvvPprwV+xt8OPht43t/Efh34eaLoOsWsVtBHNp8jWyiO3i8mBTGhCEJGSoyp4NN1T9jL4a634i1jU7z4b6BdT6+1zJqMMpL2l3Jcx+XcStbk+SZJUyHk2bmyck5NeH6j4v8S+GfDtlY6t8W/GSwQ6FceMptQ/sRWlazhSCGe3lkimI2I+ceX+93TZDkjcczx78YrZD4ve8+Ofi7Q4PDFhLo0ul6fpE8kheeWWOK5ti0rXVxcJchCrbtpjhZSpVmYVYk+idB/Y/wDh5oGjXmnQ+AtLa11K+sdRu3uJ3uZriexkWSzd5ZGaRvIdFaNS21CDgDJz4VY6X8T/AIS/G3xP4l8H/sq6Emoarql3cS6tD48htzqxlYBrmSEjaHkVEJyMjA54qxqPjdtW8XamNJ+MPjK30WCbShY3T2Mlzb2wvvKe1kglWQ/axKkb589WVQ5OAchsfSfjrYaJ8M30/WPjv49+z6uNEl07Wm0AC8sLVPtN7LcSSR718u4jt5lZpUDRRqokU/eOdSm5bSa9LfqmcWMwtSukqdWVO38vLr680ZfhYp/CPwp8TPgRrB1Dwl+x34W0a9FpLYRyx+PLd2treWXzpIYd6t5UbyfOyR7VZgCQSBihpfwo8a6PeWdxB+xH8PhNp/hh/Bluz+L7GTy9Gdiz2GGjIMJLNlT2YjoSK6bWJ/EE1v4PtdQ/aA8WXNz8UPDlw+jNYaGLKPyZGSWO/wAiUNFPHJd24A3lTEvl7OrVo+JNc1OLwn8SfFcXxY8d6P4e8D6nJYXBvNNd5tGkheMukCiUi7yGVS04ZQHyMHdWX1ef/PyX/kv/AMicH9kYn/oMqfdS/wDlRwCfBfxqbCS3m/Ys8I3izZDyXnj2C6ndTaTWewyyBn2C3uJ4wm7aqyvgDcaf4g+EHjbxFPFcXH7FPgsXFrNHcwvb+Oba2aOWO1NojqY1XDC3JiyOSnBziuh8GeK9d1Hx54d8LWf7QHjO61FLiL7LBd+HITJJJYstrPHeTeYEmikllZm8v5mBj+cmMlvbtI/Z4+JNl4n8Kand/FO8v4/DWmCyuLDyHht9bmWTcLq4xISXYfKwHy45HpR9Xn/z8l/5L/8AIh/ZGJ/6DKn3Uv8A5UeueA7aWz8D6NDPYDSp4rGBJLIT+eLNhGoMXmfx7T8u7vjPetaorDz/ALDD9q8r7T5a+b5Wdm/Hzbc84znGalrqR7aVlYKKKKBmP4j8IW+qxXlzbW9jb63LaSW9vqD2ySSwFlIU5IyVBOdvQ145f/s7/ES/0jwZBH4q0XTYtMUJ4m060so1sPEBWNQJQph/ds77mdcEY2AY28+90UAfN19+zb8bI7Ca2g+Kuk3EKrD9l36JDbvEFkunaKQohDwr5tuqBQh2wYJySzSaR+zX8YdD0vUEsvibpFhfXWo3d1HPDosQhit5VuPKgWEIAu1ntyWySfJBOTX0bRQB87j9n340/bUuoPibotj5EqRwWbaSt2sVubpZH/fsFkMwh3xq4ATEjZTowwz+yZ8aY/B1raQfFPQYdUl0q507VLubw9b3C30kqQrHdBTGu17cxu0aHdH+8IZWAGPqSigD5v0X9mj4yaVoPkj4paWL6G9mnidtFhks5Lcx3ASza32KFhLvbl9jBj5PBBNdX8PP2dvFmhaV4ifXPHFxqGsazplpDbXVtbxQf2ffJahLi5TCZzJMXcbs7VYr0Ney0UAfOdn+zR8XtLu9SEPxSgmt5NKsrawWbT4ybW6iijFxMwEfzGSQSFT/AMshIMA7QDPqf7OfxZninGk/ETRvDtvPJFIbSPRorxw2bkTMblkVmd1lgG4pn9yR0Y5+haKAPnGb9mz4xXM8X2/4j+HtZtdNkRbSB9Cis3lhRIlH7xVc28jFGZnhXGThVUHCsvPgD8dtV+Gc2iTfEvw1BqN0rTzalHpKuXdrYReQYmTY0YkBl80jexOCuK+kaKAOQ+GvwzHh7wVolprsWmarq2joVS8+zISp3lgU+Rdvb7oHIrr6KKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//Z" alt="Armoirie MENAET" style="height:48px;width:auto;border-radius:3px;flex-shrink:0;"><div><h3 style="margin-bottom:2px;">👥 Comptes utilisateurs</h3><p style="font-size:11px;color:var(--text3);margin:0;">Ministère de l'Éducation Nationale et de l'Alphabétisation — MENAET · Système sécurisé</p></div></div></div>
+            <div style="padding:16px;" id="users-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3 id="compte-form-title">➕ Nouveau compte</h3></div>
+            <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+              <input type="hidden" id="edit-login-orig">
+              <div class="form-field"><label>Identifiant</label><input type="text" id="new-login" placeholder="prenom.nom"></div>
+              <div class="form-field"><label>Nom complet</label><input type="text" id="new-nom-user" placeholder="NOM PRÉNOMS"></div>
+              <div class="form-field"><label>Mot de passe</label><input type="password" id="new-pass" placeholder="Min. 8 caractères" oninput="checkPassStrength(this.value)">
+              <div id="pass-strength-bar" style="height:4px;border-radius:2px;margin-top:4px;background:#E5E9EF;"><div id="pass-strength-fill" style="height:100%;border-radius:2px;width:0%;transition:all 0.3s;"></div></div>
+              <div id="pass-strength-label" style="font-size:10px;margin-top:2px;color:var(--text3);"></div></div>
+              <div class="form-field"><label>Confirmer</label><input type="password" id="new-pass2" placeholder="••••••••"></div>
+              <div class="form-field">
+                <label>Rôle</label>
+                <select class="filter-select" id="new-role" style="width:100%;padding:10px;">
+                  <option value="admin">🔴 Administrateur</option>
+                  <option value="coordinateur">🟡 Coordonnateur régional</option>
+                  <option value="correspondant">🟢 Correspondant IEPP</option>
+                  <option value="directeur">🟣 Directeur d&#39;école</option>
+                  <option value="instituteur">🔵 Instituteur</option>
+                  <option value="benevole">🟩 Bénévole</option>
+                  <option value="cppp">🔷 CPPP / CPI</option>
+                  <option value="cabinet">⚫ Cabinet / Décideur</option>
+                  <option value="lecteur">⚪ Lecteur</option>
+                </select>
+              </div>
+              <div id="field-drena" class="form-field" style="display:none;"><label>DRENAET</label><select class="filter-select" id="new-drena" style="width:100%;padding:10px;"></select></div>
+              <div id="field-iepp" class="form-field" style="display:none;"><label>IEPP</label><select class="filter-select" id="new-iepp" style="width:100%;padding:10px;"></select></div>
+              <div id="field-ecole" class="form-field" style="display:none;"><label>École</label><select class="filter-select" id="new-ecole-user" style="width:100%;padding:10px;"></select></div>
+              <div id="field-classe" class="form-field" style="display:none;"><label>Classe</label><select class="filter-select" id="new-classe-user" style="width:100%;padding:10px;"><option value="CP1">CP1</option><option value="CP2">CP2</option><option value="CE1">CE1</option><option value="CE2">CE2</option><option value="CM1">CM1</option><option value="CM2">CM2</option></select></div>
+              <div id="compte-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:10px;font-size:13px;color:var(--danger);"></div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveCompte()">💾 Enregistrer</button>
+                <button class="btn btn-secondary" onclick="resetCompteForm()">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header"><h3>📋 Droits par rôle — CDC v2</h3></div>
+          <div style="padding:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:11px;">
+            <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:10px;">
+              <p style="font-weight:700;color:#DC2626;margin-bottom:5px;">🔴 Administrateur</p>
+              <p style="line-height:1.9;color:var(--text2);">✅ Tout accès<br>✅ Gestion comptes<br>✅ Import/Export<br>✅ Toutes structures<br>✅ Passage classe</p>
+            </div>
+            <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px;">
+              <p style="font-weight:700;color:var(--ci-orange);margin-bottom:5px;">🟡 Coordonnateur</p>
+              <p style="line-height:1.9;color:var(--text2);">✅ Sa DRENAET<br>✅ Saisie + résultats<br>✅ Export régional<br>❌ Gestion comptes<br>❌ Passage classe</p>
+            </div>
+            <div style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;padding:10px;">
+              <p style="font-weight:700;color:#7C3AED;margin-bottom:5px;">🟣 Directeur d'école</p>
+              <p style="line-height:1.9;color:var(--text2);">✅ Son école<br>✅ Saisie + suppression<br>✅ Valide passages<br>✅ Tous niveaux école<br>❌ Gestion comptes</p>
+            </div>
+            <div style="background:#ECFEFF;border:1px solid #A5F3FC;border-radius:8px;padding:10px;">
+              <p style="font-weight:700;color:#0891B2;margin-bottom:5px;">🔵 Instituteur / Bénévole</p>
+              <p style="line-height:1.9;color:var(--text2);">✅ Sa classe uniquement<br>✅ Saisie notes<br>✅ Passage classe<br>❌ Autres classes<br>❌ Suppression</p>
+            </div>
+            <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px;">
+              <p style="font-weight:700;color:#1A56DB;margin-bottom:5px;">🔷 CPPP / CPI</p>
+              <p style="line-height:1.9;color:var(--text2);">✅ Consultation<br>✅ Statistiques secteur<br>❌ Saisie notes<br>❌ Suppression<br>❌ Passage classe</p>
+            </div>
+            <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px;">
+              <p style="font-weight:700;color:var(--ci-vert);margin-bottom:5px;">🟢 Correspondant IEPP</p>
+              <p style="line-height:1.9;color:var(--text2);">✅ Son IEPP<br>✅ Saisie + résultats<br>✅ Ajout élèves<br>✅ Export global<br>❌ Suppression<br>❌ Passage classe</p>
+            </div>
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px;">
+              <p style="font-weight:700;color:#0D1B2A;margin-bottom:5px;">⚫ Cabinet</p>
+              <p style="line-height:1.9;color:var(--text2);">✅ Lecture nationale<br>✅ Stats agrégées<br>✅ Tableaux de bord<br>❌ Aucune modification<br>❌ Gestion comptes</p>
+            </div>
+            <div style="background:#F9FAFB;border:1px solid #F3F4F6;border-radius:8px;padding:10px;">
+              <p style="font-weight:700;color:#6B7280;margin-bottom:5px;">⚪ Lecteur</p>
+              <p style="line-height:1.9;color:var(--text2);">✅ Consultation seule<br>❌ Toute modification<br>❌ Import/Export<br>❌ Gestion comptes<br>❌ Passage classe</p>
+            </div>
+          </div>
+          <div style="padding:0 20px 16px;font-size:11px;color:var(--text3);">
+            <strong style="color:var(--text2);">Code 501 :</strong> peut être saisi à la place d'une note pour signaler une absence (ABS) ou un abandon — exclu du calcul de moyenne, affiché "ABS" sur le bulletin.
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- MODAL ÉLÈVE                                                -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-eleve" onclick="closeModal('modal-eleve',event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 id="modal-eleve-title">Ajouter un élève</h3>
+      <button class="modal-close" onclick="closeModal('modal-eleve')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-field"><label>Nom</label><input type="text" id="e-nom" placeholder="NOM"></label></div>
+        <div class="form-group"><label class="form-field"><label>Prénom(s)</label><input type="text" id="e-prenoms" placeholder="Prénoms"></label></div>
+        <div class="form-group"><label class="form-field"><label>Matricule</label><input type="text" id="e-matricule" placeholder="CI-2025-XXXXX"></label></div>
+        <div class="form-group"><label class="form-field"><label>Sexe</label>
+          <select id="e-sexe" class="filter-select" style="width:100%;padding:9px;">
+            <option value="M">Masculin</option><option value="F">Féminin</option>
+          </select></label>
+        </div>
+        <div class="form-group"><label class="form-field"><label>Date de naissance</label><input type="date" id="e-ddn"></label></div>
+        <div class="form-group"><label class="form-field"><label>Lieu de naissance</label><input type="text" id="e-lieu" placeholder="Ville"></label></div>
+        <div class="form-group"><label class="form-field"><label>Classe</label>
+          <select id="e-classe" class="filter-select" style="width:100%;padding:9px;">
+            <option>CP1</option><option>CP2</option><option>CE1</option>
+            <option>CE2</option><option>CM1</option><option>CM2</option>
+          </select></label>
+        </div>
+        <div class="form-group"><label class="form-field"><label>École</label>
+          <select id="e-ecole" class="filter-select" style="width:100%;padding:9px;" ></select>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-eleve')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEleve()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ÉCOLE -->
+<div class="modal-overlay" id="modal-ecole" onclick="closeModal('modal-ecole',event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header"><h3>Ajouter une école</h3><button class="modal-close" onclick="closeModal('modal-ecole')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full"><label class="form-field"><label>Nom de l'école</label><input type="text" id="ec-nom-f" placeholder="École Primaire de ..."></label></div>
+        <div class="form-group"><label class="form-field"><label>Code d'ouverture</label><input type="text" id="ec-code" placeholder="CI-2025-XXXX"></label></div>
+        <div class="form-group"><label class="form-field"><label>IEPP</label><input type="text" id="ec-iepp" placeholder="IEPP ..."></label></div>
+        <div class="form-group"><label class="form-field"><label>DRENAET</label><input type="text" id="ec-drena" placeholder="DRENAET ..."></label></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-ecole')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEcole()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DÉTAIL NOTE -->
+<div class="modal-overlay" id="modal-detail-note" onclick="closeModal('modal-detail-note',event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header"><h3 id="detail-note-title">Détail des notes</h3><button class="modal-close" onclick="closeModal('modal-detail-note')">✕</button></div>
+    <div class="modal-body" id="detail-note-body"></div>
+    <div class="modal-footer">
+    <button class="btn btn-secondary" onclick="closeModal('modal-detail-note')">Fermer</button>
+    <button class="btn btn-orange" id="btn-passage" style="display:none;" onclick="passageFromModal()">🎓 Passage en classe supérieure</button>
+  </div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════════
 // DONNÉES
@@ -2106,9 +3723,10 @@ function calcNote(note) {
     keys = ['cm2_dictee','cm2_exploitation','cm2_maths','cm2_eveil','cm2_eps'];
     baremes = { cm2_dictee:20, cm2_exploitation:50, cm2_maths:50, cm2_eveil:50, cm2_eps:20 };
   } else {
-    // composition1 à 4 : barème CE/CM
-    keys = ['cecm_dictee','cecm_exploitation','cecm_maths','cecm_eveil'];
-    baremes = { cecm_dictee:20, cecm_exploitation:50, cecm_maths:50, cecm_eveil:50 };
+    // composition1 à 4 : barème CE/CM (sans EPS)
+    // Exploitation de Texte(50) + Éveil au Milieu(50) + Dictée(20) + Maths(50) = /170
+    keys = ['cecm_exploitation','cecm_eveil','cecm_dictee','cecm_maths'];
+    baremes = { cecm_exploitation:50, cecm_eveil:50, cecm_dictee:20, cecm_maths:50 };
   }
 
   let total=0, baremeEffectif=0, nbAbs=0;
@@ -2142,7 +3760,7 @@ const EVAL_LABELS = {
   composition1:'Composition 1', composition2:'Composition 2',
   composition3:'Composition 3', composition4:'Composition 4',
   examen_blanc1:'Examen Blanc 1', examen_blanc2:'Examen Blanc 2',
-  entree6:'Entrée en 6ème (Examen Final)'
+  entree6:'Évaluation Finale / Entrée en 6ème'
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -2401,10 +4019,10 @@ const MATIERES = {
     { key:'cp_poesie',        label:'Poésie / Musique / Chant', max:10 },
   ],
   CECM: [
-    { key:'cecm_dictee',       label:'Dictée',                max:20 },
     { key:'cecm_exploitation', label:'Exploitation de Texte', max:50 },
-    { key:'cecm_maths',        label:'Mathématiques',         max:50 },
     { key:'cecm_eveil',        label:'Éveil au Milieu',       max:50 },
+    { key:'cecm_dictee',       label:'Dictée',                max:20 },
+    { key:'cecm_maths',        label:'Mathématiques',         max:50 },
   ],
   CM2_EXAMEN: [
     { key:'cm2_dictee',       label:'Dictée',                max:20 },
@@ -2491,8 +4109,8 @@ function buildNoteForm() {
     existInfo.textContent='⚠️ Des notes existent déjà pour cette évaluation. La sauvegarde les mettra à jour.';
   }
 
-  const titres = { CP:'NOTES CP (sur 10 par matière)', CECM:'NOTES CE / CM (Compositions)', CM2_EXAMEN:'NOTES CM2 — Examen Blanc', CM2_ENTREE6:'NOTES CM2 — Entrée en 6ème (Examen Final)' };
-  const totaux = { CP:'/80 — Moy. /10', CECM:'/170 — Moy. /20', CM2_EXAMEN:'/190 — Moy. /20', CM2_ENTREE6:'/190 — Moy. /20 (coefficient ×2)' };
+  const titres = { CP:'NOTES CP (sur 10 par matière)', CECM:'NOTES CE / CM (Compositions)', CM2_EXAMEN:'NOTES CM2 — Examen Blanc', CM2_ENTREE6:'NOTES CM2 — Évaluation Finale T1 (Entrée en 6ème)' };
+  const totaux = { CP:'/80 — Moy. /10', CECM:'/170 — Moy. /20', CM2_EXAMEN:'/190 — Moy. /20', CM2_ENTREE6:'/190 — T1 = Score/190×100 (coef. 60%)' };
 
   formCard.innerHTML = `
     <div class="notes-group">
@@ -4228,8 +5846,8 @@ function printBulletinDFA() {
     ? ['composition1','composition2','examen_blanc1','examen_blanc2','entree6']
     : ['composition1','composition2','composition3','composition4'];
   const evalNames = isCM2
-    ? ['Composition 1','Composition 2','Examen Blanc 1','Examen Blanc 2','Entrée en 6ème']
-    : ['Composition 1','Composition 2','Composition 3','Composition 4'];
+    ? ['Composition 1 (CC)', 'Composition 2 (CC)', 'Examen Blanc 1 (CC)', 'Examen Blanc 2 (CC)', 'Entrée en 6ème (T1)']
+    : ['Composition 1', 'Composition 2', 'Composition 3', 'Composition 4'];
 
   // Calculer les moyennes de chaque composition
   const moyennes = evalList.map(ev => {
@@ -4255,7 +5873,7 @@ function printBulletinDFA() {
 
   // Formule affichée
   const formule = isCM2
-    ? '[ Moy1 + Moy2 + EB1×2 + EB2×2 + MoyExamen×2 ] ÷ 8'
+    ? 'MGA = (Compo1+Compo2+EB1+EB2)/4 | T2=8.5×MGA | T1=Score/190×100 | TGP=(6×T1+4×T2)/10 | Admis si TGP≥85'
     : '[ (Moy1 + Moy2 + Moy3) + Moy4 × 2 ] ÷ 5';
 
   const dfaColor = pass.statut === 'admis' ? '#006B3F' : pass.statut === 'echec' ? '#DC2626' : '#9CA3AF';
@@ -4815,19 +6433,31 @@ function calcMoyAnnuelle(eleveId, classe) {
   // ────────────────────────────────────────────────────────────
 
   if (classe === 'CM2') {
-    // CM2 : Compo1, Compo2, Examen Blanc 1 (×2), Examen Blanc 2 (×2), Entrée 6ème (×2)
-    // Formule : (Compo1 + Compo2 + EB1×2 + EB2×2 + MoyExamen×2) / 8
-    const evalsCM2 = ['composition1','composition2','examen_blanc1','examen_blanc2','entree6'];
-    const moys = evalsCM2.map(ev => {
-      const n = DB.notes.find(x => x.eleve_id === eleveId && x.eval_type === ev);
+    // ── Formule officielle CM2 ──────────────────────────────
+    // MGA = (MoyCompo1 + MoyCompo2 + MoyEB1 + MoyEB2) / 4  [sur /20]
+    // T2  = 8.5 × MGA
+    // T1  = (total_brut_entree6 / 190) × 100  [score sur 100]
+    // TGP = (6×T1 + 4×T2) / 10
+    // Admis si TGP >= 85
+    // ────────────────────────────────────────────────────────
+    const evalsCC = ['composition1','composition2','examen_blanc1','examen_blanc2'];
+    const moysCC  = evalsCC.map(ev => {
+      const n = DB.notes.find(x => x.eleve_id===eleveId && x.eval_type===ev);
       if (!n) return null;
       const { moy, maxMoy } = calcNote(n);
-      return maxMoy > 0 ? Math.round((moy / maxMoy * 20) * 100) / 100 : null;
+      return maxMoy > 0 ? Math.round((moy/maxMoy*20)*100)/100 : null;
     });
-    if (moys.some(m => m === null)) return null;
-    const [m1, m2, meb1, meb2, me6] = moys;
-    // (Compo1 + Compo2 + EB1×2 + EB2×2 + MoyExamen×2) / 8
-    return Math.round((m1 + m2 + meb1*2 + meb2*2 + me6*2) / 8 * 100) / 100;
+    if (moysCC.some(m => m===null)) return null;
+    const MGA = moysCC.reduce((s,m)=>s+m,0) / 4;
+    const T2  = Math.round(8.5 * MGA * 100) / 100;
+    // T1 : note brute de l'épreuve finale sur 190
+    const nE6 = DB.notes.find(x => x.eleve_id===eleveId && x.eval_type==='entree6');
+    if (!nE6) return null;
+    const { total: totalE6, bareme: baremeE6 } = calcNote(nE6);
+    const T1 = Math.round((totalE6 / baremeE6) * 100 * 100) / 100; // score /100
+    const TGP = Math.round(((6*T1 + 4*T2) / 10) * 100) / 100;
+    // Retourner TGP (sur 100) pour getStatutPassage
+    return { TGP, T1, T2, MGA: Math.round(MGA*100)/100 };
   }
 
   // CP1 → CM1 : Compo1, Compo2, Compo3, Compo4
