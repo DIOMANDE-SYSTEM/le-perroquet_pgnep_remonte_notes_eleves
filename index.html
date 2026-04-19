@@ -746,6 +746,7 @@ tr:hover td{background:#F9FAFB;}
                 <option value="composition4">Composition 4</option>
                 <option value="examen_blanc1">Examen Blanc 1</option>
                 <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
               </select>
               <button class="btn btn-secondary btn-sm" onclick="printDashListe('alpha')">🖨 Liste Alpha</button>
               <button class="btn btn-secondary btn-sm" onclick="printDashListe('rang')">🖨 Liste Rang</button>
@@ -839,6 +840,7 @@ tr:hover td{background:#F9FAFB;}
                 <option value="composition4">Composition 4</option>
                 <option value="examen_blanc1">Examen Blanc 1</option>
                 <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
               </select>
             </div>
             <div id="existing-note-info" style="display:none;background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px;font-size:12px;color:var(--ci-orange);margin-bottom:8px;"></div>
@@ -865,6 +867,7 @@ tr:hover td{background:#F9FAFB;}
                 <option value="composition4">Composition 4</option>
                 <option value="examen_blanc1">Examen Blanc 1</option>
                 <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
               </select>
               <select class="filter-select" id="filt-res-classe" onchange="renderResultats()">
                 <option value="">Toutes classes</option>
@@ -912,6 +915,7 @@ tr:hover td{background:#F9FAFB;}
                 <option value="composition4">Composition 4</option>
                 <option value="examen_blanc1">Examen Blanc 1</option>
                 <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
               </select>
             </div>
             <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="printBulletin()">🖨️ Imprimer</button>
@@ -1073,6 +1077,7 @@ tr:hover td{background:#F9FAFB;}
                 <option value="composition4">Composition 4</option>
                 <option value="examen_blanc1">Examen Blanc 1</option>
                 <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
               </select>
             </div>
 
@@ -1734,9 +1739,9 @@ const DEFAUT_NOTES = [
   { id:'n5', eleve_id:'el5', eval_type:'composition1', classe:'CE1',
     notes:{ cecm_dictee:15, cecm_exploitation:38, cecm_maths:36, cecm_eveil:35 } },
   { id:'n6', eleve_id:'el7', eval_type:'composition1', classe:'CP2',
-    notes:{ cp_dictee:8, cp_lecture:7, cp_ecriture:9, cp_maths:8, cp_eveil:7, cp_edhc:9, cp_dessin:8, cp_poesie:7 } },
+    notes:{ cp_dictee:8, cp_lecture:7, cp_ecriture:9, cp_maths:8, cp_expression:7, cp_edhc:9, cp_dessin:8, cp_poesie:7 } },
   { id:'n7', eleve_id:'el8', eval_type:'composition1', classe:'CP2',
-    notes:{ cp_dictee:9, cp_lecture:9, cp_ecriture:8, cp_maths:10, cp_eveil:8, cp_edhc:9, cp_dessin:7, cp_poesie:8 } },
+    notes:{ cp_dictee:9, cp_lecture:9, cp_ecriture:8, cp_maths:10, cp_expression:8, cp_edhc:9, cp_dessin:7, cp_poesie:8 } },
 ];
 
 // ── Chargement DB ──
@@ -2092,8 +2097,11 @@ function calcNote(note) {
   let keys=[], baremes={}, totalBareme=0;
 
   if (c==='CP1' || c==='CP2') {
-    keys = ['cp_dictee','cp_lecture','cp_ecriture','cp_maths','cp_eveil','cp_edhc','cp_dessin','cp_poesie'];
+    keys = ['cp_dictee','cp_lecture','cp_ecriture','cp_maths','cp_expression','cp_edhc','cp_dessin','cp_poesie'];
     keys.forEach(k => baremes[k] = 10);
+  } else if (note.eval_type==='entree6' && c==='CM2') {
+    keys = ['e6_dictee','e6_exploitation','e6_maths','e6_eveil','e6_eps'];
+    baremes = { e6_dictee:20, e6_exploitation:50, e6_maths:50, e6_eveil:50, e6_eps:20 };
   } else if (note.eval_type==='examen_blanc1' || note.eval_type==='examen_blanc2') {
     keys = ['cm2_dictee','cm2_exploitation','cm2_maths','cm2_eveil','cm2_eps'];
     baremes = { cm2_dictee:20, cm2_exploitation:50, cm2_maths:50, cm2_eveil:50, cm2_eps:20 };
@@ -2133,7 +2141,8 @@ function getMention(moy, maxMoy) {
 const EVAL_LABELS = {
   composition1:'Composition 1', composition2:'Composition 2',
   composition3:'Composition 3', composition4:'Composition 4',
-  examen_blanc1:'Examen Blanc 1', examen_blanc2:'Examen Blanc 2'
+  examen_blanc1:'Examen Blanc 1', examen_blanc2:'Examen Blanc 2',
+  entree6:'Entrée en 6ème (Examen Final)'
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -2382,14 +2391,14 @@ function deleteEleve(idx) {
 // ══════════════════════════════════════════════════════════════
 const MATIERES = {
   CP: [
-    { key:'cp_dictee',   label:'Dictée',                 max:10 },
-    { key:'cp_lecture',  label:'Lecture',                max:10 },
-    { key:'cp_ecriture', label:'Écriture',               max:10 },
-    { key:'cp_maths',    label:'Mathématiques',          max:10 },
-    { key:'cp_eveil',    label:'Éveil au Milieu',        max:10 },
-    { key:'cp_edhc',     label:'EDHC',                   max:10 },
-    { key:'cp_dessin',   label:'Dessin',                 max:10 },
-    { key:'cp_poesie',   label:'Poésie / Musique / Chant',max:10 },
+    { key:'cp_dictee',        label:'Dictée',                   max:10 },
+    { key:'cp_lecture',       label:'Lecture',                  max:10 },
+    { key:'cp_ecriture',      label:'Écriture',                 max:10 },
+    { key:'cp_maths',         label:'Mathématiques',            max:10 },
+    { key:'cp_expression',    label:'Expression Écrite',        max:10 },
+    { key:'cp_edhc',          label:'EDHC',                     max:10 },
+    { key:'cp_dessin',        label:'Dessin',                   max:10 },
+    { key:'cp_poesie',        label:'Poésie / Musique / Chant', max:10 },
   ],
   CECM: [
     { key:'cecm_dictee',       label:'Dictée',                max:20 },
@@ -2404,10 +2413,18 @@ const MATIERES = {
     { key:'cm2_eveil',        label:'Éveil au Milieu',       max:50 },
     { key:'cm2_eps',          label:'EPS',                   max:20 },
   ],
+  CM2_ENTREE6: [
+    { key:'e6_dictee',        label:'Dictée',                max:20 },
+    { key:'e6_exploitation',  label:'Exploitation de Texte', max:50 },
+    { key:'e6_maths',         label:'Mathématiques',         max:50 },
+    { key:'e6_eveil',         label:'Éveil au Milieu',       max:50 },
+    { key:'e6_eps',           label:'EPS',                   max:20 },
+  ],
 };
 
 function getBloc(classe, evalType) {
   if (classe==='CP1' || classe==='CP2') return 'CP';
+  if (evalType==='entree6' && classe==='CM2') return 'CM2_ENTREE6';
   if ((evalType==='examen_blanc1'||evalType==='examen_blanc2') && classe==='CM2') return 'CM2_EXAMEN';
   return 'CECM';
 }
@@ -2419,15 +2436,22 @@ function populateSaisieEleves() {
 }
 function updateEvalOptions() {
   const eleveId=document.getElementById('sel-eleve').value;
-  const cpce=['CP1','CP2','CE1','CE2','CM1'];
-  let hideExamen=true;
-  if(eleveId){const el=DB.eleves.find(e=>e.id===eleveId);if(el&&!cpce.includes(el.classe))hideExamen=false;}
+  const isCM2  = eleveId ? (DB.eleves.find(e=>e.id===eleveId)||{}).classe==='CM2' : false;
+  const isCPCE = eleveId ? ['CP1','CP2','CE1','CE2','CM1'].includes((DB.eleves.find(e=>e.id===eleveId)||{}).classe) : true;
   ['sel-eval'].forEach(selId=>{
     const s=document.getElementById(selId);if(!s)return;
     Array.from(s.options).forEach(opt=>{
-      if(opt.value==='examen_blanc1'||opt.value==='examen_blanc2'){
-        opt.style.display=hideExamen?'none':'';opt.disabled=hideExamen;
-        if(hideExamen&&(s.value==='examen_blanc1'||s.value==='examen_blanc2'))s.value='';
+      // EB1, EB2, entree6 : uniquement CM2
+      if(['examen_blanc1','examen_blanc2','entree6'].includes(opt.value)){
+        const hide=!isCM2;
+        opt.style.display=hide?'none':'';opt.disabled=hide;
+        if(hide&&['examen_blanc1','examen_blanc2','entree6'].includes(s.value))s.value='';
+      }
+      // compo3, compo4 : uniquement CP1→CM1, masqués pour CM2
+      if(['composition3','composition4'].includes(opt.value)){
+        const hide=isCM2;
+        opt.style.display=hide?'none':'';opt.disabled=hide;
+        if(hide&&['composition3','composition4'].includes(s.value))s.value='';
       }
     });
   });
@@ -2467,8 +2491,8 @@ function buildNoteForm() {
     existInfo.textContent='⚠️ Des notes existent déjà pour cette évaluation. La sauvegarde les mettra à jour.';
   }
 
-  const titres = { CP:'NOTES CP (sur 10 par matière)', CECM:'NOTES CE / CM (Compositions)', CM2_EXAMEN:'NOTES CM2 — Examen Blanc' };
-  const totaux = { CP:'/80 — Moy. /10', CECM:'/170 — Moy. /20', CM2_EXAMEN:'/190 — Moy. /20' };
+  const titres = { CP:'NOTES CP (sur 10 par matière)', CECM:'NOTES CE / CM (Compositions)', CM2_EXAMEN:'NOTES CM2 — Examen Blanc', CM2_ENTREE6:'NOTES CM2 — Entrée en 6ème (Examen Final)' };
+  const totaux = { CP:'/80 — Moy. /10', CECM:'/170 — Moy. /20', CM2_EXAMEN:'/190 — Moy. /20', CM2_ENTREE6:'/190 — Moy. /20 (coefficient ×2)' };
 
   formCard.innerHTML = `
     <div class="notes-group">
@@ -3785,8 +3809,8 @@ function showNotif(msg, type='info') {
 const TRIM_EVALS = {
   trim1: ['composition1'],
   trim2: ['composition2'],
-  trim3: ['composition3','composition4','examen_blanc1','examen_blanc2'],
-  annuel: ['composition1','composition2','composition3','composition4','examen_blanc1','examen_blanc2']
+  trim3: ['examen_blanc1','examen_blanc2','entree6'],  // CM2: EB1, EB2, Entrée 6ème
+  annuel: ['composition1','composition2','composition3','composition4','examen_blanc1','examen_blanc2','entree6']
 };
 const TRIM_LABELS = {
   composition:'Après Composition',
@@ -4201,10 +4225,10 @@ function printBulletinDFA() {
   // Déterminer les évaluations selon la classe
   const isCM2 = el.classe === 'CM2';
   const evalList = isCM2
-    ? ['composition1','composition2','examen_blanc1','examen_blanc2']
+    ? ['composition1','composition2','examen_blanc1','examen_blanc2','entree6']
     : ['composition1','composition2','composition3','composition4'];
   const evalNames = isCM2
-    ? ['Composition 1','Composition 2','Examen Blanc 1','Examen Blanc 2']
+    ? ['Composition 1','Composition 2','Examen Blanc 1','Examen Blanc 2','Entrée en 6ème']
     : ['Composition 1','Composition 2','Composition 3','Composition 4'];
 
   // Calculer les moyennes de chaque composition
@@ -4231,7 +4255,7 @@ function printBulletinDFA() {
 
   // Formule affichée
   const formule = isCM2
-    ? '[ (Moy1 + Moy2 + MoyEB1) + MoyEB2 × 2 ] ÷ 5'
+    ? '[ Moy1 + Moy2 + EB1×2 + EB2×2 + MoyExamen×2 ] ÷ 8'
     : '[ (Moy1 + Moy2 + Moy3) + Moy4 × 2 ] ÷ 5';
 
   const dfaColor = pass.statut === 'admis' ? '#006B3F' : pass.statut === 'echec' ? '#DC2626' : '#9CA3AF';
@@ -4791,8 +4815,9 @@ function calcMoyAnnuelle(eleveId, classe) {
   // ────────────────────────────────────────────────────────────
 
   if (classe === 'CM2') {
-    // CM2 utilise Compo1, Compo2, Examen Blanc 1, Examen Blanc 2
-    const evalsCM2 = ['composition1','composition2','examen_blanc1','examen_blanc2'];
+    // CM2 : Compo1, Compo2, Examen Blanc 1 (×2), Examen Blanc 2 (×2), Entrée 6ème (×2)
+    // Formule : (Compo1 + Compo2 + EB1×2 + EB2×2 + MoyExamen×2) / 8
+    const evalsCM2 = ['composition1','composition2','examen_blanc1','examen_blanc2','entree6'];
     const moys = evalsCM2.map(ev => {
       const n = DB.notes.find(x => x.eleve_id === eleveId && x.eval_type === ev);
       if (!n) return null;
@@ -4800,9 +4825,9 @@ function calcMoyAnnuelle(eleveId, classe) {
       return maxMoy > 0 ? Math.round((moy / maxMoy * 20) * 100) / 100 : null;
     });
     if (moys.some(m => m === null)) return null;
-    const [m1, m2, meb1, meb2] = moys;
-    // [(M1 + M2 + MEB1) + MEB2×2] / 5
-    return Math.round(((m1 + m2 + meb1) + meb2 * 2) / 5 * 100) / 100;
+    const [m1, m2, meb1, meb2, me6] = moys;
+    // (Compo1 + Compo2 + EB1×2 + EB2×2 + MoyExamen×2) / 8
+    return Math.round((m1 + m2 + meb1*2 + meb2*2 + me6*2) / 8 * 100) / 100;
   }
 
   // CP1 → CM1 : Compo1, Compo2, Compo3, Compo4
@@ -4825,7 +4850,7 @@ function getStatutPassage(eleveId, classe) {
   const moy = calcMoyAnnuelle(eleveId, classe);
   if (moy === null) {
     const msg = classe === 'CM2'
-      ? '⏳ Incomplet (Compo1, Compo2, EB1, EB2 requis)'
+      ? '⏳ Incomplet (Compo1, Compo2, EB1×2, EB2×2, Entrée 6ème×2 requis)'
       : '⏳ Incomplet (4 compositions requises)';
     return { statut: 'incomplet', label: msg, color: 'var(--text3)', moy: null };
   }
