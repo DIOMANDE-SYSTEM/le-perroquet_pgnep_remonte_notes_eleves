@@ -972,6 +972,13 @@ tr:hover td{background:#F9FAFB;}
               <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px;">
                 <button class="btn btn-orange" style="width:100%;justify-content:center;" onclick="exportAll()">📦 Tout exporter (CSV + XLSX + JSON)</button>
               </div>
+
+              <!-- Export classe instituteur / bénévole -->
+              <div id="export-classe-section" style="display:none;border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
+                <div style="font-size:11px;font-weight:700;color:var(--ci-vert);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">📦 Export de ma classe</div>
+                <button class="btn btn-secondary" style="justify-content:flex-start;width:100%;" onclick="exportClasseCompletXLSX()">📊 Export complet — liste + notes + moyennes + rangs <span style="color:var(--ci-vert);font-weight:700;">.xlsx</span></button>
+                <p style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.5;">3 feuilles : Élèves &amp; Moyennes · Classement · Notes détaillées</p>
+              </div>
             </div>
           </div>
           <div class="card">
@@ -1569,7 +1576,7 @@ tr:hover td{background:#F9FAFB;}
             </div>
             <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px;">
               <p style="font-weight:700;color:var(--ci-vert);margin-bottom:5px;">🟢 Correspondant IEPP</p>
-              <p style="line-height:1.9;color:var(--text2);">✅ Son IEPP<br>✅ Saisie + résultats<br>❌ Export global<br>❌ Suppression<br>❌ Passage classe</p>
+              <p style="line-height:1.9;color:var(--text2);">✅ Son IEPP<br>✅ Saisie + résultats<br>✅ Ajout élèves<br>✅ Export global<br>❌ Suppression<br>❌ Passage classe</p>
             </div>
             <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px;">
               <p style="font-weight:700;color:#0D1B2A;margin-bottom:5px;">⚫ Cabinet</p>
@@ -1997,6 +2004,13 @@ function applyRoleUI() {
   // Menu Codes d'accès dans le guide : visible uniquement pour admin
   const gnawWrap = document.getElementById('gnav-acces-wrap');
   if (gnawWrap) gnawWrap.style.display = (r === 'admin') ? '' : 'none';
+  // Section export classe : instituteur + bénévole seulement
+  const exSec = document.getElementById('export-classe-section');
+  if (exSec) exSec.style.display = ['instituteur','benevole'].includes(r) ? '' : 'none';
+  // nav-comptes : admin + correspondant (lecture)
+  // nav-ecoles : masqué pour lecteur/cabinet uniquement
+  const navEc = document.getElementById('nav-ecoles');
+  if (navEc) navEc.style.display = ['lecteur','cabinet'].includes(r) ? 'none' : 'flex';
 }
 
 // Hiérarchie des droits CDC v2
@@ -2873,6 +2887,19 @@ let editingEcoleIdx = null;
 function openAddEcole() {
   editingEcoleIdx = null;
   ['ec-nom-f','ec-code','ec-iepp','ec-drena'].forEach(id => document.getElementById(id).value='');
+  // Instituteur/Bénévole : pré-remplir avec son école existante pour modification
+  if (currentUser && ['instituteur','benevole'].includes(currentUser.role)) {
+    const u = DB.users.find(x=>x.login===currentUser.login);
+    const ec = u ? DB.ecoles.find(x=>x.id===u.ecole_val) : null;
+    if (ec) {
+      const idx = DB.ecoles.indexOf(ec);
+      editingEcoleIdx = idx;
+      document.getElementById('ec-nom-f').value = ec.nom||'';
+      document.getElementById('ec-code').value  = ec.code||'';
+      document.getElementById('ec-iepp').value  = ec.iepp||'';
+      document.getElementById('ec-drena').value = ec.drena||'';
+    }
+  }
   document.getElementById('modal-ecole').classList.add('active');
 }
 function saveEcole() {
@@ -2881,11 +2908,32 @@ function saveEcole() {
   const iepp  = document.getElementById('ec-iepp').value.trim();
   const drena = document.getElementById('ec-drena').value.trim();
   if (!nom) { showNotif('Nom de l\'école obligatoire', 'error'); return; }
-  const rec = { id:genId('ec'), nom, code, iepp, drena };
-  DB.ecoles.push(rec);
-  save('ecoles'); updateStats(); renderEcoles();
-  closeModal('modal-ecole');
-  showNotif('✅ École ajoutée', 'success');
+
+  if (editingEcoleIdx !== null) {
+    // Modification d'une école existante
+    DB.ecoles[editingEcoleIdx] = { ...DB.ecoles[editingEcoleIdx], nom, code, iepp, drena };
+    save('ecoles'); updateStats(); renderEcoles();
+    closeModal('modal-ecole');
+    showNotif('✅ École modifiée', 'success');
+  } else {
+    // Nouvelle école
+    const rec = { id:genId('ec'), nom, code, iepp, drena };
+    DB.ecoles.push(rec);
+    // Instituteur/Bénévole : rattacher automatiquement à sa nouvelle école
+    if (currentUser && ['instituteur','benevole'].includes(currentUser.role)) {
+      const u = DB.users.find(x=>x.login===currentUser.login);
+      if (u) {
+        u.ecole_val = rec.id;
+        save('users');
+        // Mettre aussi à jour les élèves de sa classe si besoin
+        const structEl = document.getElementById('user-structure-label');
+        if (structEl) structEl.textContent = getStructureLabel(u);
+      }
+    }
+    save('ecoles'); updateStats(); renderEcoles();
+    closeModal('modal-ecole');
+    showNotif('✅ École ajoutée et rattachée à votre compte', 'success');
+  }
 }
 function renderEcoles() {
   const tbody = document.getElementById('table-ecoles');
@@ -2898,11 +2946,24 @@ function renderEcoles() {
       <td style="font-size:12px;">${e.drena||'—'}</td>
       <td><span class="badge badge-vert">${nb}</span></td>
       <td><div class="actions-cell">
-        ${canDelete()?`<button class="icon-btn" onclick="deleteEcole(${i})">🗑</button>`:''}
+        ${['instituteur','benevole'].includes(currentUser.role)?`<button class="icon-btn" onclick="editEcoleInst(${i})" title="Modifier">✏️</button>`:''}
+      ${canDelete()?`<button class="icon-btn" onclick="deleteEcole(${i})">🗑</button>`:''}
       </div></td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" class="empty-state"><p>Aucune école</p></td></tr>';
 }
+function editEcoleInst(idx) {
+  const ec = getScopeEcoles()[idx];
+  const realIdx = DB.ecoles.indexOf(ec);
+  if (realIdx < 0) return;
+  editingEcoleIdx = realIdx;
+  document.getElementById('ec-nom-f').value = ec.nom||'';
+  document.getElementById('ec-code').value  = ec.code||'';
+  document.getElementById('ec-iepp').value  = ec.iepp||'';
+  document.getElementById('ec-drena').value = ec.drena||'';
+  document.getElementById('modal-ecole').classList.add('active');
+}
+
 function deleteEcole(idx) {
   if (!canDelete()) { showNotif('🔒 Accès refusé', 'error'); return; }
   if (!confirm('Supprimer cette école ?')) return;
@@ -3319,6 +3380,76 @@ function exportResultatsCSV() {
   showNotif('⬇ Export résultats téléchargé', 'success');
 }
 
+
+// ── Export complet classe — Instituteur / Bénévole ───────────
+function exportClasseCompletXLSX() {
+  if (!checkXLSX()) return;
+  const u      = DB.users.find(x=>x.login===currentUser.login);
+  const eleves = getScopeEleves();
+  if (!eleves.length) { showNotif('Aucun élève dans votre classe', 'error'); return; }
+  const ec     = DB.ecoles.find(x=>x.id===(u?u.ecole_val:''));
+  const classe = u ? u.structure_val : 'Classe';
+  const evals  = ['composition1','composition2','composition3','composition4','examen_blanc1','examen_blanc2'];
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Feuille 1 : Élèves + Moyennes + DFA ──
+  const h1 = ['Matricule','Nom','Prénoms','Sexe','Date naiss.','Classe','École',
+    ...evals.map(e=>EVAL_LABELS[e]||e),'DFA /20','Résultat DFA'];
+  const rows1 = [h1, ...eleves.map(e => {
+    const ecE = DB.ecoles.find(x=>x.id===e.ecole_id);
+    const moys = evals.map(ev => {
+      const n = DB.notes.find(x=>x.eleve_id===e.id&&x.eval_type===ev);
+      if (!n) return '—';
+      const {moy,maxMoy}=calcNote(n);
+      return maxMoy>0 ? parseFloat((moy/maxMoy*20).toFixed(2)) : '—';
+    });
+    const pass = getStatutPassage(e.id, e.classe);
+    return [e.matricule||'', e.nom, e.prenoms, e.sexe, e.ddn||'', e.classe,
+      ecE?ecE.nom:'', ...moys, pass.moy!==null?pass.moy:'—', pass.label];
+  })];
+  const ws1 = XLSX.utils.aoa_to_sheet(rows1);
+  ws1['!cols'] = [12,18,18,6,12,8,22,12,12,12,12,12,12,10,22].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws1, 'Élèves & Moyennes');
+
+  // ── Feuille 2 : Classement par rang (dernière compo saisie) ──
+  const lastEval = [...evals].reverse().find(ev=>eleves.some(e=>DB.notes.find(n=>n.eleve_id===e.id&&n.eval_type===ev)));
+  if (lastEval) {
+    const scores = eleves.map(e => {
+      const n = DB.notes.find(x=>x.eleve_id===e.id&&x.eval_type===lastEval);
+      if (!n) return null;
+      const {moy,maxMoy}=calcNote(n);
+      const m20 = maxMoy>0?moy/maxMoy*20:0;
+      return { e, moy:m20, men:getMention(moy,maxMoy).label };
+    }).filter(Boolean).sort((a,b)=>b.moy-a.moy);
+    const h2 = ['Rang','Nom','Prénoms','Sexe','Classe','Moyenne /20','Mention'];
+    const rows2 = [h2, ...scores.map((x,i)=>[
+      i+1, x.e.nom, x.e.prenoms, x.e.sexe, x.e.classe,
+      parseFloat(x.moy.toFixed(2)), x.men
+    ])];
+    const ws2 = XLSX.utils.aoa_to_sheet(rows2);
+    ws2['!cols'] = [6,18,18,6,8,12,14].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws2, 'Classement '+(EVAL_LABELS[lastEval]||lastEval));
+  }
+
+  // ── Feuille 3 : Notes détaillées ──
+  const h3 = ['Élève','Classe','Évaluation','Total brut','Barème','Moyenne /20','Mention','Rang'];
+  const rows3 = [h3, ...getNotesFiltrees().map(n => {
+    const el=DB.eleves.find(e=>e.id===n.eleve_id);
+    if (!el) return null;
+    const {total,bareme,moy,maxMoy}=calcNote(n);
+    const men=getMention(moy,maxMoy);
+    const rang=getRang(n.eleve_id,n.eval_type,n.classe);
+    return [el.nom+' '+el.prenoms, n.classe, EVAL_LABELS[n.eval_type]||n.eval_type,
+      total, bareme, parseFloat((moy/maxMoy*20).toFixed(2)), men.label, rang?formatRang(rang):'—'];
+  }).filter(Boolean)];
+  const ws3 = XLSX.utils.aoa_to_sheet(rows3);
+  ws3['!cols'] = [24,8,18,10,8,12,14,12].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws3, 'Notes détaillées');
+
+  dlXLSX(wb, 'Export_Classe_'+classe+'_'+today()+'.xlsx');
+  showNotif('✅ Export classe téléchargé — 3 feuilles Excel', 'success');
+}
 
 function exportAll() {
   exportElevesCSV();
