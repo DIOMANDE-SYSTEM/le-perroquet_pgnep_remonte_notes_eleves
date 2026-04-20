@@ -56,10 +56,10 @@
   "keywords": "notes primaire, bulletin scolaire, DFA, gestion scolaire, Côte d'Ivoire"
 }
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+
+
+
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -613,7 +613,7 @@ tr:hover td{background:#F9FAFB;}
       </div>
       <div class="nav-item" onclick="showPage('corbeille')">
         <span class="nav-icon">🗑</span> Corbeille
-        <span id="badge-corbeille" style="background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:800;margin-left:6px;display:none;vertical-align:middle;"></span>
+        <span id="badge-corbeille" style="background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:800;margin-left:6px;display:none;"></span>
       </div>
       <div class="nav-item" onclick="showPage('guide')">
         <span class="nav-icon">📖</span> Guide d'utilisation
@@ -746,10 +746,10 @@ tr:hover td{background:#F9FAFB;}
                 <option value="">— Toutes évaluations —</option>
                 <option value="composition1">Composition 1</option>
                 <option value="composition2">Composition 2</option>
-                <option value="composition3">Composition 3</option>
-                <option value="composition4">Composition 4</option>
-                <option value="examen_blanc1">Examen Blanc 1</option>
-                <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="composition3" class="opt-cpcm">Composition 3</option>
+                <option value="composition4" class="opt-cpcm">Composition 4</option>
+                <option value="examen_blanc1" class="opt-cm2">Examen Blanc 1</option>
+                <option value="examen_blanc2" class="opt-cm2">Examen Blanc 2</option>
                 <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
               </select>
               <button class="btn btn-secondary btn-sm" onclick="printDashListe('alpha')">🖨 Liste Alpha</button>
@@ -840,10 +840,10 @@ tr:hover td{background:#F9FAFB;}
                 <option value="">-- Choisir --</option>
                 <option value="composition1">Composition 1</option>
                 <option value="composition2">Composition 2</option>
-                <option value="composition3">Composition 3</option>
-                <option value="composition4">Composition 4</option>
-                <option value="examen_blanc1">Examen Blanc 1</option>
-                <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="composition3" class="opt-cpcm">Composition 3</option>
+                <option value="composition4" class="opt-cpcm">Composition 4</option>
+                <option value="examen_blanc1" class="opt-cm2">Examen Blanc 1</option>
+                <option value="examen_blanc2" class="opt-cm2">Examen Blanc 2</option>
                 <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
               </select>
             </div>
@@ -867,10 +867,10 @@ tr:hover td{background:#F9FAFB;}
                 <option value="">Toutes évaluations</option>
                 <option value="composition1">Composition 1</option>
                 <option value="composition2">Composition 2</option>
-                <option value="composition3">Composition 3</option>
-                <option value="composition4">Composition 4</option>
-                <option value="examen_blanc1">Examen Blanc 1</option>
-                <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="composition3" class="opt-cpcm">Composition 3</option>
+                <option value="composition4" class="opt-cpcm">Composition 4</option>
+                <option value="examen_blanc1" class="opt-cm2">Examen Blanc 1</option>
+                <option value="examen_blanc2" class="opt-cm2">Examen Blanc 2</option>
                 <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
               </select>
               <select class="filter-select" id="filt-res-classe" onchange="renderResultats()">
@@ -905,7 +905,7 @@ tr:hover td{background:#F9FAFB;}
             <div class="section-title">Générer un bulletin</div>
             <div class="form-field">
               <label>Élève</label>
-              <select class="filter-select" id="bul-eleve" style="width:100%;padding:10px;" onchange="genBulletin()">
+              <select class="filter-select" id="bul-eleve" style="width:100%;padding:10px;" onchange="updateEvalOptions();genBulletin()">
                 <option value="">-- Choisir --</option>
               </select>
             </div>
@@ -915,15 +915,16 @@ tr:hover td{background:#F9FAFB;}
                 <option value="">-- Toutes --</option>
                 <option value="composition1">Composition 1</option>
                 <option value="composition2">Composition 2</option>
-                <option value="composition3">Composition 3</option>
-                <option value="composition4">Composition 4</option>
-                <option value="examen_blanc1">Examen Blanc 1</option>
-                <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="composition3" class="opt-cpcm">Composition 3</option>
+                <option value="composition4" class="opt-cpcm">Composition 4</option>
+                <option value="examen_blanc1" class="opt-cm2">Examen Blanc 1</option>
+                <option value="examen_blanc2" class="opt-cm2">Examen Blanc 2</option>
                 <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
               </select>
             </div>
             <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" onclick="printBulletin()">🖨️ Imprimer</button>
             <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:6px;" onclick="exportBulletinWord()">📝 Exporter en Word (.docx)</button>
+            <button class="btn btn-secondary" style="width:100%;justify-content:center;margin-top:6px;" onclick="exportBulletinExcel()">📊 Exporter en Excel (.xlsx)</button>
             <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">
               <p style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px;">📋 Composition de Passage (DFA)</p>
               <button class="btn btn-orange" style="width:100%;justify-content:center;" onclick="printBulletinDFA()">🎓 Imprimer Bulletin DFA</button>
@@ -1077,10 +1078,10 @@ tr:hover td{background:#F9FAFB;}
               <select class="filter-select" id="rpt-eval" style="width:100%;padding:9px;" onchange="genRapport()">
                 <option value="composition1">Composition 1</option>
                 <option value="composition2">Composition 2</option>
-                <option value="composition3">Composition 3</option>
-                <option value="composition4">Composition 4</option>
-                <option value="examen_blanc1">Examen Blanc 1</option>
-                <option value="examen_blanc2">Examen Blanc 2</option>
+                <option value="composition3" class="opt-cpcm">Composition 3</option>
+                <option value="composition4" class="opt-cpcm">Composition 4</option>
+                <option value="examen_blanc1" class="opt-cm2">Examen Blanc 1</option>
+                <option value="examen_blanc2" class="opt-cm2">Examen Blanc 2</option>
                 <option value="entree6">🎓 Entrée en 6ème (Examen Final)</option>
               </select>
             </div>
@@ -1112,37 +1113,27 @@ tr:hover td{background:#F9FAFB;}
       </div>
 
 
-      <!-- ══ CORBEILLE ══════════════════════════════════════════ -->
+      <!-- ══ GUIDE D'UTILISATION ════════════════════════════ -->
       <div id="page-corbeille" class="page">
         <div class="card">
           <div class="card-header">
             <h3>🗑 Corbeille &amp; Archives</h3>
             <div class="card-actions">
               <button class="btn btn-secondary btn-sm" onclick="renderCorbeille()">🔄 Actualiser</button>
-              <button class="btn btn-sm" onclick="viderCorbeille()" style="background:var(--danger);color:#fff;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">💀 Vider définitivement</button>
+              <button class="btn btn-sm" onclick="viderCorbeille()" style="background:var(--danger);color:#fff;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">💀 Vider</button>
             </div>
           </div>
-          <div style="padding:12px 16px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);">
-            🗑 Élèves supprimés (récupérables) &nbsp;|&nbsp; 🎓 CM2 archivés (admis en 6ème)
+          <div style="padding:10px 16px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);">
+            🗑 Élèves supprimés (récupérables ↩️) &nbsp;|&nbsp; 🎓 CM2 archivés (admis en 6ème)
           </div>
           <div class="table-wrap">
-            <table>
-              <thead><tr>
-                <th>Nom &amp; Prénoms</th>
-                <th>Classe</th>
-                <th>Matricule</th>
-                <th>Date</th>
-                <th>Statut</th>
-                <th>Actions</th>
-              </tr></thead>
-              <tbody id="table-corbeille"></tbody>
-            </table>
+            <table><thead><tr>
+              <th>Nom &amp; Prénoms</th><th>Classe</th><th>Matricule</th><th>Date</th><th>Statut</th><th>Actions</th>
+            </tr></thead><tbody id="table-corbeille"></tbody></table>
           </div>
         </div>
       </div>
 
-
-      <!-- ══ GUIDE D'UTILISATION ════════════════════════════ -->
       <div id="page-guide" class="page">
         <div style="display:grid;grid-template-columns:240px 1fr;gap:20px;align-items:start;">
 
@@ -1548,12 +1539,17 @@ tr:hover td{background:#F9FAFB;}
 
       <!-- ══ COMPTES UTILISATEURS ════════════════════════════ -->
       <div id="page-comptes" class="page">
+      <!-- Section adjoints directeur -->
+      <div id="card-adjoints" style="display:none;" class="card">
+        <div class="card-header"><h3>👨‍🏫 Mes instituteurs / Adjoints</h3></div>
+        <div id="section-adjoints" style="padding:12px 16px;"></div>
+      </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
           <div class="card">
             <div class="card-header" style="padding:14px 20px;"><div style="display:flex;align-items:center;gap:12px;"><img src="data:image/jpeg;base64,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" alt="Armoirie MENAET" style="height:48px;width:auto;border-radius:3px;flex-shrink:0;"><div><h3 style="margin-bottom:2px;">👥 Comptes utilisateurs</h3><p style="font-size:11px;color:var(--text3);margin:0;">Ministère de l'Éducation Nationale et de l'Alphabétisation — MENAET · Système sécurisé</p></div></div></div>
             <div style="padding:16px;" id="users-list"></div>
           </div>
-          <div class="card">
+          <div class="card" id="compte-form-section">
             <div class="card-header"><h3 id="compte-form-title">➕ Nouveau compte</h3></div>
             <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
               <input type="hidden" id="edit-login-orig">
@@ -1565,7 +1561,7 @@ tr:hover td{background:#F9FAFB;}
               <div class="form-field"><label>Confirmer</label><input type="password" id="new-pass2" placeholder="••••••••"></div>
               <div class="form-field">
                 <label>Rôle</label>
-                <select class="filter-select" id="new-role" style="width:100%;padding:10px;">
+                <select class="filter-select" id="new-role" style="width:100%;padding:10px;" onchange="updateStructureFields()">
                   <option value="admin">🔴 Administrateur</option>
                   <option value="coordinateur">🟡 Coordonnateur régional</option>
                   <option value="correspondant">🟢 Correspondant IEPP</option>
@@ -1577,10 +1573,10 @@ tr:hover td{background:#F9FAFB;}
                   <option value="lecteur">⚪ Lecteur</option>
                 </select>
               </div>
-              <div id="field-drena" class="form-field" style="display:none;"><label>DRENAET</label><select class="filter-select" id="new-drena" style="width:100%;padding:10px;"></select></div>
-              <div id="field-iepp" class="form-field" style="display:none;"><label>IEPP</label><select class="filter-select" id="new-iepp" style="width:100%;padding:10px;"></select></div>
-              <div id="field-ecole" class="form-field" style="display:none;"><label>École</label><select class="filter-select" id="new-ecole-user" style="width:100%;padding:10px;"></select></div>
-              <div id="field-classe" class="form-field" style="display:none;"><label>Classe</label><select class="filter-select" id="new-classe-user" style="width:100%;padding:10px;"><option value="CP1">CP1</option><option value="CP2">CP2</option><option value="CE1">CE1</option><option value="CE2">CE2</option><option value="CM1">CM1</option><option value="CM2">CM2</option></select></div>
+              <div id="field-drena" class="form-field"><label>DRENAET</label><input type="text" id="new-drena" placeholder="Ex: DRENAET Abidjan 1" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" oninput="memoriserChamp('drena',this.value)"></div>
+              <div id="field-iepp" class="form-field"><label>IEPP</label><input type="text" id="new-iepp" placeholder="Ex: IEPP Cocody" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" oninput="memoriserChamp('iepp',this.value)"></div>
+              <div id="field-ecole" class="form-field"><label>École</label><input type="text" id="new-ecole-user" placeholder="Ex: EPP Cocody Centre" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" oninput="memoriserChamp('ecole',this.value)"></div>
+              <div id="field-classe" class="form-field"><label>Classe <span style="color:var(--text3);font-size:10px;font-weight:400;">(selon le rôle)</span></label><select class="filter-select" id="new-classe-user" style="width:100%;padding:10px;"><option value="CP1">CP1</option><option value="CP2">CP2</option><option value="CE1">CE1</option><option value="CE2">CE2</option><option value="CM1">CM1</option><option value="CM2">CM2</option></select></div>
               <div id="compte-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:10px;font-size:13px;color:var(--danger);"></div>
               <div style="display:flex;gap:8px;">
                 <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveCompte()">💾 Enregistrer</button>
@@ -1657,6 +1653,12 @@ tr:hover td{background:#F9FAFB;}
         </div>
         <div class="form-group"><label class="form-field"><label>Date de naissance</label><input type="date" id="e-ddn"></label></div>
         <div class="form-group"><label class="form-field"><label>Lieu de naissance</label><input type="text" id="e-lieu" placeholder="Ville"></label></div>
+        <div class="form-group" id="fg-e-drena"><label class="form-field"><label>DRENAET</label>
+          <input type="text" id="e-drena" placeholder="Ex: DRENAET Abidjan 1" style="padding:9px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:100%;" oninput="memoriserChamp('drena',this.value)"></label></div>
+        <div class="form-group" id="fg-e-iepp"><label class="form-field"><label>IEPP</label>
+          <input type="text" id="e-iepp" placeholder="Ex: IEPP Cocody" style="padding:9px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:100%;" oninput="memoriserChamp('iepp',this.value)"></label></div>
+        <div class="form-group" id="fg-e-nom-ecole"><label class="form-field"><label>École</label>
+          <input type="text" id="e-nom-ecole" placeholder="Ex: EPP Cocody Centre" style="padding:9px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:100%;" oninput="memoriserChamp('ecole',this.value)"></label></div>
         <div class="form-group"><label class="form-field"><label>Classe</label>
           <select id="e-classe" class="filter-select" style="width:100%;padding:9px;">
             <option>CP1</option><option>CP2</option><option>CE1</option>
@@ -1927,7 +1929,7 @@ function getScopeUsers() {
   return [u];
 }
 
-function canManageComptes() { return currentUser && currentUser.role==='admin'; }
+function canManageComptes() { return currentUser && (currentUser.role==='admin' || currentUser.login==='diomande'); }
 
 function getRang(eleveId, evalType, classe) {
   const notesClasse = DB.notes.filter(n=>n.classe===classe && n.eval_type===evalType);
@@ -1943,10 +1945,20 @@ function formatRang(rang) {
 
 function updateStructureFields() {
   const role=document.getElementById('new-role').value;
-  document.getElementById('field-drena').style.display  = role==='coordinateur'?'':'none';
-  document.getElementById('field-iepp').style.display   = ['correspondant','cppp'].includes(role)?'':'none';
-  document.getElementById('field-ecole').style.display  = ['directeur','instituteur','benevole'].includes(role)?'':'none';
-  document.getElementById('field-classe').style.display = ['instituteur','benevole'].includes(role)?'':'none';
+  // Afficher tous les champs avec opacité selon pertinence
+  const showDrena  = ['coordinateur','correspondant','directeur','instituteur','benevole','cppp'].includes(role);
+  const showIepp   = ['correspondant','cppp','directeur','instituteur','benevole'].includes(role);
+  const showEcole  = ['directeur','instituteur','benevole'].includes(role);
+  const showClasse = ['instituteur','benevole'].includes(role);
+  document.getElementById('field-drena').style.opacity  = showDrena  ? '1' : '0.35';
+  document.getElementById('field-iepp').style.opacity   = showIepp   ? '1' : '0.35';
+  document.getElementById('field-ecole').style.opacity  = showEcole  ? '1' : '0.35';
+  document.getElementById('field-classe').style.opacity = showClasse ? '1' : '0.35';
+  // Désactiver les selects non pertinents
+  document.getElementById('new-drena').disabled       = !showDrena;
+  document.getElementById('new-iepp').disabled        = !showIepp;
+  document.getElementById('new-ecole-user').disabled  = !showEcole;
+  document.getElementById('new-classe-user').disabled = !showClasse;
   if(role==='coordinateur'||role==='instituteur') {
     const drenas=[...new Set(DB.ecoles.map(e=>e.drena).filter(Boolean))];
     const sel=document.getElementById('new-drena');
@@ -2018,7 +2030,7 @@ function applyRoleUI() {
   document.getElementById('user-avatar').textContent = currentUser.nom.charAt(0).toUpperCase();
   document.getElementById('user-avatar').style.background = ROLE_COLORS[r] || 'var(--ci-vert)';
   // Admin uniquement
-  document.getElementById('nav-comptes').style.display = (r==='admin'||r==='correspondant') ? 'flex' : 'none';
+  document.getElementById('nav-comptes').style.display = ['admin','correspondant','directeur'].includes(r) ? 'flex' : 'none';
   document.getElementById('btn-add').style.display = ['lecteur','cabinet','cppp'].includes(r) ? 'none' : 'flex';
   // Structure label sidebar
   const uData = DB.users.find(x=>x.login===currentUser.login);
@@ -2067,7 +2079,7 @@ function showPage(name) {
   if (name==='bulletins') { populateBulletinSelects(); }
   if (name==='corbeille')  { renderCorbeille(); }
   if (name==='rapport') { genRapport(); }
-  if (name==='comptes')   { renderUsersList(); }
+  if (name==='comptes')   { renderUsersList(); updateStructureFields(); restaurerChamps(); }
   if (name==='ecoles')    { renderEcoles(); }
   if (name==='saisie')    { populateSaisieEleves(); }
 }
@@ -2078,6 +2090,11 @@ function showPage(name) {
 window.onload = function() {
   loadDB();
   setTimeout(() => document.getElementById('login-user').focus(), 100);
+  ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+   'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js',
+   'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
+   'https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.umd.min.js'
+  ].forEach(u=>{const s=document.createElement('script');s.src=u;s.async=true;document.head.appendChild(s);});
 };
 
 function resetComptes() {
@@ -2087,76 +2104,106 @@ function resetComptes() {
   showNotif('✅ Comptes réinitialisés — reconnectez-vous', 'success');
 }
 
-// ══════════════════════════════════════════════════════════════
-// CORBEILLE & ARCHIVES
-// ══════════════════════════════════════════════════════════════
-function renderCorbeille() {
-  const tbody = document.getElementById('table-corbeille');
-  const badge = document.getElementById('badge-corbeille');
-  if (!tbody) return;
-  if (badge) { badge.textContent = DB.corbeille.length; badge.style.display = DB.corbeille.length>0?'inline-block':'none'; }
-  if (!DB.corbeille.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>La corbeille est vide</p></td></tr>';
+function renderAdjoints() {
+  // Afficher les instituteurs rattachés à l'école du directeur
+  const u = currentUser ? DB.users.find(x=>x.login===currentUser.login) : null;
+  if (!u || u.role !== 'directeur') return;
+  const container = document.getElementById('section-adjoints');
+  if (!container) return;
+  const adjoints = DB.users.filter(x=>
+    ['instituteur','benevole'].includes(x.role) && x.ecole_val===u.structure_val
+  );
+  if (!adjoints.length) {
+    container.innerHTML='<p style="color:var(--text3);font-size:12px;padding:8px;">Aucun instituteur rattaché à votre école.</p>';
     return;
   }
-  tbody.innerHTML = DB.corbeille.map((e,i) => {
-    const isArchive = e._archive === true;
-    const statut = isArchive
-      ? '<span class="badge" style="background:#D97706;color:#fff;padding:3px 8px;border-radius:6px;">🎓 '+e._statut+'</span>'
-      : '<span class="badge badge-red" style="padding:3px 8px;border-radius:6px;">🗑 Supprimé le '+e._supprime_le+'</span>';
-    const actions = isArchive
-      ? '<button class="icon-btn" onclick="supprimerDefinitif('+i+')" title="Supprimer définitivement" style="color:var(--danger);">💀</button>'
-      : '<button class="icon-btn" onclick="restaurerEleve('+i+')" title="Restaurer" style="color:var(--ci-vert);">↩️</button>'
-        +'<button class="icon-btn" onclick="supprimerDefinitif('+i+')" title="Supprimer définitivement" style="color:var(--danger);">💀</button>';
-    return '<tr>'
-      +'<td><strong>'+e.nom+'</strong> '+e.prenoms+'</td>'
-      +'<td><span class="badge badge-vert">'+e.classe+'</span></td>'
-      +'<td><code style="font-size:11px;">'+e.matricule+'</code></td>'
-      +'<td style="font-size:11px;">'+(e._supprime_le||e._archive_le||'—')+'</td>'
-      +'<td>'+statut+'</td>'
-      +'<td><div class="actions-cell">'+actions+'</div></td>'
-      +'</tr>';
+  container.innerHTML = adjoints.map(a=>{
+    const ec=DB.ecoles.find(x=>x.id===a.ecole_val);
+    const classe=a.structure_val||'—';
+    const role=ROLE_LABELS[a.role]||a.role;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="width:34px;height:34px;border-radius:50%;background:var(--bleu);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;">'+a.nom.charAt(0)+'</div>'
+      +'<div style="flex:1;">'
+        +'<div style="font-weight:600;font-size:13px;">'+a.nom+'</div>'
+        +'<div style="font-size:11px;color:var(--text2);">'+role+' · Classe '+classe+'</div>'
+      +'</div>'
+      +'<span class="badge badge-bleu" style="font-size:10px;">'+classe+'</span>'
+      +'</div>';
   }).join('');
 }
 
+function renderCorbeille() {
+  const tbody=document.getElementById('table-corbeille');
+  const badge=document.getElementById('badge-corbeille');
+  if(!tbody)return;
+  if(badge){badge.textContent=DB.corbeille.length;badge.style.display=DB.corbeille.length>0?'inline-block':'none';}
+  if(!DB.corbeille.length){tbody.innerHTML='<tr><td colspan="6" class="empty-state"><p>La corbeille est vide</p></td></tr>';return;}
+  tbody.innerHTML=DB.corbeille.map((e,i)=>{
+    const isArch=e._archive===true;
+    const statut=isArch
+      ?'<span class="badge" style="background:#D97706;color:#fff;padding:2px 8px;border-radius:6px;">🎓 '+e._statut+'</span>'
+      :'<span class="badge badge-red" style="padding:2px 8px;border-radius:6px;">🗑 Supprimé le '+e._supprime_le+'</span>';
+    const acts=isArch
+      ?'<button class="icon-btn" onclick="supprimerDefinitif('+i+')" title="Supprimer définitivement" style="color:var(--danger);">💀</button>'
+      :'<button class="icon-btn" onclick="restaurerEleve('+i+')" title="Restaurer" style="color:var(--ci-vert);">↩️</button><button class="icon-btn" onclick="supprimerDefinitif('+i+')" style="color:var(--danger);">💀</button>';
+    return '<tr><td><strong>'+e.nom+'</strong> '+e.prenoms+'</td><td><span class="badge badge-vert">'+e.classe+'</span></td><td><code style="font-size:11px;">'+e.matricule+'</code></td><td style="font-size:11px;">'+(e._supprime_le||e._archive_le||'—')+'</td><td>'+statut+'</td><td><div class="actions-cell">'+acts+'</div></td></tr>';
+  }).join('');
+}
 function restaurerEleve(idx) {
-  const e = DB.corbeille[idx];
-  if (!confirm('Restaurer ' + e.nom + ' ' + e.prenoms + ' dans la liste des élèves ?')) return;
-  if (e._notes && e._notes.length) {
-    e._notes.forEach(n => { if (!DB.notes.find(x=>x.id===n.id)) DB.notes.push(n); });
-  }
-  const { _supprime_le, _notes, _archive, _archive_le, _statut, ...eleveClean } = e;
-  DB.eleves.push(eleveClean);
-  DB.corbeille.splice(idx, 1);
-  save('eleves'); save('notes'); save('corbeille');
-  renderCorbeille(); renderEleves(); updateStats();
-  showNotif('✅ ' + eleveClean.nom + ' restauré avec succès', 'success');
+  const e=DB.corbeille[idx];
+  if(!confirm('Restaurer '+e.nom+' '+e.prenoms+' dans la liste des élèves ?'))return;
+  if(e._notes&&e._notes.length){e._notes.forEach(n=>{if(!DB.notes.find(x=>x.id===n.id))DB.notes.push(n);});}
+  const{_supprime_le,_notes,_archive,_archive_le,_statut,...clean}=e;
+  DB.eleves.push(clean);DB.corbeille.splice(idx,1);
+  save('eleves');save('notes');save('corbeille');
+  renderCorbeille();renderEleves();updateStats();
+  showNotif('✅ '+clean.nom+' restauré','success');
 }
-
 function supprimerDefinitif(idx) {
-  const e = DB.corbeille[idx];
-  if (!confirm('⚠️ Supprimer DÉFINITIVEMENT ' + e.nom + ' ' + e.prenoms + ' ?\nCette action est irréversible.')) return;
-  DB.corbeille.splice(idx, 1);
-  save('corbeille');
-  renderCorbeille();
-  showNotif('🗑 Élève supprimé définitivement', 'info');
+  const e=DB.corbeille[idx];
+  if(!confirm('⚠️ Supprimer DÉFINITIVEMENT '+e.nom+' '+e.prenoms+' ?\nIrréversible.'))return;
+  DB.corbeille.splice(idx,1);save('corbeille');renderCorbeille();
+  showNotif('🗑 Supprimé définitivement','info');
+}
+function viderCorbeille() {
+  if(!DB.corbeille.length){showNotif('La corbeille est vide','info');return;}
+  if(!confirm('⚠️ Vider toute la corbeille ('+DB.corbeille.length+' élève(s)) ?\nIrréversible.'))return;
+  DB.corbeille=[];save('corbeille');renderCorbeille();
+  showNotif('🗑 Corbeille vidée','info');
 }
 
-function viderCorbeille() {
-  if (!DB.corbeille.length) { showNotif('La corbeille est déjà vide', 'info'); return; }
-  if (!confirm('⚠️ Vider toute la corbeille (' + DB.corbeille.length + ' élève(s)) ?\nTous les élèves et archives seront supprimés définitivement.')) return;
-  DB.corbeille = [];
-  save('corbeille');
-  renderCorbeille();
-  showNotif('🗑 Corbeille vidée', 'info');
+// ── Mémorisation des champs DRENAET / IEPP / École ────────────
+const MEMOIRE_CHAMPS = JSON.parse(localStorage.getItem('pgnep_memoire') || '{}');
+
+function memoriserChamp(cle, valeur) {
+  if (valeur && valeur.trim()) {
+    MEMOIRE_CHAMPS[cle] = valeur.trim();
+    localStorage.setItem('pgnep_memoire', JSON.stringify(MEMOIRE_CHAMPS));
+  }
+}
+
+function restaurerChamps() {
+  // Formulaire compte
+  const ids = { drena:'new-drena', iepp:'new-iepp', ecole:'new-ecole-user' };
+  Object.entries(ids).forEach(([cle, id]) => {
+    const el = document.getElementById(id);
+    if (el && !el.value && MEMOIRE_CHAMPS[cle]) el.value = MEMOIRE_CHAMPS[cle];
+  });
+  // Formulaire élève
+  const ids2 = { drena:'e-drena', iepp:'e-iepp', ecole:'e-nom-ecole' };
+  Object.entries(ids2).forEach(([cle, id]) => {
+    const el = document.getElementById(id);
+    if (el && !el.value && MEMOIRE_CHAMPS[cle]) el.value = MEMOIRE_CHAMPS[cle];
+  });
 }
 
 function initApp() {
   updateStats();
   renderDashboard();
   updateImportUI();
-  const badge = document.getElementById('badge-corbeille');
-  if (badge && DB.corbeille.length>0) { badge.textContent=DB.corbeille.length; badge.style.display='inline-block'; }
+  if (currentUser && currentUser.role==='directeur') renderAdjoints();
+  const badge=document.getElementById('badge-corbeille');
+  if(badge&&DB.corbeille.length>0){badge.textContent=DB.corbeille.length;badge.style.display='inline-block';}
 }
 
 function updateStats() {
@@ -2361,6 +2408,33 @@ function populateEcoleFilter() {
 }
 
 let editingEleveIdx = null;
+function populateDrenaIeppEleve() {
+  // Peupler DRENAET
+  const selDrena = document.getElementById('e-drena');
+  const selIepp  = document.getElementById('e-iepp');
+  const fgDrena  = document.getElementById('fg-e-drena');
+  const fgIepp   = document.getElementById('fg-e-iepp');
+  if (!selDrena) return;
+  const u = currentUser ? DB.users.find(x=>x.login===currentUser.login) : null;
+  // Pour instituteur/benevole : masquer (auto-rempli)
+  if (u && ['instituteur','benevole'].includes(u.role)) {
+    if (fgDrena) fgDrena.style.display='none';
+    if (fgIepp)  fgIepp.style.display='none';
+    return;
+  }
+  if (fgDrena) fgDrena.style.display='';
+  if (fgIepp)  fgIepp.style.display='';
+  const drenas = [...new Set(DB.ecoles.map(e=>e.drena).filter(Boolean))];
+  selDrena.innerHTML = '<option value="">-- DRENAET --</option>' + drenas.map(d=>`<option value="${d}">${d}</option>`).join('');
+  const iepps  = [...new Set(DB.ecoles.map(e=>e.iepp).filter(Boolean))];
+  selIepp.innerHTML  = '<option value="">-- IEPP --</option>'  + iepps.map(i=>`<option value="${i}">${i}</option>`).join('');
+  // Pré-remplir si coordinateur/correspondant
+  if (u) {
+    if (u.structure_type==='drena') selDrena.value = u.structure_val;
+    if (u.structure_type==='iepp')  selIepp.value  = u.structure_val;
+  }
+}
+
 function openAddEleve() {
   if (!canEdit()) { showNotif('🔒 Accès refusé', 'error'); return; }
   editingEleveIdx = null;
@@ -2370,6 +2444,7 @@ function openAddEleve() {
   document.getElementById('e-classe').value='CP1';
   document.getElementById('e-ddn').value='';
   populateEcoleFilter();
+  restaurerChamps();
   document.getElementById('modal-eleve').classList.add('active');
 }
 function editEleve(idx) {
@@ -2419,7 +2494,9 @@ function viewEleve(idx) {
   // Afficher bouton passage si droits suffisants
   const btnP = document.getElementById('btn-passage');
   if (btnP) {
-    btnP.style.display = canPassage() ? 'flex' : 'none';
+    // CM2 : pas de bouton passage manuel (archivage via DFA uniquement)
+    const isCM2eleve = e && e.classe === 'CM2';
+    btnP.style.display = (canPassage() && !isCM2eleve) ? 'flex' : 'none';
     btnP.setAttribute('data-idx', idx);
   }
   document.getElementById('modal-detail-note').classList.add('active');
@@ -2444,7 +2521,13 @@ function saveEleve() {
     const u = DB.users.find(x=>x.login===currentUser.login);
     if (u) { classe = u.structure_val; ecole_id = u.ecole_val; }
   }
-  const rec = { nom, prenoms, matricule:matric||genId('CI-2025'), sexe, ddn, lieu, classe, ecole_id };
+  const drena    = (document.getElementById('e-drena')?.value||'').trim();
+  const iepp     = (document.getElementById('e-iepp')?.value||'').trim();
+  const nomEcole = (document.getElementById('e-nom-ecole')?.value||'').trim();
+  if(drena)    memoriserChamp('drena', drena);
+  if(iepp)     memoriserChamp('iepp',  iepp);
+  if(nomEcole) memoriserChamp('ecole', nomEcole);
+  const rec = { nom, prenoms, matricule:matric||genId('CI-2025'), sexe, ddn, lieu, classe, ecole_id, drena, iepp, nom_ecole:nomEcole };
   if (editingEleveIdx !== null) { DB.eleves[editingEleveIdx] = { ...DB.eleves[editingEleveIdx], ...rec }; showNotif('✅ Élève modifié', 'success'); }
   else { rec.id = genId('el'); DB.eleves.unshift(rec); showNotif('✅ Élève ajouté', 'success'); }
   save('eleves');
@@ -2462,15 +2545,15 @@ function deleteEleve(idx) {
       showNotif('🔒 Suppression limitée à votre classe', 'error'); return;
     }
   }
-  if (!confirm('Envoyer cet élève à la corbeille ?\n(Récupérable depuis Menu → Corbeille)')) return;
-  const id = eleve.id;
-  const notesEleve = DB.notes.filter(n=>n.eleve_id===id);
+  if (!confirm('Envoyer ' + eleve.nom + ' à la corbeille ?\n(Récupérable depuis Menu → Corbeille)')) return;
+  const notesEleve = DB.notes.filter(n=>n.eleve_id===eleve.id);
   DB.corbeille.push({...eleve, _supprime_le:new Date().toLocaleDateString('fr-FR'), _notes:notesEleve});
   DB.eleves.splice(idx,1);
-  DB.notes = DB.notes.filter(n=>n.eleve_id!==id);
+  DB.notes = DB.notes.filter(n=>n.eleve_id!==eleve.id);
   save('eleves'); save('notes'); save('corbeille');
   updateStats(); renderEleves(); renderDashboard();
-  showNotif('🗑 Élève déplacé en corbeille', 'info');
+  const b=document.getElementById('badge-corbeille'); if(b){b.textContent=DB.corbeille.length;b.style.display='inline-block';}
+  showNotif('🗑 ' + eleve.nom + ' déplacé en corbeille', 'info');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2522,21 +2605,24 @@ function populateSaisieEleves() {
   updateEvalOptions();
 }
 function updateEvalOptions() {
-  const eleveId=document.getElementById('sel-eleve').value;
-  const isCM2  = eleveId ? (DB.eleves.find(e=>e.id===eleveId)||{}).classe==='CM2' : false;
-  const isCPCE = eleveId ? ['CP1','CP2','CE1','CE2','CM1'].includes((DB.eleves.find(e=>e.id===eleveId)||{}).classe) : true;
-  ['sel-eval'].forEach(selId=>{
+  const eleveId = document.getElementById('sel-eleve').value;
+  const eleve   = eleveId ? DB.eleves.find(e=>e.id===eleveId) : null;
+  const isCM2   = !!(eleve && eleve.classe==='CM2');
+  const r       = currentUser ? currentUser.role : '';
+  // Rôles autorisés à voir EB1/EB2/entree6 (seulement si CM2)
+  const peutVoirEB = ['admin','directeur','instituteur','coordinateur','correspondant'].includes(r);
+  ['sel-eval','bul-eval','filt-eval','rapport-eval'].forEach(selId=>{
     const s=document.getElementById(selId);if(!s)return;
     Array.from(s.options).forEach(opt=>{
-      // EB1, EB2, entree6 : uniquement CM2
+      // EB1, EB2, entree6 : CM2 + rôle autorisé
       if(['examen_blanc1','examen_blanc2','entree6'].includes(opt.value)){
-        const hide=!isCM2;
+        const hide = !(isCM2 && peutVoirEB);
         opt.style.display=hide?'none':'';opt.disabled=hide;
         if(hide&&['examen_blanc1','examen_blanc2','entree6'].includes(s.value))s.value='';
       }
       // compo3, compo4 : uniquement CP1→CM1, masqués pour CM2
       if(['composition3','composition4'].includes(opt.value)){
-        const hide=isCM2;
+        const hide = isCM2;
         opt.style.display=hide?'none':'';opt.disabled=hide;
         if(hide&&['composition3','composition4'].includes(s.value))s.value='';
       }
@@ -2770,23 +2856,24 @@ function passageClasse(idx) {
   const pos = ordre.indexOf(e.classe);
   if (pos < 0) { showNotif('Classe inconnue', 'error'); return; }
   if (pos === ordre.length - 1) {
-    // CM2 → archiver dans la corbeille
-    if (!confirm('Archiver ' + e.nom + ' ' + e.prenoms + ' (CM2 admis en 6ème) ?\nIl sera placé dans la Corbeille / Archives.')) return;
+    // CM2 → archiver dans corbeille avec statut Admis en 6ème
+    if (!confirm('Archiver ' + e.nom + ' ' + e.prenoms + ' (admis en 6ème) ?\nIl sera placé dans la Corbeille/Archives.')) return;
     const notesEleve = DB.notes.filter(n=>n.eleve_id===e.id);
     DB.corbeille.push({...e, _archive:true, _archive_le:new Date().toLocaleDateString('fr-FR'), _statut:'Admis en 6ème', _notes:notesEleve});
     DB.eleves.splice(idx,1);
     DB.notes = DB.notes.filter(n=>n.eleve_id!==e.id);
     save('eleves'); save('notes'); save('corbeille');
+    const b=document.getElementById('badge-corbeille'); if(b){b.textContent=DB.corbeille.length;b.style.display='inline-block';}
     updateStats(); renderEleves(); renderDashboard();
     showNotif('🎓 ' + e.nom + ' archivé — admis en 6ème', 'success');
   } else {
     const nouvelle = ordre[pos+1];
-    if (!confirm('Passer ' + e.nom + ' ' + e.prenoms + ' de ' + e.classe + ' vers ' + nouvelle + ' ?\nLes notes seront réinitialisées.')) return;
+    if (!confirm('Passer ' + e.nom + ' ' + e.prenoms + ' de ' + e.classe + ' vers ' + nouvelle + ' ?\nLes notes seront réinitialisées pour la nouvelle année.')) return;
     DB.eleves[idx].classe = nouvelle;
     DB.notes = DB.notes.filter(n=>n.eleve_id!==e.id);
     save('eleves'); save('notes');
     updateStats(); renderEleves(); renderDashboard();
-    showNotif('✅ ' + e.nom + ' passé en ' + nouvelle, 'success');
+    showNotif('✅ ' + e.nom + ' passé en ' + nouvelle + ' — notes réinitialisées', 'success');
   }
   closeModal('modal-detail-note');
 }
@@ -3768,6 +3855,9 @@ let editingLoginOrig = null;
 
 function renderUsersList() {
   const visibleUsers=getScopeUsers();
+  const canEdit = canManageComptes();
+  // Directeur : lecture seule de ses enseignants
+  const isDirecteurReadonly = currentUser && currentUser.role==='directeur';
   document.getElementById('users-list').innerHTML = visibleUsers.map(u => `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px;margin-bottom:8px;">
       <div style="width:36px;height:36px;border-radius:50%;background:${ROLE_COLORS[u.role]||'#6B7280'}20;color:${ROLE_COLORS[u.role]||'#6B7280'};display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">${u.nom.charAt(0)}</div>
@@ -3777,10 +3867,14 @@ function renderUsersList() {
         <p style="font-size:11px;color:var(--ci-vert);margin-top:1px;">${getStructureLabel(u)}</p>
       </div>
       <div class="actions-cell">
-        ${canManageComptes()?`<button class="icon-btn" onclick="editCompte('${u.login}')">✏️</button>`:''}
-        ${canManageComptes()&&u.login!==currentUser?.login?`<button class="icon-btn" onclick="deleteCompte('${u.login}')">🗑</button>`:(u.login===currentUser?.login?'<span style="opacity:0.3;padding:5px;">🔒</span>':'')}
+        ${canEdit&&!isDirecteurReadonly?`<button class="icon-btn" onclick="editCompte('${u.login}')">✏️</button>`:''}
+        ${canEdit&&!isDirecteurReadonly&&u.login!==currentUser?.login?`<button class="icon-btn" onclick="deleteCompte('${u.login}')">🗑</button>`:(u.login===currentUser?.login?'<span style="opacity:0.3;padding:5px;">🔒</span>':'')}
+        ${isDirecteurReadonly?'<span style="font-size:10px;color:var(--text3);padding:4px;">👁 lecture</span>':''}
       </div>
     </div>`).join('');
+  // Masquer le formulaire ajout/modif pour le directeur
+  const formSection = document.getElementById('compte-form-section');
+  if (formSection) formSection.style.display = (canEdit && !isDirecteurReadonly) ? '' : 'none';
 }
 
 function resetCompteForm() {
@@ -3807,7 +3901,7 @@ function editCompte(login) {
   document.getElementById('compte-error').style.display='none';
 }
 
-async function saveCompte() {
+function saveCompte() {
   if(!canManageComptes()){showNotif('🔒 Réservé aux administrateurs','error');return;}
   const errEl=document.getElementById('compte-error');
   errEl.style.display='none';
@@ -3818,10 +3912,18 @@ async function saveCompte() {
   const pass2=document.getElementById('new-pass2').value;
   const role=document.getElementById('new-role').value;
   let structure_type='national',structure_val='',ecole_val='';
-  if(role==='coordinateur'){structure_type='drena';structure_val=document.getElementById('new-drena')?.value||'';}
-  else if(['correspondant','cppp'].includes(role)){structure_type='iepp';structure_val=document.getElementById('new-iepp')?.value||'';}
-  else if(role==='directeur'){structure_type='ecole';structure_val=document.getElementById('new-ecole-user')?.value||'';}
-  else if(role==='instituteur'){structure_type='classe';structure_val=document.getElementById('new-classe-user')?.value||'';ecole_val=document.getElementById('new-ecole-user')?.value||'';}
+  const valDrena = document.getElementById('new-drena')?.value.trim()||'';
+  const valIepp  = document.getElementById('new-iepp')?.value.trim()||'';
+  const valEcole = document.getElementById('new-ecole-user')?.value.trim()||'';
+  const valClasse= document.getElementById('new-classe-user')?.value||'';
+  // Mémoriser les valeurs saisies
+  if(valDrena) memoriserChamp('drena', valDrena);
+  if(valIepp)  memoriserChamp('iepp',  valIepp);
+  if(valEcole) memoriserChamp('ecole', valEcole);
+  if(role==='coordinateur'){structure_type='drena';structure_val=valDrena;}
+  else if(['correspondant','cppp'].includes(role)){structure_type='iepp';structure_val=valIepp;}
+  else if(role==='directeur'){structure_type='ecole';structure_val=valEcole;}
+  else if(['instituteur','benevole'].includes(role)){structure_type='classe';structure_val=valClasse;ecole_val=valEcole;}
   const err=msg=>{errEl.textContent=msg;errEl.style.display='block';};
   if(!login||!nom){err('Champs obligatoires.');return;}
   if(!orig&&!pass){err('Mot de passe obligatoire pour un nouveau compte.');return;}
@@ -3831,11 +3933,11 @@ async function saveCompte() {
   if(orig){
     const idx=DB.users.findIndex(u=>u.login===orig);
     DB.users[idx].nom=nom;DB.users[idx].role=role;DB.users[idx].structure_type=structure_type;DB.users[idx].structure_val=structure_val;DB.users[idx].ecole_val=ecole_val;
-    if(pass)DB.users[idx].pass=await hashPass(pass);
+    if(pass)DB.users[idx].pass=hashPass(pass);
     if(orig===currentUser?.login){currentUser.nom=nom;currentUser.role=role;applyRoleUI();}
     showNotif('✅ Compte modifié','success');
   } else {
-    const hashed = await hashPass(pass);
+    const hashed = hashPass(pass);
     DB.users.push({login,nom,pass:hashed,role,structure_type,structure_val,ecole_val});
     showNotif('✅ Compte créé','success');
   }
@@ -4455,6 +4557,46 @@ function printBulletinDFA() {
 </body></html>`);
   win.document.close();
   setTimeout(() => win.print(), 500);
+}
+
+function exportBulletinExcel() {
+  if (!checkXLSX()) return;
+  const eleveId = document.getElementById('bul-eleve').value;
+  if (!eleveId) { showNotif('Sélectionner un élève', 'error'); return; }
+  const el = DB.eleves.find(e=>e.id===eleveId);
+  if (!el) return;
+  const ec = DB.ecoles.find(x=>x.id===el.ecole_id);
+  const evalTypes = ['composition1','composition2','composition3','composition4','examen_blanc1','examen_blanc2','entree6'];
+  const lignesNotes = evalTypes.map(ev=>{
+    const n = DB.notes.find(x=>x.eleve_id===eleveId && x.eval_type===ev);
+    if (!n) return null;
+    const {moy,maxMoy,total,bareme} = calcNote(n);
+    const rang = getRang(eleveId, ev, el.classe);
+    const men  = getMention(moy, maxMoy);
+    return [EVAL_LABELS[ev]||ev, total+'/'+bareme, parseFloat((moy/maxMoy*20).toFixed(2)), men.label, rang?formatRang(rang):'—'];
+  }).filter(Boolean);
+  const pass = getStatutPassage(eleveId, el.classe);
+  const wb = XLSX.utils.book_new();
+  const rows = [
+    ['BULLETIN DE NOTES — '+el.classe],[],
+    ['Nom', el.nom+' '+el.prenoms],['Matricule',el.matricule||'—'],
+    ['Classe',el.classe],['École',ec?ec.nom:(el.nom_ecole||'—')],
+    ['IEPP',ec?ec.iepp:(el.iepp||'—')],['DRENAET',ec?ec.drena:(el.drena||'—')],[],
+    ['Évaluation','Total brut','Moyenne /20','Mention','Rang'],
+    ...lignesNotes,[],
+    ['RÉSULTAT FINAL', pass.label||'—'],
+  ];
+  if (el.classe==='CM2'&&pass.tgp!=null) {
+    rows.push(['MGA',pass.moy?pass.moy+'/20':'—']);
+    rows.push(['T1 (Éval. finale)',pass.t1!=null?pass.t1.toFixed(2):'—']);
+    rows.push(['T2 (Contrôle continu)',pass.t2!=null?pass.t2.toFixed(2):'—']);
+    rows.push(['TGP',pass.tgp!=null?pass.tgp.toFixed(2):'—']);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:30},{wch:14},{wch:14},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Bulletin');
+  dlXLSX(wb, 'Bulletin_'+el.nom+'_'+el.classe+'_'+today()+'.xlsx');
+  showNotif('✅ Bulletin exporté en Excel', 'success');
 }
 
 async function exportBulletinWord() {
