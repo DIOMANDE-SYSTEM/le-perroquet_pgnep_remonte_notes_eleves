@@ -54,7 +54,37 @@
     "audienceType": "Instituteurs, Directeurs d'école, Inspecteurs IEPP, Côte d'Ivoire"
   },
   "keywords": "notes primaire, bulletin scolaire, DFA, gestion scolaire, Côte d'Ivoire"
-}
+}<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "TON_API_KEY",
+  authDomain: "TON_DOMAIN",
+  projectId: "TON_PROJECT_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// AJOUTER
+window.ajouterEleve = async function () {
+  await addDoc(collection(db, "eleves"), {
+    nom: document.getElementById("nom").value,
+    classe: document.getElementById("classe").value,
+    moyenne: Number(document.getElementById("moyenne").value)
+  });
+  alert("Donnée envoyée !");
+};
+
+// LIRE
+window.afficherEleves = async function () {
+  const querySnapshot = await getDocs(collection(db, "eleves"));
+  querySnapshot.forEach(doc => {
+    console.log(doc.data());
+  });
+};
+</script>
 </script>
 
 
