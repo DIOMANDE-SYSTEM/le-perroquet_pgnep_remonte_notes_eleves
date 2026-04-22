@@ -5962,4 +5962,32 @@ function renderStatsIEPP(containerId) {
   `).join('');
 }
 
-</script>\n</body>\n</html>
+</script>\n<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDDsYcDRGsBwPLyeQI3AXiQW_KkeEcY2mM",
+  authDomain: "pgnep-menaet.firebaseapp.com",
+  projectId: "pgnep-menaet",
+  storageBucket: "pgnep-menaet.firebasestorage.app",
+  messagingSenderId: "466181318136",
+  appId: "1:466181318136:web:f179cd6689a5abd438e20d"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// Fonction test
+function ajouter() {
+  db.collection("notes").add({
+    nom: "Test",
+    note: 18
+  })
+  .then(() => alert("✅ Donnée envoyée"))
+  .catch((e) => alert("❌ Erreur"));
+}
+</script>
+
+<button onclick="ajouter()">Envoyer une donnée</button></body>\n</html>
