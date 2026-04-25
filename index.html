@@ -619,6 +619,12 @@ button.btn.btn-primary[onclick*="Save"] {
   <meta name="apple-mobile-web-app-title" content="Le Perroquet">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 </head>
 <body>
 
@@ -724,6 +730,7 @@ button.btn.btn-primary[onclick*="Save"] {
     </div>
 
     <div class="sidebar-user">
+      <div id="fb-status" style="padding:4px 12px;font-size:10px;color:var(--text3);text-align:center;border-top:1px solid var(--border);">☁️ Connexion cloud...</div>
       <div class="user-info">
         <div class="user-avatar" id="user-avatar" style="background:var(--ci-vert);">D</div>
         <div>
@@ -1818,6 +1825,184 @@ button.btn.btn-primary[onclick*="Save"] {
   </div>
 </div>
 
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// FIREBASE — PGNEP v3 · Perroquet-PGNEP-MENAET
+// ══════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyB0r1_VHBn3EYu73LsHzR1E8QEuk57uO8w",
+  authDomain:        "perroquet-pgnep-menaet.firebaseapp.com",
+  projectId:         "perroquet-pgnep-menaet",
+  storageBucket:     "perroquet-pgnep-menaet.firebasestorage.app",
+  messagingSenderId: "303217621491",
+  appId:             "1:303217621491:web:df7c6609e1396d62177a86",
+  measurementId:     "G-8QM8MWZLYB",
+  databaseURL:       "https://perroquet-pgnep-menaet-default-rtdb.firebaseio.com"
+};
+
+let FB_APP = null, DB_FS = null, DB_RT = null;
+let FB_ONLINE = false;
+let FB_SYNC_PENDING = {};
+
+function initFirebase() {
+  try {
+    FB_APP  = firebase.initializeApp(firebaseConfig);
+    DB_FS   = firebase.firestore();
+    DB_RT   = firebase.database();
+    FB_ONLINE = true;
+    console.log('✅ Firebase connecté — Firestore + Realtime DB');
+    showFirebaseStatus('online');
+  } catch(e) {
+    FB_ONLINE = false;
+    console.warn('⚠️ Firebase non disponible — mode localStorage', e);
+    showFirebaseStatus('offline');
+  }
+}
+
+function showFirebaseStatus(status) {
+  const el = document.getElementById('fb-status');
+  if (!el) return;
+  if (status === 'online') {
+    el.innerHTML = '☁️ <span style="color:var(--ci-vert);font-weight:600;">Cloud synchronisé</span>';
+  } else {
+    el.innerHTML = '💾 <span style="color:var(--text3);">Mode local</span>';
+  }
+}
+
+// ── Collections Firestore ─────────────────────────────────────
+const FS_COLLECTIONS = {
+  users:    'pgnep_users',
+  ecoles:   'pgnep_ecoles',
+  eleves:   'pgnep_eleves',
+  notes:    'pgnep_notes',
+  corbeille:'pgnep_corbeille'
+};
+
+// ── Sauvegarder dans Firestore + localStorage ─────────────────
+async function fbSave(key) {
+  // Toujours sauvegarder en localStorage (fallback)
+  localStorage.setItem('pgnep_'+key, JSON.stringify(DB[key]));
+
+  if (!FB_ONLINE || !DB_FS) return;
+
+  const col = FS_COLLECTIONS[key];
+  if (!col) return;
+
+  try {
+    const batch = DB_FS.batch();
+    const colRef = DB_FS.collection(col);
+
+    // Écrire chaque document
+    DB[key].forEach(item => {
+      if (!item.id) return;
+      const docRef = colRef.doc(String(item.id));
+      batch.set(docRef, item, { merge: true });
+    });
+
+    // Marquer les supprimés (via corbeille ou IDs manquants)
+    await batch.commit();
+    showNotifCloud('✅ Synchronisé');
+  } catch(e) {
+    console.warn('Firebase save error:', e);
+    showNotifCloud('⚠️ Sync en attente');
+    FB_SYNC_PENDING[key] = true;
+  }
+}
+
+// ── Charger depuis Firestore ──────────────────────────────────
+async function fbLoad(key) {
+  if (!FB_ONLINE || !DB_FS) return null;
+  const col = FS_COLLECTIONS[key];
+  if (!col) return null;
+  try {
+    const snap = await DB_FS.collection(col).get();
+    if (snap.empty) return null;
+    return snap.docs.map(d => ({ ...d.data(), id: d.id }));
+  } catch(e) {
+    console.warn('Firebase load error:', e);
+    return null;
+  }
+}
+
+// ── Écoute temps réel Firestore ───────────────────────────────
+function fbListen(key, callback) {
+  if (!FB_ONLINE || !DB_FS) return;
+  const col = FS_COLLECTIONS[key];
+  if (!col) return;
+  DB_FS.collection(col).onSnapshot(snap => {
+    if (snap.empty) return;
+    const data = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    callback(data);
+  }, err => {
+    console.warn('Firebase listen error:', err);
+  });
+}
+
+// ── Supprimer un document Firestore ──────────────────────────
+async function fbDelete(key, id) {
+  localStorage.setItem('pgnep_'+key, JSON.stringify(DB[key]));
+  if (!FB_ONLINE || !DB_FS || !id) return;
+  try {
+    await DB_FS.collection(FS_COLLECTIONS[key]).doc(String(id)).delete();
+  } catch(e) {
+    console.warn('Firebase delete error:', e);
+  }
+}
+
+// ── Notif cloud discrète ──────────────────────────────────────
+let fbNotifTimer = null;
+function showNotifCloud(msg) {
+  const el = document.getElementById('fb-status');
+  if (!el) return;
+  el.innerHTML = msg;
+  clearTimeout(fbNotifTimer);
+  fbNotifTimer = setTimeout(()=>showFirebaseStatus('online'), 2000);
+}
+
+// ── Chargement initial depuis Firestore ───────────────────────
+async function fbLoadAll() {
+  if (!FB_ONLINE) return false;
+  const keys = ['users','ecoles','eleves','notes','corbeille'];
+  let loaded = false;
+  for (const key of keys) {
+    const data = await fbLoad(key);
+    if (data && data.length > 0) {
+      DB[key] = data;
+      loaded = true;
+      console.log('☁️ Firebase → '+key+': '+data.length+' enregistrements');
+    }
+  }
+  return loaded;
+}
+
+// ── Écoute temps réel pour toutes les collections ────────────
+function fbListenAll() {
+  if (!FB_ONLINE) return;
+  fbListen('eleves', data => {
+    DB.eleves = data;
+    if (typeof renderEleves === 'function') renderEleves();
+    if (typeof updateStats === 'function') updateStats();
+  });
+  fbListen('notes', data => {
+    DB.notes = data;
+    if (typeof renderResultats === 'function') renderResultats();
+  });
+  fbListen('ecoles', data => {
+    DB.ecoles = data;
+    if (typeof renderEcoles === 'function') renderEcoles();
+  });
+  fbListen('users', data => {
+    // Ne pas écraser si l'utilisateur est connecté
+    DB.users = data;
+  });
+  fbListen('corbeille', data => {
+    DB.corbeille = data;
+    const badge = document.getElementById('badge-corbeille');
+    if (badge) { badge.textContent = data.length; badge.style.display = data.length>0?'inline-block':'none'; }
+  });
+}
+</script>
 <script>
 // ══════════════════════════════════════════════════════════════
 // DONNÉES
@@ -1896,7 +2081,11 @@ function loadDB() {
   DB.notes     = JSON.parse(localStorage.getItem('pgnep_notes')     || 'null') || [...DEFAUT_NOTES];
   DB.corbeille = JSON.parse(localStorage.getItem('pgnep_corbeille') || 'null') || [];
 }
-function save(key) { localStorage.setItem('pgnep_'+key, JSON.stringify(DB[key])); }
+function save(key) {
+  // Sauvegarder localStorage + Firebase
+  localStorage.setItem('pgnep_'+key, JSON.stringify(DB[key]));
+  if (FB_ONLINE) fbSave(key);
+}
 
 // ══════════════════════════════════════════════════════════════
 // AUTH
@@ -2198,8 +2387,21 @@ function showPage(name) {
 // ══════════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════════
-window.onload = function() {
+window.onload = async function() {
+  // Initialiser Firebase
+  initFirebase();
+  // Charger d'abord le localStorage (rapide)
   loadDB();
+  // Puis charger depuis Firebase si disponible (priorité cloud)
+  if (FB_ONLINE) {
+    showNotifCloud('☁️ Chargement cloud...');
+    const fbLoaded = await fbLoadAll();
+    if (fbLoaded) {
+      console.log('✅ Données chargées depuis Firebase');
+      // Activer l'écoute temps réel
+      fbListenAll();
+    }
+  }
   setTimeout(() => document.getElementById('login-user').focus(), 100);
   ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
    'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js',
