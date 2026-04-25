@@ -509,6 +509,106 @@ tr:hover td{background:#F9FAFB;}
   padding:10px 14px;font-size:12px;color:var(--text2);line-height:1.6;
 }
 
+/* ── Animations boutons verts ─────────────────────────────── */
+
+/* 1. Pulsation lumineuse */
+@keyframes pulse-vert {
+  0%   { box-shadow: 0 0 0 0 rgba(30,126,52,0.6); }
+  50%  { box-shadow: 0 0 0 12px rgba(30,126,52,0); }
+  100% { box-shadow: 0 0 0 0 rgba(30,126,52,0); }
+}
+
+/* 2. Reflet brillant qui glisse */
+@keyframes shimmer-vert {
+  0%   { background-position: -250% center; }
+  100% { background-position: 250% center; }
+}
+
+/* 3. Oscillation verticale douce */
+@keyframes nudge {
+  0%, 100% { transform: translateY(0px); }
+  25%       { transform: translateY(-4px); }
+  75%       { transform: translateY(-2px); }
+}
+
+/* 4. Léger balancement horizontal */
+@keyframes swing {
+  0%, 100% { transform: rotate(0deg); }
+  20%       { transform: rotate(-1.5deg); }
+  60%       { transform: rotate(1.5deg); }
+}
+
+/* ── Bouton Se connecter ── */
+.login-btn {
+  background: linear-gradient(
+    110deg,
+    var(--ci-vert) 0%,
+    var(--ci-vert) 35%,
+    #34d058 50%,
+    var(--ci-vert) 65%,
+    var(--ci-vert) 100%
+  ) !important;
+  background-size: 300% 100% !important;
+  animation: pulse-vert 2s ease-in-out infinite,
+             shimmer-vert 2.8s linear infinite !important;
+}
+.login-btn:hover {
+  animation: none !important;
+  transform: scale(1.04) translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(30,126,52,0.5) !important;
+}
+
+/* ── Boutons primaires (Ajouter, Enregistrer…) ── */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  animation: nudge 2.5s ease-in-out infinite !important;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: -50%; left: -75%;
+  width: 50%; height: 200%;
+  background: linear-gradient(
+    90deg, transparent,
+    rgba(255,255,255,0.3),
+    transparent
+  );
+  transform: skewX(-20deg);
+  animation: shimmer-vert 2.2s linear infinite;
+}
+.btn-primary:hover {
+  animation: none !important;
+  transform: scale(1.05) translateY(-3px) !important;
+  box-shadow: 0 8px 22px rgba(30,126,52,0.45) !important;
+}
+.btn-primary:hover::after { display: none; }
+
+/* ── Bouton orange (Export, Passage…) ── */
+.btn-orange {
+  animation: nudge 3s ease-in-out infinite 0.6s !important;
+}
+.btn-orange:hover {
+  animation: none !important;
+  transform: scale(1.04) translateY(-2px) !important;
+}
+
+/* ── Boutons Enregistrer dans les modals ── */
+button.btn.btn-primary[onclick*="save"],
+button.btn.btn-primary[onclick*="Save"] {
+  animation: pulse-vert 1.8s ease-in-out infinite,
+             nudge 3s ease-in-out infinite 0.4s !important;
+}
+
+/* ── Stopper les animations au clic ── */
+.login-btn:active,
+.btn-primary:active,
+.btn-orange:active {
+  animation: none !important;
+  transform: scale(0.96) !important;
+  box-shadow: none !important;
+}
+
 </style>
 
   <!-- PWA Manifest -->
@@ -1098,6 +1198,7 @@ tr:hover td{background:#F9FAFB;}
             <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;display:flex;flex-direction:column;gap:8px;">
               <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="printRapport()">🖨️ Imprimer le rapport</button>
               <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="exportRapportXLSX()">📊 Exporter Excel (.xlsx)</button>
+              <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="exportRapportWord()">📝 Exporter Word (.docx)</button>
             </div>
           </div>
 
@@ -1546,7 +1647,15 @@ tr:hover td{background:#F9FAFB;}
       </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
           <div class="card">
-            <div class="card-header" style="padding:14px 20px;"><div style="display:flex;align-items:center;gap:12px;"><img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCABRAIoDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9/KKKKACiiigAooooAKKK5+++KOg6feQQSajblpr7+zCytuWC5IJWKQj7jNjjdjJIA5IzMpKOsnYaTex0FFed+Gv2l9A8TS6QiC5tn1S4vrVhOAptXtFLS7+ehAyCOoIrQ8EfHvw948g057WeSJtTs5dShSZdrJaJJsFxJziNHOCu4gkHpwcc1PHYapbkqJ321Xk/1X3op05LdHaUVDp2pW+sWEN1aTw3NtcIJIpYnDpIp6MpHBB9RU1dZAUUUUAFFFFABRRRQAUUUUAFFFFAGd4v8TW/gzwrqOr3WPs2mW0lzJl1TKopY/MxCjp1JAr4M8Zf8FmtWNj5i+CR4e0u5k2QaodR+0SFdzBZUjMIEi7lKkcAgNtboa++9Y0e18QaZPZXtvFdWtwuySKRQyuPcGvzY/a4/wCCQ1zrXxU1O78A+PdDXXLuNLnR/CmrTubueMKFnla6kleXOdzDChcLjjBNeXmv1tU74V6/L9f+HOjD+zvaoS/Ar/gsZ4s+KOuWfhDWfCuieLjdahLaXl3pDzw3V3AWIRYbZQSko4wWcZGOhBNfP3i//gp54j+JHxRudP8AD/gbVnuNWvBp/wBikvmvNV1ERMypBJsj/fOhXK7gzrggs2M1p/stf8E2vEH7QMFxL4e1qKC90PXLaHWptTkfMasNz3EKpj5wqsuzIHEZ4IJrm/8AglNLo3gz4+/EK5vzu1LQtMuf7LvY7wwanE6XEiP5Bw3EoCpI2NyqTg8nPyao1M2oQo4v4JN2d90k77Wfda79T5zirF47D47B4TK6ypOrKSk+WMtIx5tFJNX00PW9Lu/i54snuXv/AIP+L7e7uZC09zq/jW0sJJXK5Iw0QZsK4BABOMA5rifjJ+0B8U/2bb03PiH4fag3h+9nthHcz6kmoaa8tsCiQyTRRBW27ifKlC5Yg4INfS/wx/4K0fCaXV/Fdq2p6BpFv4Ygii0TUZFWNHeRVEn2eI75ZnaXezbVJGFBJ+9Xyb/wU0/4KAt+0Ktp4G8O2uu2Hh618i51q61my+xajrtxGzNbGWE8okaFSCcNISCwAUCuavwbkeEhKvSlPnf/AE8m7vbXX5Pyujx+JuMJYDLKlelj3Ka0jaNGV5bJNKmtLrXa1nbY+hIf+Cv2q/Cz4S+HfEVn4DuUTxNpD3k934j1OTLyqzpG8DJGIjbLt+4gT+6ADzVj4N/8FmfFl3pNjBdaHY+O9bubeOW4Wzc6dGjMcJFDHsYs5z8zFiCcbQAMn528Af8ABPbWtc/Y10f4r3OrWcnhCTwwbqSLzZFvkm+1PGbZc5URtlTuBBClwACQa6j9nv8A4JW+Ivinoema3rvxF0LwppesFU8MfbQLm81f58SxsoeMxlQoQFCWbcDwTXpLF5h9ZWHp6aJrVfDtfVdXprqfd5bKnVwFLEVXeUoxbfm0m9v0P07/AGTf2krX9qf4SQ+J7axXTJDO9tPardC48p1xn5gFI4I4ZVYenQn02uW+EPwd0P4IeDoNE0G3litYerzTPPNKecbpJCzsBnAyTgAAcCupr7SmpKK59zCVr6BRRRViCiiigAoorwTxB/wU7+BvhTxB4m0zUfHdrZ3fhD+0xqgksrnbAdNUNfKrCPDtCGUsFz1GM0Ae90V842H/AAVa+Co8P6Nf6x4ivfDR1yGe5t7fVNMuIpY4IbiO3eaTajKieZNCu4tjMgHY46Hxd/wUZ+DHgTwDpnifVPHFlbaHrMF/c2N19luHF1HY3kVldFQIyf3dzNFGRjJLgjIyaAPba8q+Pv7Inhr49X66pNJd6D4jSJLYazppVLswoWZULEEHaXYqeqlmwcMwLvhJ+2p8Mvjnq/8AZ/hfxRb6nfrZ3t/JbfZpopYYrO5W1ui4dBtMc7qhU85PAI5rB0H/AIKRfBbxRaWN3p3ja2vNMvhY51GOyuTYWbXwU2cdxceX5dvJMHTYkrKx3px865wxGGpYim6VaKlF9H5O6+56p9GVCcovmi7M8i03/gmx44/Zvnl1T4OfEq5gunZ5LjTNXiCQXxLlwGkjBGQS2MoR8x5Ffm34w/Zi8XfBn9p+68M2HieDwj8RYZl1O3sxqu2c3EzGSJY54MhWYsxXeFAX5mIFfr54h/4KYfBDwv4I0bxHeeOrRNI8Q6Vba3psy2dy5vLS4u0s4ZUQRlvnuJEjAIzlgSAOarfE744/BDVvDvhDxZ4gtDdy+PnlsNAng8P3kuraj5UUs0kaLDEbgKsUUrnIA2qT6V4mY5I5UGsA+Sa21fL597X72Zw5llmDzOMYY+LajqnFuMk/Jxafy2Pyz8efC/8Aacg8cWFncfZdV1TWWYW2u6NNpEiykD5mfUIlVom9Wd0Y9smvO/Gn7Il18MvEkmnePPH3grQvEV6yPZ2CaidSn1R5GChvPT9ynzkqzSPww54INfpN4K8HfsYfG34n2Hg7wwlnrurahHb6jFbaW2oPaMtxA08TtIv7sbowzctwc5w1dz4W1X9lP4NajqbWmn+HbaDwBNfJda1eaXc3en6Pc2qhruIX0qPCk8YUblWTduXbjcCBx4rIcVXUV7Tl95Nu/Np1SvHrs+ttnc+Uh4d5ROr7TH1KuIS2jUm7J/Kz/H1PNPgf/wAE2/i54g+CmheBvGPj6Twr4I0G3FtbaLYBbiaZQ5k3SsAqk7ySMlsenAr6J+HH7A3g7wRdaE16o1yDw0kf9n289tHHDFLG4dJmVRhnVxvGeA53Y3YIyR/wVF+E2m+G7jUNbuvFXhmeyvrbT7rTdU8N3yajaSXTbbJpIEjd0S6PELMAJGyo+ZWUdf8ACX9t/wCG3xy+KGp+DfDGt3WpeIdFklh1C2Ol3UIspYghkikeSNVV18xAVJzk465r1f7AwMqlOtVhzzhs5atfp5rTR6rU+8p1pU6fsqXuxtay2ses0V4h4B/4KM/B74mz20WjeLJLmTUB5lgr6VeQnUohdpZtNbh4h58SXEiI8ke5ULAsVBBqrpn/AAU7+A+reGU1iP4kaLHp0kqRLLOk0HDWT3wl2ugIh+zRySeaR5YCMC2RivZMj3mivDb7/gpF8GdFSYan4w/sa5gQzSWmpaZeWd2kX2O4vVmMMkSyeU1taXMivt2t5LqCWG2sib/gq38BoNFtr4+OFZbu/XTIYV0y8a4e4a0+2qnliLdzbfvQcY2988UAfRNFVdE1iDxDotpqFqXa2voEuIi6FGKOoZcqwBBwRwRkVaoAK+S/ip+zfBr3iLxHZL+zR4N8QaXqN/qc8l9LrMEEuq/b12Xckg27x56n51JI4HoMfWleAal+yp8S7vxZdXsXxz8SQae+oXt7bWI06PbClzOkggZ92XjhSMRxDgqJJc5yu3gzDB1cTBRpV5UmnvDku/J88Jr7kmduBxdOhJyqUY1L9Jc1l5+5KL+9tHE+EvhVr3gjxBp+raf+zX4ZGqaRby2tjd3HiaG6ms4pZI5ZEjaUMUBkijbjHKiuf1L9lWPWI9Wju/2VvCNxDrSzJcwyeJ4zEqzXKXcwiT7sPmXEccr+UF3OgJyRSeN7zWPhx4tv/Bmr/HzxrPe6RZ2NsZjpARkLQCdTLLE4aSSRbS5JdUAAlCscjcZ7/TG+I/7PsPjpPjX4107RNRm0K1nuZUmiilbIhciJZyYEuZLm2ZiCDH5R7M1eR/YOM/6GFb7qH/yk9P8AtnC/9ANL763/AMtH6V+zjd6DrFrqFh+zLoNjqFo1wy3Vt4wEM8huJUmn8yRSGlEkkaMwkLZKDPSqM37JkD3WizL+yp4ShPh57KWxig8UpDCj2ePsrvGmEkaIABWkDEAAdABT/ixbah4N+J9jo2o/tD+NdBv/ABpqnl6daSWDNaRxCa3dNkqv+7t5B/oyyuRvkmIHOa2/iR8UYvFN98PToHxT8W2z+LPDdq9gdI0u51CQeVPEJruSNZNvmSC7gjdZlYooZhgqSD+wcZ/0MK33UP8A5SH9s4X/AKAaX31v/lp2/hn9gL4VXvgpIb/4P+HNPk1KG1e6sBcNKlg0Nx9rjhgYNiKOO5/eKsWxd4DYyBXX+Jv2U/BHjDwp4d0XUvB0FzYeEppbjRgdQnWbTpJY5IpGjlVxIC0csiH5uVcjpXgmkftNaN8NvgroZn+MWv6nqHhu/s9Zvr+80S7nl8QWsguLP7L5RO9gZYZZm8okIIN33ea5bxj8bdB0Dx98Qbu3+N3jK7isby31FLZLa5khFjE1kv2GCZJlDI7XsJMoKsROxyVViPo4QcYqLd7dXbXz0svuR4M5JybSt5dvvPprwV+xt8OPht43t/Efh34eaLoOsWsVtBHNp8jWyiO3i8mBTGhCEJGSoyp4NN1T9jL4a634i1jU7z4b6BdT6+1zJqMMpL2l3Jcx+XcStbk+SZJUyHk2bmyck5NeH6j4v8S+GfDtlY6t8W/GSwQ6FceMptQ/sRWlazhSCGe3lkimI2I+ceX+93TZDkjcczx78YrZD4ve8+Ofi7Q4PDFhLo0ul6fpE8kheeWWOK5ti0rXVxcJchCrbtpjhZSpVmYVYk+idB/Y/wDh5oGjXmnQ+AtLa11K+sdRu3uJ3uZriexkWSzd5ZGaRvIdFaNS21CDgDJz4VY6X8T/AIS/G3xP4l8H/sq6Emoarql3cS6tD48htzqxlYBrmSEjaHkVEJyMjA54qxqPjdtW8XamNJ+MPjK30WCbShY3T2Mlzb2wvvKe1kglWQ/axKkb589WVQ5OAchsfSfjrYaJ8M30/WPjv49+z6uNEl07Wm0AC8sLVPtN7LcSSR718u4jt5lZpUDRRqokU/eOdSm5bSa9LfqmcWMwtSukqdWVO38vLr680ZfhYp/CPwp8TPgRrB1Dwl+x34W0a9FpLYRyx+PLd2treWXzpIYd6t5UbyfOyR7VZgCQSBihpfwo8a6PeWdxB+xH8PhNp/hh/Bluz+L7GTy9Gdiz2GGjIMJLNlT2YjoSK6bWJ/EE1v4PtdQ/aA8WXNz8UPDlw+jNYaGLKPyZGSWO/wAiUNFPHJd24A3lTEvl7OrVo+JNc1OLwn8SfFcXxY8d6P4e8D6nJYXBvNNd5tGkheMukCiUi7yGVS04ZQHyMHdWX1ef/PyX/kv/AMicH9kYn/oMqfdS/wDlRwCfBfxqbCS3m/Ys8I3izZDyXnj2C6ndTaTWewyyBn2C3uJ4wm7aqyvgDcaf4g+EHjbxFPFcXH7FPgsXFrNHcwvb+Oba2aOWO1NojqY1XDC3JiyOSnBziuh8GeK9d1Hx54d8LWf7QHjO61FLiL7LBd+HITJJJYstrPHeTeYEmikllZm8v5mBj+cmMlvbtI/Z4+JNl4n8Kand/FO8v4/DWmCyuLDyHht9bmWTcLq4xISXYfKwHy45HpR9Xn/z8l/5L/8AIh/ZGJ/6DKn3Uv8A5UeueA7aWz8D6NDPYDSp4rGBJLIT+eLNhGoMXmfx7T8u7vjPetaorDz/ALDD9q8r7T5a+b5Wdm/Hzbc84znGalrqR7aVlYKKKKBmP4j8IW+qxXlzbW9jb63LaSW9vqD2ySSwFlIU5IyVBOdvQ145f/s7/ES/0jwZBH4q0XTYtMUJ4m060so1sPEBWNQJQph/ds77mdcEY2AY28+90UAfN19+zb8bI7Ca2g+Kuk3EKrD9l36JDbvEFkunaKQohDwr5tuqBQh2wYJySzSaR+zX8YdD0vUEsvibpFhfXWo3d1HPDosQhit5VuPKgWEIAu1ntyWySfJBOTX0bRQB87j9n340/bUuoPibotj5EqRwWbaSt2sVubpZH/fsFkMwh3xq4ATEjZTowwz+yZ8aY/B1raQfFPQYdUl0q507VLubw9b3C30kqQrHdBTGu17cxu0aHdH+8IZWAGPqSigD5v0X9mj4yaVoPkj4paWL6G9mnidtFhks5Lcx3ASza32KFhLvbl9jBj5PBBNdX8PP2dvFmhaV4ifXPHFxqGsazplpDbXVtbxQf2ffJahLi5TCZzJMXcbs7VYr0Ney0UAfOdn+zR8XtLu9SEPxSgmt5NKsrawWbT4ybW6iijFxMwEfzGSQSFT/AMshIMA7QDPqf7OfxZninGk/ETRvDtvPJFIbSPRorxw2bkTMblkVmd1lgG4pn9yR0Y5+haKAPnGb9mz4xXM8X2/4j+HtZtdNkRbSB9Cis3lhRIlH7xVc28jFGZnhXGThVUHCsvPgD8dtV+Gc2iTfEvw1BqN0rTzalHpKuXdrYReQYmTY0YkBl80jexOCuK+kaKAOQ+GvwzHh7wVolprsWmarq2joVS8+zISp3lgU+Rdvb7oHIrr6KKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD//Z" alt="Armoirie MENAET" style="height:48px;width:auto;border-radius:3px;flex-shrink:0;"><div><h3 style="margin-bottom:2px;">👥 Comptes utilisateurs</h3><p style="font-size:11px;color:var(--text3);margin:0;">Ministère de l'Éducation Nationale et de l'Alphabétisation — MENAET · Système sécurisé</p></div></div></div>
+            <div class="card-header">
+              <h3 id="comptes-titre">👥 Utilisateurs</h3>
+              <div class="card-actions" style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button class="btn btn-secondary btn-sm" onclick="printUsersListe()">🖨️</button>
+                <button class="btn btn-secondary btn-sm" onclick="exportUsersExcel()">📊 Excel</button>
+                <button class="btn btn-secondary btn-sm" onclick="exportUsersWord()">📝 Word</button>
+                <button class="btn btn-secondary btn-sm" onclick="exportUsersPDF()">📄 PDF</button>
+              </div>
+            </div></div></div>
             <div style="padding:16px;" id="users-list"></div>
           </div>
           <div class="card" id="compte-form-section">
@@ -1903,7 +2012,8 @@ function getNotesFiltrees() {
 
 function getScopeUsers() {
   const u=getCurrentUserData(); if(!u) return [];
-  if(['admin','cabinet','lecteur'].includes(u.role)) return DB.users;
+  if(u.role==='admin'||u.login==='diomande') return DB.users;
+  if(['cabinet','lecteur','cppp','instituteur','benevole'].includes(u.role)) return [];
   if(u.role==='coordinateur') {
     const ecoIds=getScopeEcoles().map(ec=>ec.id);
     const ieppList=getScopeEcoles().map(ec=>ec.iepp);
@@ -1925,11 +2035,12 @@ function getScopeUsers() {
       return false;
     });
   }
-  if(u.role==='directeur') return DB.users.filter(usr=>usr.role==='instituteur' && usr.ecole_val===u.structure_val);
+  if(u.role==='directeur') return DB.users.filter(usr=>['instituteur','benevole'].includes(usr.role)&&usr.ecole_val===u.structure_val);
   return [u];
 }
 
 function canManageComptes() { return currentUser && (currentUser.role==='admin' || currentUser.login==='diomande'); }
+function isReadonlyComptes() { return currentUser && ['directeur','correspondant','coordinateur'].includes(currentUser.role); }
 
 function getRang(eleveId, evalType, classe) {
   const notesClasse = DB.notes.filter(n=>n.classe===classe && n.eval_type===evalType);
@@ -2030,7 +2141,7 @@ function applyRoleUI() {
   document.getElementById('user-avatar').textContent = currentUser.nom.charAt(0).toUpperCase();
   document.getElementById('user-avatar').style.background = ROLE_COLORS[r] || 'var(--ci-vert)';
   // Admin uniquement
-  document.getElementById('nav-comptes').style.display = ['admin','correspondant','directeur'].includes(r) ? 'flex' : 'none';
+  document.getElementById('nav-comptes').style.display = (r==='admin' || currentUser.login==='diomande' || ['directeur','correspondant','coordinateur'].includes(r)) ? 'flex' : 'none';
   document.getElementById('btn-add').style.display = ['lecteur','cabinet','cppp'].includes(r) ? 'none' : 'flex';
   // Structure label sidebar
   const uData = DB.users.find(x=>x.login===currentUser.login);
@@ -3853,28 +3964,114 @@ function exportCompletXLSX() {
 const ROLE_LABEL_SHORT = { admin:'🔴 Admin', coordinateur:'🟡 Coordinateur', correspondant:'🟢 Correspondant', cppp:'🔵 CPPP', lecteur:'⚪ Lecteur' };
 let editingLoginOrig = null;
 
+function getExportUsersData() {
+  return getScopeUsers().map(u=>[u.nom,'@'+u.login,ROLE_LABELS[u.role]||u.role,getStructureLabel(u),u.structure_val||'—']);
+}
+function printUsersListe() {
+  const u0=getCurrentUserData();
+  const rows=getExportUsersData();
+  const w=window.open('','_blank');if(!w)return;
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial;font-size:11px;margin:20px;}h1{color:#1A3D6E;font-size:14px;text-align:center;}table{width:100%;border-collapse:collapse;}th{background:#1A3D6E;color:#fff;padding:5px 8px;font-size:10px;}td{padding:4px 8px;border-bottom:1px solid #ddd;font-size:10px;}tr:nth-child(even)td{background:#f5f5f5;}@media print{button{display:none;}}</style></head><body><h1>LISTE DES UTILISATEURS</h1><p style="text-align:center;font-size:11px;color:#555;">'+getStructureLabel(u0)+' · '+new Date().toLocaleDateString('fr-FR')+'</p><table><thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Structure</th><th>Zone</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table><script>window.onload=()=>window.print();<\/script></body></html>');
+  w.document.close();
+}
+function exportUsersExcel() {
+  if(!checkXLSX())return;
+  const u0=getCurrentUserData();
+  const rows=[['LISTE DES UTILISATEURS'],[getStructureLabel(u0),'Date:',new Date().toLocaleDateString('fr-FR')],[],['Nom','Identifiant','Rôle','Structure','Zone'],...getExportUsersData()];
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:22},{wch:16},{wch:20},{wch:25},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws,'Utilisateurs');
+  dlXLSX(wb,'Liste_Utilisateurs_'+today()+'.xlsx');
+  showNotif('✅ Liste exportée en Excel','success');
+}
+async function exportUsersWord() {
+  if(typeof docx==='undefined'||!docx){showNotif('📶 Export Word nécessite une connexion internet','error');return;}
+  const u0=getCurrentUserData();
+  const rows=getExportUsersData();
+  const{Document,Paragraph,Table,TableRow,TableCell,TextRun,AlignmentType,WidthType,BorderStyle,ShadingType,Packer}=docx;
+  const B=(t,s=20,c='000000')=>new TextRun({text:t,bold:true,size:s,color:c});
+  const N=(t,s=20,c='333333')=>new TextRun({text:t,size:s,color:c});
+  const P=(ch,al=AlignmentType.LEFT,sp=80)=>new Paragraph({children:ch,alignment:al,spacing:{after:sp}});
+  const HC=(t,bg='1A3D6E')=>new TableCell({children:[P([B(t,18,'FFFFFF')],AlignmentType.CENTER,0)],shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:60,bottom:60,left:80,right:80}});
+  const DC=(t,bg='FFFFFF',al=AlignmentType.LEFT)=>new TableCell({children:[P([N(String(t??'—'),16)],al,0)],shading:{fill:bg,type:ShadingType.CLEAR},margins:{top:50,bottom:50,left:80,right:80}});
+  const BR={top:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},bottom:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},left:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},right:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},insideH:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},insideV:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'}};
+  const ch=[
+    P([B('LISTE DES UTILISATEURS',26,'1A3D6E')],AlignmentType.CENTER,40),
+    P([N(getStructureLabel(u0)+' · '+new Date().toLocaleDateString('fr-FR'),18)],AlignmentType.CENTER,60),
+    new Table({width:{size:100,type:WidthType.PERCENTAGE},borders:BR,rows:[
+      new TableRow({children:['Nom','Identifiant','Rôle','Structure','Zone'].map(t=>HC(t)),tableHeader:true}),
+      ...rows.map((r,i)=>new TableRow({children:r.slice(0,5).map(c=>DC(c,i%2?'F2F4F6':'FFFFFF'))}))
+    ]})
+  ];
+  const doc=new Document({sections:[{properties:{page:{margin:{top:720,right:720,bottom:720,left:900}}},children:ch}]});
+  const blob=await Packer.toBlob(doc);
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:'Liste_Utilisateurs_'+today().replace(/\//g,'-')+'.docx'});
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(a.href);},1000);
+  showNotif('✅ Liste exportée en Word','success');
+}
+function exportUsersPDF() {
+  const u0=getCurrentUserData();
+  const rows=getExportUsersData();
+  const w=window.open('','_blank');if(!w){showNotif('Autoriser les popups pour PDF','error');return;}
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Arial;font-size:11px;margin:20px;}h1{color:#1A3D6E;font-size:14px;text-align:center;}table{width:100%;border-collapse:collapse;}th{background:#1A3D6E;color:#fff;padding:5px 8px;font-size:10px;}td{padding:4px 8px;border-bottom:1px solid #ddd;font-size:10px;}tr:nth-child(even)td{background:#f5f5f5;}@media print{@page{margin:15mm;}button{display:none;}}</style></head><body><h1>LISTE DES UTILISATEURS</h1><p style="text-align:center;font-size:11px;color:#555;">'+getStructureLabel(u0)+' · '+new Date().toLocaleDateString('fr-FR')+'</p><table><thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Structure</th><th>Zone</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table><script>window.onload=()=>window.print();<\/script></body></html>');
+  w.document.close();
+  showNotif('✅ PDF ouvert — Ctrl+P pour sauvegarder','success');
+}
+
 function renderUsersList() {
-  const visibleUsers=getScopeUsers();
-  const canEdit = canManageComptes();
-  // Directeur : lecture seule de ses enseignants
-  const isDirecteurReadonly = currentUser && currentUser.role==='directeur';
-  document.getElementById('users-list').innerHTML = visibleUsers.map(u => `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-      <div style="width:36px;height:36px;border-radius:50%;background:${ROLE_COLORS[u.role]||'#6B7280'}20;color:${ROLE_COLORS[u.role]||'#6B7280'};display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">${u.nom.charAt(0)}</div>
-      <div style="flex:1;min-width:0;">
-        <p style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${u.nom}</p>
-        <p style="font-size:11px;color:var(--text3);">@${u.login} · ${ROLE_LABEL_SHORT[u.role]||u.role}</p>
-        <p style="font-size:11px;color:var(--ci-vert);margin-top:1px;">${getStructureLabel(u)}</p>
-      </div>
-      <div class="actions-cell">
-        ${canEdit&&!isDirecteurReadonly?`<button class="icon-btn" onclick="editCompte('${u.login}')">✏️</button>`:''}
-        ${canEdit&&!isDirecteurReadonly&&u.login!==currentUser?.login?`<button class="icon-btn" onclick="deleteCompte('${u.login}')">🗑</button>`:(u.login===currentUser?.login?'<span style="opacity:0.3;padding:5px;">🔒</span>':'')}
-        ${isDirecteurReadonly?'<span style="font-size:10px;color:var(--text3);padding:4px;">👁 lecture</span>':''}
-      </div>
-    </div>`).join('');
-  // Masquer le formulaire ajout/modif pour le directeur
-  const formSection = document.getElementById('compte-form-section');
-  if (formSection) formSection.style.display = (canEdit && !isDirecteurReadonly) ? '' : 'none';
+  var visibleUsers = getScopeUsers();
+  var canEdit      = canManageComptes();
+  var u0           = getCurrentUserData();
+  var titreEl      = document.getElementById('comptes-titre');
+  if (titreEl) {
+    var tmap = {admin:'Tous les utilisateurs',
+      coordinateur:'Utilisateurs DRENAET '+((u0&&u0.structure_val)||''),
+      correspondant:'Utilisateurs IEPP '+((u0&&u0.structure_val)||''),
+      directeur:'Enseignants de mon école'};
+    titreEl.textContent = tmap[currentUser.role]||'Utilisateurs';
+  }
+  var container = document.getElementById('users-list');
+  if (!container) return;
+  if (!visibleUsers.length) {
+    container.innerHTML = '<p style="text-align:center;color:var(--text3);padding:20px;">Aucun utilisateur dans votre périmètre</p>';
+  } else {
+    var rows = '';
+    for (var i=0; i<visibleUsers.length; i++) {
+      var u = visibleUsers[i];
+      var bg = i%2===0 ? 'var(--surface)' : 'var(--bg)';
+      var rc = ROLE_COLORS[u.role]||'#6B7280';
+      var actions = '';
+      if (canEdit) {
+        if (u.login !== currentUser.login) {
+          actions = '<button class="icon-btn" data-login="'+u.login+'" onclick="editCompte(this.dataset.login)">✏️</button>'
+                  + '<button class="icon-btn" data-login="'+u.login+'" onclick="deleteCompte(this.dataset.login)" style="color:var(--danger);">🗑</button>';
+        } else {
+          actions = '<span style="opacity:0.3;font-size:11px;">🔒</span>';
+        }
+      } else {
+        actions = '<span style="font-size:10px;color:var(--text3);">👁</span>';
+      }
+      rows += '<tr style="background:'+bg+';">'
+        + '<td style="padding:7px 6px;font-size:12px;"><strong>'+u.nom+'</strong><div style="font-size:10px;color:var(--text3);">@'+u.login+'</div></td>'
+        + '<td style="padding:7px 6px;"><span style="background:'+rc+'20;color:'+rc+';padding:2px 7px;border-radius:6px;font-size:10px;font-weight:600;">'+(ROLE_LABELS[u.role]||u.role)+'</span></td>'
+        + '<td style="padding:7px 6px;font-size:11px;color:var(--text2);">'+getStructureLabel(u)+'</td>'
+        + '<td style="padding:7px 6px;font-size:11px;color:var(--text3);">'+(u.structure_val||'—')+'</td>'
+        + '<td style="padding:7px 6px;"><div class="actions-cell">'+actions+'</div></td>'
+        + '</tr>';
+    }
+    container.innerHTML = '<table style="width:100%;border-collapse:collapse;">'
+      + '<thead><tr style="background:var(--surface);">'
+      + '<th style="padding:8px 6px;text-align:left;font-size:11px;border-bottom:2px solid var(--border);">Nom</th>'
+      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">Rôle</th>'
+      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">Structure</th>'
+      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">Zone</th>'
+      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">⚙️</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+  var formSection = document.getElementById('compte-form-section');
+  if (formSection) formSection.style.display = canEdit ? '' : 'none';
 }
 
 function resetCompteForm() {
@@ -4339,6 +4536,191 @@ ${topRows ? '<h2>🏅 Tableau des meilleures et moins bonnes performances</h2><t
 </body></html>`);
   win.document.close();
   setTimeout(() => win.print(), 500);
+}
+
+async function exportRapportWord() {
+  if (typeof docx === 'undefined' || !docx) {
+    showNotif('📶 Export Word nécessite une connexion internet (chargement des librairies)', 'error');
+    return;
+  }
+  const type      = document.getElementById('rpt-type').value;
+  const evalSel   = document.getElementById('rpt-eval').value;
+  const classeFil = document.getElementById('rpt-classe').value;
+  const obsEl     = document.getElementById('rpt-observations');
+  const obs       = obsEl ? obsEl.value.trim() : '';
+
+  const data   = buildRapportData(type, evalSel, classeFil);
+  const u      = getCurrentUserData();
+  const ec0    = data.ecoles[0];
+  const today_ = new Date().toLocaleDateString('fr-FR', {day:'2-digit',month:'long',year:'numeric'});
+
+  const RPT_LABELS = {
+    composition:'Rapport Après Composition', trim1:'Rapport 1er Trimestre',
+    trim2:'Rapport 2e Trimestre', trim3:'Rapport 3e Trimestre', annuel:'Rapport Annuel'
+  };
+  const titre = RPT_LABELS[type] || 'Rapport d\'activité';
+  const evalLabel = data.evalSel ? (EVAL_LABELS[data.evalSel]||data.evalSel) : 'Toutes évaluations';
+
+  const { Document, Paragraph, Table, TableRow, TableCell, TextRun,
+          HeadingLevel, AlignmentType, WidthType, BorderStyle,
+          VerticalAlign, ShadingType, Packer } = docx;
+
+  const VERT  = '1E7E34';
+  const BLEU  = '1A3D6E';
+  const GRIS  = 'F2F4F6';
+  const BLANC = 'FFFFFF';
+
+  // ── Helpers ──────────────────────────────────────────
+  const bold   = (t,sz=22,color='000000') => new TextRun({text:t,bold:true,size:sz,color});
+  const normal = (t,sz=20,color='333333') => new TextRun({text:t,size:sz,color});
+  const para   = (children, align=AlignmentType.LEFT, spacing=120) =>
+    new Paragraph({children, alignment:align, spacing:{after:spacing}});
+  const cell   = (children, opts={}) => new TableCell({
+    children: Array.isArray(children) ? children : [para([children])],
+    shading: opts.bg ? {fill:opts.bg, type:ShadingType.CLEAR} : undefined,
+    verticalAlign: VerticalAlign.CENTER,
+    margins: {top:60,bottom:60,left:100,right:100},
+    ...opts
+  });
+  const hCell  = (txt, bg=BLEU) => cell(
+    [para([bold(txt,18,BLANC)], AlignmentType.CENTER, 0)], {bg}
+  );
+  const dCell  = (txt, bg=BLANC, align=AlignmentType.CENTER) => cell(
+    [para([normal(String(txt??'—'),18)], align, 0)], {bg}
+  );
+
+  const children = [];
+
+  // ── En-tête ───────────────────────────────────────────
+  children.push(para([bold('RÉPUBLIQUE DE CÔTE D\'IVOIRE',24,BLEU)], AlignmentType.CENTER, 60));
+  children.push(para([normal('Ministère de l\'Éducation Nationale et de l\'Alphabétisation',18,BLEU)], AlignmentType.CENTER, 60));
+  children.push(para([normal('',14)], AlignmentType.CENTER, 0));
+
+  // ── Titre ─────────────────────────────────────────────
+  children.push(para([bold(titre.toUpperCase(),28,VERT)], AlignmentType.CENTER, 80));
+  children.push(para([normal('Année scolaire 2025-2026',20,'555555')], AlignmentType.CENTER, 60));
+
+  // ── Infos contexte ────────────────────────────────────
+  const infoLines = [
+    ['Évaluation', evalLabel],
+    ['Classe(s)',  classeFil || 'Toutes'],
+    ['École',      ec0 ? ec0.nom : (u&&u.nom_ecole ? u.nom_ecole : '—')],
+    ['IEPP',       ec0 ? ec0.iepp : (u&&u.iepp ? u.iepp : '—')],
+    ['DRENAET',    ec0 ? ec0.drena : (u&&u.drena ? u.drena : '—')],
+    ['Date',       today_],
+    ['Établi par', u ? u.nom : '—'],
+  ];
+  const infoTable = new Table({
+    width:{size:100,type:WidthType.PERCENTAGE},
+    rows: infoLines.map(([k,v]) => new TableRow({children:[
+      hCell(k, '2D5016'),
+      dCell(v, GRIS, AlignmentType.LEFT),
+    ]})),
+    borders: {top:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},bottom:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},left:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},right:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},insideH:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},insideV:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'}},
+  });
+  children.push(infoTable);
+  children.push(para([normal('')], AlignmentType.LEFT, 80));
+
+  // ── Tableau stats par classe ──────────────────────────
+  children.push(para([bold('STATISTIQUES PAR CLASSE',22,BLEU)], AlignmentType.LEFT, 40));
+  const COLS = ['Classe','Effectif','G','F','Avec notes','Taux (%)','Moy /20','Admis','Échecs'];
+  const statRows = [
+    new TableRow({children: COLS.map(c => hCell(c)), tableHeader:true}),
+    ...data.statsByClasse.map((s,i) => new TableRow({children:[
+      dCell(s.cl, i%2===0?GRIS:BLANC),
+      dCell(s.total, i%2===0?GRIS:BLANC),
+      dCell(s.G, i%2===0?GRIS:BLANC),
+      dCell(s.F, i%2===0?GRIS:BLANC),
+      dCell(s.avecNotes, i%2===0?GRIS:BLANC),
+      dCell(s.taux+'%', i%2===0?GRIS:BLANC),
+      dCell(s.moyGlobale, i%2===0?GRIS:BLANC),
+      dCell(s.admis, i%2===0?'D5F5E3':BLANC),
+      dCell(s.echecs, i%2===0?'FDEDEC':BLANC),
+    ]}))
+  ];
+  children.push(new Table({
+    width:{size:100,type:WidthType.PERCENTAGE},
+    rows:statRows,
+    borders:{top:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},bottom:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},left:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},right:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},insideH:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},insideV:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'}},
+  }));
+  children.push(para([normal('')], AlignmentType.LEFT, 80));
+
+  // ── DFA si annuel/trim3 ───────────────────────────────
+  const hasDFA = data.statsByClasse.some(s=>s.dfaStats);
+  if (hasDFA) {
+    children.push(para([bold('RÉSULTATS DFA — DÉCISION DE FIN D\'ANNÉE',22,BLEU)], AlignmentType.LEFT, 40));
+    const dfaRows = [
+      new TableRow({children:[hCell('Classe'),hCell('Admis'),hCell('Échecs'),hCell('Incomplets')],tableHeader:true}),
+      ...data.statsByClasse.filter(s=>s.dfaStats).map((s,i)=>new TableRow({children:[
+        dCell(s.cl, i%2===0?GRIS:BLANC),
+        dCell(s.dfaStats.admis, i%2===0?'D5F5E3':BLANC),
+        dCell(s.dfaStats.echec, i%2===0?'FDEDEC':BLANC),
+        dCell(s.dfaStats.incomplet, i%2===0?GRIS:BLANC),
+      ]}))
+    ];
+    children.push(new Table({width:{size:60,type:WidthType.PERCENTAGE},rows:dfaRows,
+      borders:{top:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},bottom:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},left:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},right:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},insideH:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},insideV:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'}},
+    }));
+    children.push(para([normal('')], AlignmentType.LEFT, 80));
+  }
+
+  // ── Meilleurs et moins bons élèves ───────────────────
+  const hasPalma = data.statsByClasse.some(s=>s.best);
+  if (hasPalma) {
+    children.push(para([bold('PALMARÈS PAR CLASSE',22,BLEU)], AlignmentType.LEFT, 40));
+    const palmRows = [
+      new TableRow({children:[hCell('Classe'),hCell('1er / Meilleur'),hCell('Moy'),hCell('Dernier'),hCell('Moy')],tableHeader:true}),
+      ...data.statsByClasse.filter(s=>s.best).map((s,i)=>new TableRow({children:[
+        dCell(s.cl, i%2===0?GRIS:BLANC),
+        dCell(s.best?s.best.e.nom+' '+s.best.e.prenoms:'—', i%2===0?GRIS:BLANC, AlignmentType.LEFT),
+        dCell(s.best?s.best.moy.toFixed(2):'—', i%2===0?GRIS:BLANC),
+        dCell(s.worst?s.worst.e.nom+' '+s.worst.e.prenoms:'—', i%2===0?GRIS:BLANC, AlignmentType.LEFT),
+        dCell(s.worst?s.worst.moy.toFixed(2):'—', i%2===0?GRIS:BLANC),
+      ]}))
+    ];
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:palmRows,
+      borders:{top:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},bottom:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},left:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},right:{style:BorderStyle.SINGLE,size:2,color:'1A3D6E'},insideH:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'},insideV:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'}},
+    }));
+    children.push(para([normal('')], AlignmentType.LEFT, 80));
+  }
+
+  // ── Observations ──────────────────────────────────────
+  if (obs) {
+    children.push(para([bold('OBSERVATIONS ET RECOMMANDATIONS',22,BLEU)], AlignmentType.LEFT, 40));
+    obs.split('\n').forEach(line => {
+      children.push(para([normal(line||' ',20)], AlignmentType.LEFT, 60));
+    });
+    children.push(para([normal('')], AlignmentType.LEFT, 40));
+  }
+
+  // ── Signature ─────────────────────────────────────────
+  children.push(para([normal('')], AlignmentType.LEFT, 200));
+  children.push(new Table({
+    width:{size:100,type:WidthType.PERCENTAGE},
+    rows:[new TableRow({children:[
+      cell([para([normal('Fait à ____________, le '+today_,18)],AlignmentType.LEFT,20),
+            para([normal(''),18],AlignmentType.LEFT,60),
+            para([bold(u?u.nom:'',18)],AlignmentType.CENTER,0)], {bg:BLANC}),
+      cell([para([bold('Cachet et Signature',18)],AlignmentType.CENTER,20),
+            para([normal(''),18],AlignmentType.LEFT,80)], {bg:GRIS}),
+    ]})],
+    borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE},insideH:{style:BorderStyle.NONE},insideV:{style:BorderStyle.NONE}},
+  }));
+
+  // ── Générer et télécharger ────────────────────────────
+  const doc = new Document({sections:[{
+    properties:{page:{margin:{top:720,right:720,bottom:720,left:900}}},
+    children
+  }]});
+
+  const blob = await Packer.toBlob(doc);
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = titre.replace(/\s+/g,'_')+'_'+today().replace(/\//g,'-')+'.docx';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);}, 1000);
+  showNotif('✅ Rapport exporté en Word', 'success');
 }
 
 function exportRapportXLSX() {
