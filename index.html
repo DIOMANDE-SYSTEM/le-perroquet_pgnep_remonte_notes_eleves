@@ -61,9 +61,282 @@
 
 
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- ══ FIREBASE SDK ══ -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, enableIndexedDbPersistence, writeBatch, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB0r1_VHBn3EYu73LsHzR1E8QEuk57uO8w",
+  authDomain: "perroquet-pgnep-menaet.firebaseapp.com",
+  projectId: "perroquet-pgnep-menaet",
+  storageBucket: "perroquet-pgnep-menaet.firebasestorage.app",
+  messagingSenderId: "303217621491",
+  appId: "1:303217621491:web:df7c6609e1396d62177a86",
+  measurementId: "G-8QM8MWZLYB"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const auth = getAuth(app);
+
+// ── Persistance hors ligne (IndexedDB) ──────────────────────
+enableIndexedDbPersistence(db).catch(err => {
+  if (err.code === 'failed-precondition') console.warn('Persistance offline: onglets multiples détectés');
+  else if (err.code === 'unimplemented') console.warn('Navigateur sans support offline');
+});
+
+// ── Indicateur de connectivité ───────────────────────────────
+function setOnlineStatus(online) {
+  const dot = document.getElementById('conn-dot');
+  const lbl = document.getElementById('conn-label');
+  if (!dot || !lbl) return;
+  dot.style.background = online ? '#22C55E' : '#F59E0B';
+  lbl.textContent = online ? 'En ligne · Firebase' : '⚠️ Hors ligne — synchro en attente';
+}
+window.addEventListener('online',  () => setOnlineStatus(true));
+window.addEventListener('offline', () => setOnlineStatus(false));
+setOnlineStatus(navigator.onLine);
+
+// ══════════════════════════════════════════════════════════════
+// FIREBASE DB HELPERS
+// ══════════════════════════════════════════════════════════════
+
+// Expose Firebase à la fenêtre pour que les fonctions classiques puissent y accéder
+window._fbDB   = db;
+window._fbAuth = auth;
+window._fb = {
+  // ── Collections ──
+  col: (name) => collection(db, name),
+  docRef: (col, id) => doc(db, col, id),
+
+  // ── Lire tous les docs d'une collection ──
+  async getAll(colName) {
+    try {
+      const snap = await getDocs(collection(db, colName));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) { console.error('getAll', colName, e); return []; }
+  },
+
+  // ── Écrire / mettre à jour un doc ──
+  async set(colName, id, data) {
+    try {
+      await setDoc(doc(db, colName, id), data, { merge: true });
+    } catch(e) { console.error('set', colName, id, e); }
+  },
+
+  // ── Supprimer un doc ──
+  async del(colName, id) {
+    try {
+      await deleteDoc(doc(db, colName, id));
+    } catch(e) { console.error('del', colName, id, e); }
+  },
+
+  // ── Écoute temps réel d'une collection ──
+  listen(colName, callback) {
+    return onSnapshot(collection(db, colName), snap => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      callback(data);
+    }, err => console.error('listen', colName, err));
+  },
+
+  // ── Auth : connexion email/pass ──
+  async signIn(email, pass) {
+    return signInWithEmailAndPassword(auth, email, pass);
+  },
+
+  // ── Auth : créer utilisateur Firebase ──
+  async createUser(email, pass) {
+    return createUserWithEmailAndPassword(auth, email, pass);
+  },
+
+  // ── Auth : déconnexion ──
+  async signOut() {
+    return signOut(auth);
+  },
+
+  // ── Auth : état courant ──
+  onAuthState(cb) {
+    return onAuthStateChanged(auth, cb);
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// CHARGEMENT INITIAL — remplace loadDB()
+// ══════════════════════════════════════════════════════════════
+window._loadFirebaseDB = async function() {
+  showSplash('Connexion à Firebase…');
+  try {
+    const [users, ecoles, eleves, notes, corbeille] = await Promise.all([
+      window._fb.getAll('users'),
+      window._fb.getAll('ecoles'),
+      window._fb.getAll('eleves'),
+      window._fb.getAll('notes'),
+      window._fb.getAll('corbeille')
+    ]);
+
+    // Si la base Firebase est vide → peupler avec les données par défaut
+    if (!users.length) {
+      showSplash('Initialisation de la base de données…');
+      await window._seedFirebase();
+      return window._loadFirebaseDB();
+    }
+
+    DB.users     = users;
+    DB.ecoles    = ecoles;
+    DB.eleves    = eleves;
+    DB.notes     = notes;
+    DB.corbeille = corbeille;
+
+    // S'assurer que les comptes admin par défaut existent
+    for (const du of DEFAUT_USERS) {
+      if (!DB.users.find(u => u.login === du.login)) {
+        await window._fb.set('users', du.login, du);
+        DB.users.push(du);
+      }
+    }
+
+    hideSplash();
+    // Écoute temps réel sur les collections principales
+    window._fb.listen('eleves',   data => { DB.eleves   = data; refreshUI(); });
+    window._fb.listen('notes',    data => { DB.notes    = data; refreshUI(); });
+    window._fb.listen('ecoles',   data => { DB.ecoles   = data; });
+    window._fb.listen('users',    data => { DB.users    = data; });
+    window._fb.listen('corbeille',data => { DB.corbeille= data; });
+
+  } catch(e) {
+    console.error('Erreur chargement Firebase:', e);
+    hideSplash();
+    showNotif('⚠️ Mode hors ligne — données locales utilisées', 'warning');
+    loadDB(); // fallback localStorage
+  }
+};
+
+// Graine initiale Firebase avec les données par défaut
+window._seedFirebase = async function() {
+  const batch_size = 20;
+  const allItems = [
+    ...DEFAUT_USERS.map(u    => ({ col:'users',     id:u.login,  data:u })),
+    ...DEFAUT_ECOLES.map(e   => ({ col:'ecoles',    id:e.id,     data:e })),
+    ...DEFAUT_ELEVES.map(e   => ({ col:'eleves',    id:e.id,     data:e })),
+    ...DEFAUT_NOTES.map(n    => ({ col:'notes',     id:n.id,     data:n })),
+  ];
+  for (const item of allItems) {
+    await window._fb.set(item.col, item.id, item.data);
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// SAVE — remplace save(key)
+// ══════════════════════════════════════════════════════════════
+window._fbSave = async function(colName, item) {
+  if (!item || !item.id) return;
+  // Sauvegarde locale aussi (fallback offline)
+  localStorage.setItem('pgnep_'+colName, JSON.stringify(DB[colName]));
+  // Sauvegarde Firebase
+  await window._fb.set(colName, item.id, item);
+};
+
+window._fbDelete = async function(colName, id) {
+  localStorage.setItem('pgnep_'+colName, JSON.stringify(DB[colName]));
+  await window._fb.del(colName, id);
+};
+
+// ══════════════════════════════════════════════════════════════
+// AUTH FIREBASE — doLoginFirebase()
+// ══════════════════════════════════════════════════════════════
+window._doLoginFirebase = async function(loginId, pass) {
+  const errEl = document.getElementById('login-error');
+  const btn   = document.querySelector('.login-btn');
+  errEl.style.display = 'none';
+  btn.textContent = '⏳ Connexion…';
+  btn.disabled = true;
+
+  try {
+    // 1. Chercher l'utilisateur dans Firestore par login
+    const users = DB.users.length ? DB.users : await window._fb.getAll('users');
+    const userDoc = users.find(u => u.login === loginId.toLowerCase().trim());
+
+    if (!userDoc) {
+      throw new Error('Utilisateur introuvable');
+    }
+
+    // 2. Construire l'email Firebase (login@pgnep.ci)
+    const email = userDoc.email || (userDoc.login + '@pgnep-menaet.ci');
+
+    // 3. Connexion Firebase Auth
+    try {
+      await window._fb.signIn(email, pass);
+    } catch(authErr) {
+      // Si le compte Firebase Auth n'existe pas encore → le créer
+      if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential') {
+        // Vérifier le mot de passe local d'abord
+        if (!verifyPass(pass, userDoc.pass)) {
+          throw new Error('Mot de passe incorrect');
+        }
+        // Créer le compte Firebase Auth
+        await window._fb.createUser(email, pass);
+        await window._fb.signIn(email, pass);
+        // Mettre à jour l'email dans Firestore
+        userDoc.email = email;
+        await window._fb.set('users', userDoc.login, userDoc);
+      } else if (authErr.code === 'auth/wrong-password' || authErr.code === 'auth/invalid-credential') {
+        throw new Error('Mot de passe incorrect');
+      } else {
+        throw authErr;
+      }
+    }
+
+    // 4. Connexion réussie
+    clearAttempts(loginId);
+    currentUser = { login: userDoc.login, nom: userDoc.nom, role: userDoc.role };
+    resetSessionTimer();
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').classList.add('visible');
+    applyRoleUI();
+    initApp();
+    showNotif(`👋 Bienvenue, ${userDoc.nom}`, 'success');
+
+  } catch(e) {
+    recordFailedAttempt(loginId);
+    const a = loginAttempts[loginId];
+    const restant = a ? MAX_ATTEMPTS - (a.count||0) : MAX_ATTEMPTS;
+    errEl.textContent = isLocked(loginId)
+      ? `🔒 Trop de tentatives — compte verrouillé 15 min.`
+      : `Identifiant ou mot de passe incorrect. (${restant} essai(s) restant(s))`;
+    errEl.style.display = 'block';
+    document.getElementById('login-pass').value = '';
+  } finally {
+    btn.textContent = 'Se connecter →';
+    btn.disabled = false;
+  }
+};
+
+// Remplacer doLogin par la version Firebase
+window._firebaseReady = true;
+console.log('🔥 Firebase PGNEP initialisé');
+</script>
 <style>
+/* ── SPLASH FIREBASE ── */
+#firebase-splash {
+  display:none;position:fixed;inset:0;z-index:99999;
+  background:linear-gradient(135deg,var(--ci-vert) 0%,#004d2c 50%,var(--navy) 100%);
+  align-items:center;justify-content:center;flex-direction:column;gap:16px;
+}
+#firebase-splash.visible { display:flex; }
+.splash-spinner {
+  width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);
+  border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.splash-msg { color:#fff;font-size:14px;font-weight:600;letter-spacing:0.5px; }
+/* ── CONN STATUS ── */
+#conn-status { display:flex;align-items:center;gap:5px;font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px; }
+#conn-dot { width:7px;height:7px;border-radius:50%;background:#22C55E;flex-shrink:0;transition:background 0.3s; }
+
 :root {
-  --ci-vert:    #006B3F;
   --ci-vert2:   #00843D;
   --ci-orange:  #F77F00;
   --ci-blanc:   #FFFFFF;
@@ -93,7 +366,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--surface);color:
 /* ── LOGIN ─────────────────────────────────────────────────── */
 #login-screen{
   display:flex;position:fixed;inset:0;z-index:9999;
-  background:linear-gradient(135deg,var(--ci-vert) 0%,#004d2c 50%,var(--navy) 100%);
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 50%, rgba(0,120,60,0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 80% at 85% 30%, rgba(0,90,40,0.45) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 60% at 50% 90%, rgba(0,60,30,0.35) 0%, transparent 60%),
+    linear-gradient(160deg, #005c2e 0%, #003d1f 35%, #002010 70%, #001208 100%);
   align-items:center;justify-content:center;
 }
 #login-screen::before{
@@ -107,8 +384,26 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--surface);color:
   overflow:hidden;position:relative;z-index:1;
 }
 .login-header{
-  background:linear-gradient(135deg,var(--ci-vert),var(--ci-vert2));
+  background:linear-gradient(270deg,#F77F00,#FF9A1A,#E06000,#FFA030,#F77F00);
+  background-size:400% 400%;
+  animation:lp-hdr-move 3s ease infinite;
   padding:32px 36px 28px;text-align:center;
+  position:relative;overflow:hidden;
+}
+.login-header::after{
+  content:'';position:absolute;
+  top:-50%;left:-75%;width:50%;height:200%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.22),transparent);
+  animation:lp-hdr-sweep 2.8s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes lp-hdr-move{
+  0%{background-position:0% 50%;}
+  50%{background-position:100% 50%;}
+  100%{background-position:0% 50%;}
+}
+@keyframes lp-hdr-sweep{
+  0%{left:-75%;}65%{left:125%;}100%{left:125%;}
 }
 .login-header .flags{display:flex;gap:4px;justify-content:center;margin-bottom:16px;}
 .flag{height:5px;border-radius:2px;flex:1;max-width:40px;}
@@ -135,11 +430,55 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--surface);color:
 }
 .form-field input:focus,.form-field select:focus{border-color:var(--ci-vert);box-shadow:0 0 0 3px rgba(0,107,63,0.1);}
 .login-btn{
-  width:100%;padding:12px;background:var(--ci-vert);color:#fff;
-  border:none;border-radius:8px;font-family:inherit;font-size:15px;font-weight:700;
-  cursor:pointer;transition:all 0.2s;margin-top:4px;letter-spacing:0.3px;
+  width:100%;padding:13px;
+  background:linear-gradient(270deg,#F77F00,#FF9A00,#E06800,#FFA030,#F77F00);
+  background-size:400% 400%;
+  color:#fff;
+  border:none;border-radius:10px;
+  font-family:inherit;font-size:15px;font-weight:800;
+  cursor:pointer;margin-top:4px;letter-spacing:0.5px;
+  position:relative;overflow:hidden;
+  animation:lp-btn-move 2.5s ease infinite, lp-btn-pulse 2s ease-in-out infinite;
+  box-shadow:0 4px 18px rgba(247,127,0,0.55), 0 2px 6px rgba(0,0,0,0.2);
+  transition:transform 0.15s, filter 0.15s;
 }
-.login-btn:hover{background:var(--ci-vert2);transform:translateY(-1px);box-shadow:var(--shadow-md);}
+.login-btn::before{
+  content:'';position:absolute;
+  top:0;left:-80%;width:55%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent);
+  animation:lp-btn-gloss 2.2s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes lp-btn-move{
+  0%{background-position:0% 50%;}
+  50%{background-position:100% 50%;}
+  100%{background-position:0% 50%;}
+}
+@keyframes lp-btn-pulse{
+  0%,100%{box-shadow:0 4px 18px rgba(247,127,0,0.55),0 2px 6px rgba(0,0,0,0.2);}
+  50%{box-shadow:0 6px 28px rgba(247,127,0,0.85),0 3px 10px rgba(0,0,0,0.25);}
+}
+@keyframes lp-btn-gloss{
+  0%{left:-80%;}65%{left:120%;}100%{left:120%;}
+}
+.login-btn:hover{
+  filter:brightness(1.1);
+  transform:translateY(-2px) scale(1.015);
+  box-shadow:0 8px 30px rgba(247,127,0,0.75),0 3px 10px rgba(0,0,0,0.25)!important;
+}
+.login-btn:active{
+  transform:translateY(1px) scale(0.97);
+  filter:brightness(0.92);
+  animation:lp-btn-vibrate 0.35s linear!important;
+}
+@keyframes lp-btn-vibrate{
+  0%,100%{transform:translateX(0) scale(0.97);}
+  15%{transform:translateX(-3px) scale(0.97);}
+  30%{transform:translateX(3px) scale(0.97);}
+  45%{transform:translateX(-2px) scale(0.97);}
+  60%{transform:translateX(2px) scale(0.97);}
+  75%{transform:translateX(-1px) scale(0.97);}
+}
 .login-error{
   background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;
   padding:10px 14px;font-size:13px;color:var(--danger);margin-top:10px;display:none;
@@ -255,8 +594,23 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--surface);color:
   font-family:inherit;font-size:13px;font-weight:600;
   display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;
 }
-.btn-primary{background:var(--ci-vert);color:#fff;}
-.btn-primary:hover{background:var(--ci-vert2);box-shadow:var(--shadow-md);}
+.btn-primary{
+  background: linear-gradient(135deg, #00A65A, #00843D);
+  color:#fff;
+  box-shadow: 0 3px 10px rgba(0,132,61,0.35);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.2s cubic-bezier(.4,0,.2,1);
+}
+.btn-primary:hover{
+  background: linear-gradient(135deg, #F77F00, #E06800);
+  box-shadow: 0 5px 16px rgba(247,127,0,0.5);
+  transform: translateY(-2px);
+  border-color: rgba(255,255,255,0.15);
+}
+.btn-primary:active{
+  transform: translateY(0) scale(0.97);
+  background: linear-gradient(135deg, #E07000, #C85E00);
+}
 .btn-secondary{background:#fff;color:var(--text);border:1.5px solid var(--border);}
 .btn-secondary:hover{border-color:var(--ci-vert);color:var(--ci-vert);}
 .btn-danger{background:#FEF2F2;color:var(--danger);border:1.5px solid #FECACA;}
@@ -320,8 +674,68 @@ tr:hover td{background:#F9FAFB;}
 .badge-red{background:#FEF2F2;color:var(--danger);}
 .badge-gold{background:#FFFBEB;color:#92700A;}
 .actions-cell{display:flex;gap:5px;}
-.icon-btn{background:none;border:none;cursor:pointer;padding:5px;border-radius:6px;font-size:14px;transition:background 0.15s;}
-.icon-btn:hover{background:#F3F4F6;}
+.icon-btn{
+  background:none;border:none;cursor:pointer;
+  padding:6px 8px;border-radius:8px;font-size:15px;
+  transition:all 0.18s cubic-bezier(.4,0,.2,1);
+  display:inline-flex;align-items:center;justify-content:center;
+  position:relative;
+}
+
+/* 👁 Voir → vert */
+.icon-btn[onclick*="view"]:not([onclick*="delete"]):not([onclick*="edit"]),
+.icon-btn[onclick*="View"]:not([onclick*="delete"]):not([onclick*="edit"]) {
+  color: #00843D;
+  background: rgba(0,132,61,0.08);
+  border: 1px solid rgba(0,132,61,0.2);
+}
+.icon-btn[onclick*="view"]:hover,
+.icon-btn[onclick*="View"]:hover {
+  background: #F77F00 !important;
+  color: #fff !important;
+  border-color: #F77F00 !important;
+  transform: scale(1.15);
+  box-shadow: 0 3px 10px rgba(247,127,0,0.4);
+}
+
+/* ✏️ Modifier → vert */
+.icon-btn[onclick*="edit"],
+.icon-btn[onclick*="Edit"] {
+  color: #00843D;
+  background: rgba(0,132,61,0.08);
+  border: 1px solid rgba(0,132,61,0.2);
+}
+.icon-btn[onclick*="edit"]:hover,
+.icon-btn[onclick*="Edit"]:hover {
+  background: #F77F00 !important;
+  color: #fff !important;
+  border-color: #F77F00 !important;
+  transform: scale(1.15);
+  box-shadow: 0 3px 10px rgba(247,127,0,0.4);
+}
+
+/* 🗑 Supprimer → vert clair */
+.icon-btn[onclick*="delete"]:not([style*="danger"]):not([style*="red"]),
+.icon-btn[onclick*="Delete"]:not([style*="danger"]):not([style*="red"]),
+.icon-btn[onclick*="deleteEleve"],
+.icon-btn[onclick*="deleteNote"],
+.icon-btn[onclick*="deleteEcole"],
+.icon-btn[onclick*="deleteCompte"] {
+  color: #00843D;
+  background: rgba(0,132,61,0.08);
+  border: 1px solid rgba(0,132,61,0.2);
+}
+.icon-btn[onclick*="delete"]:hover,
+.icon-btn[onclick*="Delete"]:hover {
+  background: #F77F00 !important;
+  color: #fff !important;
+  border-color: #F77F00 !important;
+  transform: scale(1.15);
+  box-shadow: 0 3px 10px rgba(247,127,0,0.4);
+}
+
+/* Active press */
+.icon-btn:active { transform: scale(0.92) !important; }
 .pag-row{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid var(--border);}
 .pag-info{font-size:12px;color:var(--text3);}
 .pag-btns{display:flex;gap:4px;}
@@ -509,106 +923,6 @@ tr:hover td{background:#F9FAFB;}
   padding:10px 14px;font-size:12px;color:var(--text2);line-height:1.6;
 }
 
-/* ── Animations boutons verts ─────────────────────────────── */
-
-/* 1. Pulsation lumineuse */
-@keyframes pulse-vert {
-  0%   { box-shadow: 0 0 0 0 rgba(30,126,52,0.6); }
-  50%  { box-shadow: 0 0 0 12px rgba(30,126,52,0); }
-  100% { box-shadow: 0 0 0 0 rgba(30,126,52,0); }
-}
-
-/* 2. Reflet brillant qui glisse */
-@keyframes shimmer-vert {
-  0%   { background-position: -250% center; }
-  100% { background-position: 250% center; }
-}
-
-/* 3. Oscillation verticale douce */
-@keyframes nudge {
-  0%, 100% { transform: translateY(0px); }
-  25%       { transform: translateY(-4px); }
-  75%       { transform: translateY(-2px); }
-}
-
-/* 4. Léger balancement horizontal */
-@keyframes swing {
-  0%, 100% { transform: rotate(0deg); }
-  20%       { transform: rotate(-1.5deg); }
-  60%       { transform: rotate(1.5deg); }
-}
-
-/* ── Bouton Se connecter ── */
-.login-btn {
-  background: linear-gradient(
-    110deg,
-    var(--ci-vert) 0%,
-    var(--ci-vert) 35%,
-    #34d058 50%,
-    var(--ci-vert) 65%,
-    var(--ci-vert) 100%
-  ) !important;
-  background-size: 300% 100% !important;
-  animation: pulse-vert 2s ease-in-out infinite,
-             shimmer-vert 2.8s linear infinite !important;
-}
-.login-btn:hover {
-  animation: none !important;
-  transform: scale(1.04) translateY(-2px) !important;
-  box-shadow: 0 8px 24px rgba(30,126,52,0.5) !important;
-}
-
-/* ── Boutons primaires (Ajouter, Enregistrer…) ── */
-.btn-primary {
-  position: relative;
-  overflow: hidden;
-  animation: nudge 2.5s ease-in-out infinite !important;
-}
-.btn-primary::after {
-  content: '';
-  position: absolute;
-  top: -50%; left: -75%;
-  width: 50%; height: 200%;
-  background: linear-gradient(
-    90deg, transparent,
-    rgba(255,255,255,0.3),
-    transparent
-  );
-  transform: skewX(-20deg);
-  animation: shimmer-vert 2.2s linear infinite;
-}
-.btn-primary:hover {
-  animation: none !important;
-  transform: scale(1.05) translateY(-3px) !important;
-  box-shadow: 0 8px 22px rgba(30,126,52,0.45) !important;
-}
-.btn-primary:hover::after { display: none; }
-
-/* ── Bouton orange (Export, Passage…) ── */
-.btn-orange {
-  animation: nudge 3s ease-in-out infinite 0.6s !important;
-}
-.btn-orange:hover {
-  animation: none !important;
-  transform: scale(1.04) translateY(-2px) !important;
-}
-
-/* ── Boutons Enregistrer dans les modals ── */
-button.btn.btn-primary[onclick*="save"],
-button.btn.btn-primary[onclick*="Save"] {
-  animation: pulse-vert 1.8s ease-in-out infinite,
-             nudge 3s ease-in-out infinite 0.4s !important;
-}
-
-/* ── Stopper les animations au clic ── */
-.login-btn:active,
-.btn-primary:active,
-.btn-orange:active {
-  animation: none !important;
-  transform: scale(0.96) !important;
-  box-shadow: none !important;
-}
-
 </style>
 
   <!-- PWA Manifest -->
@@ -619,14 +933,18 @@ button.btn.btn-primary[onclick*="Save"] {
   <meta name="apple-mobile-web-app-title" content="Le Perroquet">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="apple-touch-icon" href="icon-192.png">
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 </head>
 <body>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- SPLASH FIREBASE                                            -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="firebase-splash" class="visible">
+  <div style="font-size:52px;margin-bottom:6px;">🦜</div>
+  <div class="splash-spinner"></div>
+  <div class="splash-msg" id="splash-msg">Connexion à Firebase…</div>
+  <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px;">Le Perroquet · PGNEP · MENAET</div>
+</div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- ÉCRAN DE CONNEXION                                         -->
@@ -730,7 +1048,6 @@ button.btn.btn-primary[onclick*="Save"] {
     </div>
 
     <div class="sidebar-user">
-      <div id="fb-status" style="padding:4px 12px;font-size:10px;color:var(--text3);text-align:center;border-top:1px solid var(--border);">☁️ Connexion cloud...</div>
       <div class="user-info">
         <div class="user-avatar" id="user-avatar" style="background:var(--ci-vert);">D</div>
         <div>
@@ -739,11 +1056,20 @@ button.btn.btn-primary[onclick*="Save"] {
           <div class="user-role" id="user-structure-label" style="font-size:9px;color:rgba(255,255,255,0.3);margin-top:1px;">—</div>
         </div>
       </div>
+      <div id="conn-status">
+        <span id="conn-dot"></span>
+        <span id="conn-label">Vérification…</span>
+      </div>
       <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-bottom:6px;display:flex;align-items:center;gap:5px;">
         <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#22C55E;flex-shrink:0;"></span>
         <span id="session-timer-label">Session active</span>
       </div>
       <button class="logout-btn" onclick="doLogout()">🚪 Déconnexion</button>
+      <div style="margin-top:10px;padding:8px 10px;background:rgba(0,107,63,0.15);border:1px solid rgba(0,107,63,0.3);border-radius:8px;text-align:center;">
+        <div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.5px;margin-bottom:4px;text-transform:uppercase;">📞 Assistance technique</div>
+        <a href="tel:+2250104924532" style="display:block;font-size:11px;font-weight:700;color:#4ADE80;text-decoration:none;">+225 0104 924 532</a>
+        <a href="tel:+2250104924578" style="display:block;font-size:11px;font-weight:700;color:#4ADE80;text-decoration:none;margin-top:2px;">+225 0104 924 578</a>
+      </div>
     </div>
   </aside>
 
@@ -1662,7 +1988,37 @@ button.btn.btn-primary[onclick*="Save"] {
                 <button class="btn btn-secondary btn-sm" onclick="exportUsersWord()">📝 Word</button>
                 <button class="btn btn-secondary btn-sm" onclick="exportUsersPDF()">📄 PDF</button>
               </div>
-            </div></div></div>
+            </div>
+            <!-- ── BARRE DE FILTRES COMPTES ─────────────────── -->
+            <div class="filter-bar" style="padding:10px 16px 6px;flex-wrap:wrap;gap:8px;">
+              <input type="text" id="filt-user-nom" placeholder="🔍 Nom / Prénom…"
+                style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;min-width:160px;"
+                oninput="renderUsersList()">
+              <select class="filter-select" id="filt-user-role" onchange="renderUsersList()" style="font-size:12px;">
+                <option value="">Tous les emplois</option>
+                <option value="instituteur">🔵 Instituteur</option>
+                <option value="benevole">🟩 Bénévole</option>
+                <option value="directeur">🟣 Directeur</option>
+                <option value="correspondant">🟢 Correspondant IEPP</option>
+                <option value="coordinateur">🟡 Coordonnateur</option>
+                <option value="cppp">🔷 CPPP / CPI</option>
+                <option value="admin">🔴 Administrateur</option>
+                <option value="cabinet">⚫ Cabinet</option>
+                <option value="lecteur">⚪ Lecteur</option>
+              </select>
+              <select class="filter-select" id="filt-user-classe" onchange="renderUsersList()" style="font-size:12px;">
+                <option value="">Toutes les classes</option>
+                <option>CP1</option><option>CP2</option><option>CE1</option>
+                <option>CE2</option><option>CM1</option><option>CM2</option>
+              </select>
+              <select class="filter-select" id="filt-user-iepp" onchange="renderUsersList()" style="font-size:12px;">
+                <option value="">Tous les IEPP</option>
+              </select>
+              <select class="filter-select" id="filt-user-drena" onchange="renderUsersList()" style="font-size:12px;">
+                <option value="">Tous les DRENAET</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" onclick="resetFiltresUsers()">✕ Effacer</button>
+            </div>
             <div style="padding:16px;" id="users-list"></div>
           </div>
           <div class="card" id="compte-form-section">
@@ -1693,6 +2049,11 @@ button.btn.btn-primary[onclick*="Save"] {
               <div id="field-iepp" class="form-field"><label>IEPP</label><input type="text" id="new-iepp" placeholder="Ex: IEPP Cocody" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" oninput="memoriserChamp('iepp',this.value)"></div>
               <div id="field-ecole" class="form-field"><label>École</label><input type="text" id="new-ecole-user" placeholder="Ex: EPP Cocody Centre" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;" oninput="memoriserChamp('ecole',this.value)"></div>
               <div id="field-classe" class="form-field"><label>Classe <span style="color:var(--text3);font-size:10px;font-weight:400;">(selon le rôle)</span></label><select class="filter-select" id="new-classe-user" style="width:100%;padding:10px;"><option value="CP1">CP1</option><option value="CP2">CP2</option><option value="CE1">CE1</option><option value="CE2">CE2</option><option value="CM1">CM1</option><option value="CM2">CM2</option></select></div>
+              <div id="field-telephone" class="form-field">
+                <label>📞 Téléphone <span style="color:var(--text3);font-size:10px;font-weight:400;">(optionnel)</span></label>
+                <input type="tel" id="new-telephone" placeholder="Ex: +225 0700000000"
+                  style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+              </div>
               <div id="compte-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:10px;font-size:13px;color:var(--danger);"></div>
               <div style="display:flex;gap:8px;">
                 <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveCompte()">💾 Enregistrer</button>
@@ -1702,7 +2063,7 @@ button.btn.btn-primary[onclick*="Save"] {
           </div>
         </div>
 
-        <div class="card" style="margin-top:20px;">
+        <div class="card" id="card-cdc-droits" style="margin-top:20px;display:none;">
           <div class="card-header"><h3>📋 Droits par rôle — CDC v2</h3></div>
           <div style="padding:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:11px;">
             <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:10px;">
@@ -1825,184 +2186,6 @@ button.btn.btn-primary[onclick*="Save"] {
   </div>
 </div>
 
-
-<script>
-// ══════════════════════════════════════════════════════════════
-// FIREBASE — PGNEP v3 · Perroquet-PGNEP-MENAET
-// ══════════════════════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey:            "AIzaSyB0r1_VHBn3EYu73LsHzR1E8QEuk57uO8w",
-  authDomain:        "perroquet-pgnep-menaet.firebaseapp.com",
-  projectId:         "perroquet-pgnep-menaet",
-  storageBucket:     "perroquet-pgnep-menaet.firebasestorage.app",
-  messagingSenderId: "303217621491",
-  appId:             "1:303217621491:web:df7c6609e1396d62177a86",
-  measurementId:     "G-8QM8MWZLYB",
-  databaseURL:       "https://perroquet-pgnep-menaet-default-rtdb.firebaseio.com"
-};
-
-let FB_APP = null, DB_FS = null, DB_RT = null;
-let FB_ONLINE = false;
-let FB_SYNC_PENDING = {};
-
-function initFirebase() {
-  try {
-    FB_APP  = firebase.initializeApp(firebaseConfig);
-    DB_FS   = firebase.firestore();
-    DB_RT   = firebase.database();
-    FB_ONLINE = true;
-    console.log('✅ Firebase connecté — Firestore + Realtime DB');
-    showFirebaseStatus('online');
-  } catch(e) {
-    FB_ONLINE = false;
-    console.warn('⚠️ Firebase non disponible — mode localStorage', e);
-    showFirebaseStatus('offline');
-  }
-}
-
-function showFirebaseStatus(status) {
-  const el = document.getElementById('fb-status');
-  if (!el) return;
-  if (status === 'online') {
-    el.innerHTML = '☁️ <span style="color:var(--ci-vert);font-weight:600;">Cloud synchronisé</span>';
-  } else {
-    el.innerHTML = '💾 <span style="color:var(--text3);">Mode local</span>';
-  }
-}
-
-// ── Collections Firestore ─────────────────────────────────────
-const FS_COLLECTIONS = {
-  users:    'pgnep_users',
-  ecoles:   'pgnep_ecoles',
-  eleves:   'pgnep_eleves',
-  notes:    'pgnep_notes',
-  corbeille:'pgnep_corbeille'
-};
-
-// ── Sauvegarder dans Firestore + localStorage ─────────────────
-async function fbSave(key) {
-  // Toujours sauvegarder en localStorage (fallback)
-  localStorage.setItem('pgnep_'+key, JSON.stringify(DB[key]));
-
-  if (!FB_ONLINE || !DB_FS) return;
-
-  const col = FS_COLLECTIONS[key];
-  if (!col) return;
-
-  try {
-    const batch = DB_FS.batch();
-    const colRef = DB_FS.collection(col);
-
-    // Écrire chaque document
-    DB[key].forEach(item => {
-      if (!item.id) return;
-      const docRef = colRef.doc(String(item.id));
-      batch.set(docRef, item, { merge: true });
-    });
-
-    // Marquer les supprimés (via corbeille ou IDs manquants)
-    await batch.commit();
-    showNotifCloud('✅ Synchronisé');
-  } catch(e) {
-    console.warn('Firebase save error:', e);
-    showNotifCloud('⚠️ Sync en attente');
-    FB_SYNC_PENDING[key] = true;
-  }
-}
-
-// ── Charger depuis Firestore ──────────────────────────────────
-async function fbLoad(key) {
-  if (!FB_ONLINE || !DB_FS) return null;
-  const col = FS_COLLECTIONS[key];
-  if (!col) return null;
-  try {
-    const snap = await DB_FS.collection(col).get();
-    if (snap.empty) return null;
-    return snap.docs.map(d => ({ ...d.data(), id: d.id }));
-  } catch(e) {
-    console.warn('Firebase load error:', e);
-    return null;
-  }
-}
-
-// ── Écoute temps réel Firestore ───────────────────────────────
-function fbListen(key, callback) {
-  if (!FB_ONLINE || !DB_FS) return;
-  const col = FS_COLLECTIONS[key];
-  if (!col) return;
-  DB_FS.collection(col).onSnapshot(snap => {
-    if (snap.empty) return;
-    const data = snap.docs.map(d => ({ ...d.data(), id: d.id }));
-    callback(data);
-  }, err => {
-    console.warn('Firebase listen error:', err);
-  });
-}
-
-// ── Supprimer un document Firestore ──────────────────────────
-async function fbDelete(key, id) {
-  localStorage.setItem('pgnep_'+key, JSON.stringify(DB[key]));
-  if (!FB_ONLINE || !DB_FS || !id) return;
-  try {
-    await DB_FS.collection(FS_COLLECTIONS[key]).doc(String(id)).delete();
-  } catch(e) {
-    console.warn('Firebase delete error:', e);
-  }
-}
-
-// ── Notif cloud discrète ──────────────────────────────────────
-let fbNotifTimer = null;
-function showNotifCloud(msg) {
-  const el = document.getElementById('fb-status');
-  if (!el) return;
-  el.innerHTML = msg;
-  clearTimeout(fbNotifTimer);
-  fbNotifTimer = setTimeout(()=>showFirebaseStatus('online'), 2000);
-}
-
-// ── Chargement initial depuis Firestore ───────────────────────
-async function fbLoadAll() {
-  if (!FB_ONLINE) return false;
-  const keys = ['users','ecoles','eleves','notes','corbeille'];
-  let loaded = false;
-  for (const key of keys) {
-    const data = await fbLoad(key);
-    if (data && data.length > 0) {
-      DB[key] = data;
-      loaded = true;
-      console.log('☁️ Firebase → '+key+': '+data.length+' enregistrements');
-    }
-  }
-  return loaded;
-}
-
-// ── Écoute temps réel pour toutes les collections ────────────
-function fbListenAll() {
-  if (!FB_ONLINE) return;
-  fbListen('eleves', data => {
-    DB.eleves = data;
-    if (typeof renderEleves === 'function') renderEleves();
-    if (typeof updateStats === 'function') updateStats();
-  });
-  fbListen('notes', data => {
-    DB.notes = data;
-    if (typeof renderResultats === 'function') renderResultats();
-  });
-  fbListen('ecoles', data => {
-    DB.ecoles = data;
-    if (typeof renderEcoles === 'function') renderEcoles();
-  });
-  fbListen('users', data => {
-    // Ne pas écraser si l'utilisateur est connecté
-    DB.users = data;
-  });
-  fbListen('corbeille', data => {
-    DB.corbeille = data;
-    const badge = document.getElementById('badge-corbeille');
-    if (badge) { badge.textContent = data.length; badge.style.display = data.length>0?'inline-block':'none'; }
-  });
-}
-</script>
 <script>
 // ══════════════════════════════════════════════════════════════
 // DONNÉES
@@ -2082,9 +2265,15 @@ function loadDB() {
   DB.corbeille = JSON.parse(localStorage.getItem('pgnep_corbeille') || 'null') || [];
 }
 function save(key) {
-  // Sauvegarder localStorage + Firebase
+  // Toujours sauvegarder localement (fallback offline)
   localStorage.setItem('pgnep_'+key, JSON.stringify(DB[key]));
-  if (FB_ONLINE) fbSave(key);
+  // Synchroniser vers Firebase si disponible
+  if (window._firebaseReady && window._fb) {
+    DB[key].forEach(item => {
+      if (item && item.id) window._fb.set(key, item.id, item).catch(e => console.warn('Firebase save error:', e));
+      else if (item && item.login) window._fb.set(key, item.login, item).catch(e => console.warn('Firebase save error:', e));
+    });
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2201,11 +2390,27 @@ function getNotesFiltrees() {
 
 function getScopeUsers() {
   const u=getCurrentUserData(); if(!u) return [];
+  // Admin et DIOMANDE YAYA : voient tout
   if(u.role==='admin'||u.login==='diomande') return DB.users;
-  if(['cabinet','lecteur','cppp','instituteur','benevole'].includes(u.role)) return [];
+  // Directeur : voit tous les utilisateurs de son école SAUF admin/coordinateur/correspondant/cabinet
+  if(u.role==='directeur') {
+    return DB.users.filter(usr=>
+      !['admin','coordinateur','correspondant','cabinet','lecteur','cppp'].includes(usr.role) &&
+      usr.ecole_val===u.structure_val
+    );
+  }
+  // Correspondant IEPP : voit toutes les écoles de sa circonscription, SANS admin ni cabinet
+  if(u.role==='correspondant') {
+    const ecoIds=getScopeEcoles().map(ec=>ec.id);
+    return DB.users.filter(usr=>{
+      if(['admin','cabinet'].includes(usr.role)) return false;
+      return ecoIds.includes(usr.ecole_val)||ecoIds.includes(usr.structure_val);
+    });
+  }
+  // Coordinateur DRENAET : voit toutes les IEPP et écoles de sa DRENAET, SANS admin ni cabinet
   if(u.role==='coordinateur') {
     const ecoIds=getScopeEcoles().map(ec=>ec.id);
-    const ieppList=getScopeEcoles().map(ec=>ec.iepp);
+    const ieppList=[...new Set(getScopeEcoles().map(ec=>ec.iepp).filter(Boolean))];
     return DB.users.filter(usr=>{
       if(['admin','cabinet'].includes(usr.role)) return false;
       if(usr.structure_type==='drena' && usr.structure_val===u.structure_val) return true;
@@ -2215,21 +2420,13 @@ function getScopeUsers() {
       return false;
     });
   }
-  if(u.role==='correspondant'||u.role==='cppp') {
-    const ecoIds=getScopeEcoles().map(ec=>ec.id);
-    return DB.users.filter(usr=>{
-      if(['admin','cabinet','coordinateur'].includes(usr.role)) return false;
-      if(usr.structure_type==='ecole') return ecoIds.includes(usr.structure_val);
-      if(usr.structure_type==='classe') return ecoIds.includes(usr.ecole_val);
-      return false;
-    });
-  }
-  if(u.role==='directeur') return DB.users.filter(usr=>['instituteur','benevole'].includes(usr.role)&&usr.ecole_val===u.structure_val);
-  return [u];
+  // cppp, cabinet, lecteur, instituteur, bénévole : pas d'accès comptes
+  return [];
 }
 
 function canManageComptes() { return currentUser && (currentUser.role==='admin' || currentUser.login==='diomande'); }
-function isReadonlyComptes() { return currentUser && ['directeur','correspondant','coordinateur'].includes(currentUser.role); }
+// Lecture seule : Directeur, Correspondant IEPP, Coordinateur DRENAET voient les instituteurs sans pouvoir modifier
+function isReadonlyComptes() { return currentUser && ['directeur','correspondant','coordinateur'].includes(currentUser.role) && currentUser.login!=='diomande'; }
 
 function getRang(eleveId, evalType, classe) {
   const notesClasse = DB.notes.filter(n=>n.classe===classe && n.eval_type===evalType);
@@ -2275,25 +2472,53 @@ function updateStructureFields() {
   }
 }
 
+// ── Splash helpers ──────────────────────────────────────────
+function showSplash(msg) {
+  const el = document.getElementById('firebase-splash');
+  const ml = document.getElementById('splash-msg');
+  if (el) el.classList.add('visible');
+  if (ml) ml.textContent = msg || 'Chargement…';
+}
+function hideSplash() {
+  const el = document.getElementById('firebase-splash');
+  if (el) el.classList.remove('visible');
+}
+
+// ── refreshUI : rafraîchit l'interface après synchro temps réel ──
+function refreshUI() {
+  if (!currentUser) return;
+  const page = document.querySelector('.page.active');
+  if (!page) return;
+  const id = page.id.replace('page-','');
+  if (id === 'dashboard') initApp();
+  else if (id === 'eleves') renderEleves();
+  else if (id === 'resultats') { renderResultats(); renderStatsCharts(); }
+  else if (id === 'comptes') renderUsersList();
+  updateBadges();
+}
+
 function doLogin() {
   const login = document.getElementById('login-user').value.trim().toLowerCase();
   const pass  = document.getElementById('login-pass').value;
   const errEl = document.getElementById('login-error');
-  const btn   = document.querySelector('.login-btn');
   errEl.style.display = 'none';
 
   if (!login || !pass) { errEl.textContent='Champs obligatoires.'; errEl.style.display='block'; return; }
-
-  // Vérifier verrouillage
   if (isLocked(login)) {
     const mins = getRemainingLockTime(login);
     errEl.textContent=`🔒 Compte verrouillé — réessayez dans ${mins} minute(s).`;
     errEl.style.display='block'; return;
   }
 
+  // Utiliser la version Firebase si disponible
+  if (window._firebaseReady && window._doLoginFirebase) {
+    window._doLoginFirebase(login, pass);
+    return;
+  }
+
+  // Fallback local
   const user = DB.users.find(u => u.login===login);
   const valid = user && verifyPass(pass, user.pass);
-
   if (!valid) {
     recordFailedAttempt(login);
     const a = loginAttempts[login];
@@ -2304,9 +2529,6 @@ function doLogin() {
     errEl.textContent = msg; errEl.style.display='block';
     document.getElementById('login-pass').value=''; return;
   }
-
-
-
   clearAttempts(login);
   currentUser = { login:user.login, nom:user.nom, role:user.role };
   resetSessionTimer();
@@ -2320,6 +2542,9 @@ function doLogin() {
 function doLogout() {
   if (!confirm('Déconnexion ?')) return;
   clearTimeout(sessionTimer);
+  if (window._firebaseReady && window._fb) {
+    window._fb.signOut().catch(()=>{});
+  }
   forceLogout();
 }
 
@@ -2379,7 +2604,11 @@ function showPage(name) {
   if (name==='bulletins') { populateBulletinSelects(); }
   if (name==='corbeille')  { renderCorbeille(); }
   if (name==='rapport') { genRapport(); }
-  if (name==='comptes')   { renderUsersList(); updateStructureFields(); restaurerChamps(); }
+  if (name==='comptes') {
+    populateFiltresUsers(); renderUsersList(); updateStructureFields(); restaurerChamps();
+    const cdcCard = document.getElementById('card-cdc-droits');
+    if (cdcCard) cdcCard.style.display = (currentUser && (currentUser.role==='admin' || currentUser.login==='diomande')) ? '' : 'none';
+  }
   if (name==='ecoles')    { renderEcoles(); }
   if (name==='saisie')    { populateSaisieEleves(); }
 }
@@ -2388,32 +2617,39 @@ function showPage(name) {
 // INIT
 // ══════════════════════════════════════════════════════════════
 window.onload = async function() {
-  // Initialiser Firebase
-  initFirebase();
-  // Charger d'abord le localStorage (rapide)
-  loadDB();
-  // Puis charger depuis Firebase si disponible (priorité cloud)
-  if (FB_ONLINE) {
-    showNotifCloud('☁️ Chargement cloud...');
-    const fbLoaded = await fbLoadAll();
-    if (fbLoaded) {
-      console.log('✅ Données chargées depuis Firebase');
-      // Activer l'écoute temps réel
-      fbListenAll();
-    }
-  }
-  setTimeout(() => document.getElementById('login-user').focus(), 100);
+  // Charger les bibliothèques externes
   ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
    'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js',
    'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
    'https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.umd.min.js'
   ].forEach(u=>{const s=document.createElement('script');s.src=u;s.async=true;document.head.appendChild(s);});
+
+  // Attendre que Firebase soit prêt (module async)
+  let waited = 0;
+  while (!window._firebaseReady && waited < 8000) {
+    await new Promise(r => setTimeout(r, 100));
+    waited += 100;
+  }
+
+  if (window._firebaseReady && window._loadFirebaseDB) {
+    await window._loadFirebaseDB();
+  } else {
+    // Fallback localStorage si Firebase ne répond pas
+    console.warn('Firebase non disponible — mode local');
+    loadDB();
+    hideSplash();
+  }
+
+  setTimeout(() => document.getElementById('login-user').focus(), 100);
 };
 
 function resetComptes() {
   if (!confirm('Réinitialiser les comptes aux valeurs par défaut ?\nLes élèves et notes sont conservés.')) return;
   localStorage.removeItem('pgnep_users');
   DB.users = [...DEFAUT_USERS];
+  if (window._firebaseReady && window._fb) {
+    DEFAUT_USERS.forEach(u => window._fb.set('users', u.login, u).catch(()=>{}));
+  }
   showNotif('✅ Comptes réinitialisés — reconnectez-vous', 'success');
 }
 
@@ -2465,9 +2701,19 @@ function renderCorbeille() {
 function restaurerEleve(idx) {
   const e=DB.corbeille[idx];
   if(!confirm('Restaurer '+e.nom+' '+e.prenoms+' dans la liste des élèves ?'))return;
-  if(e._notes&&e._notes.length){e._notes.forEach(n=>{if(!DB.notes.find(x=>x.id===n.id))DB.notes.push(n);});}
+  if(e._notes&&e._notes.length){e._notes.forEach(n=>{
+    if(!DB.notes.find(x=>x.id===n.id)){
+      DB.notes.push(n);
+      if(window._firebaseReady&&window._fb) window._fb.set('notes',n.id,n).catch(()=>{});
+    }
+  });}
   const{_supprime_le,_notes,_archive,_archive_le,_statut,...clean}=e;
-  DB.eleves.push(clean);DB.corbeille.splice(idx,1);
+  DB.eleves.push(clean);
+  if(window._firebaseReady&&window._fb){
+    window._fb.set('eleves',clean.id,clean).catch(()=>{});
+    window._fb.del('corbeille',e.id||e.matricule||('corbeille-'+idx)).catch(()=>{});
+  }
+  DB.corbeille.splice(idx,1);
   save('eleves');save('notes');save('corbeille');
   renderCorbeille();renderEleves();updateStats();
   showNotif('✅ '+clean.nom+' restauré','success');
@@ -2475,12 +2721,20 @@ function restaurerEleve(idx) {
 function supprimerDefinitif(idx) {
   const e=DB.corbeille[idx];
   if(!confirm('⚠️ Supprimer DÉFINITIVEMENT '+e.nom+' '+e.prenoms+' ?\nIrréversible.'))return;
+  const fbId=e.id||e.matricule||('corbeille-'+idx);
+  if(window._firebaseReady&&window._fb) window._fb.del('corbeille',fbId).catch(()=>{});
   DB.corbeille.splice(idx,1);save('corbeille');renderCorbeille();
   showNotif('🗑 Supprimé définitivement','info');
 }
 function viderCorbeille() {
   if(!DB.corbeille.length){showNotif('La corbeille est vide','info');return;}
   if(!confirm('⚠️ Vider toute la corbeille ('+DB.corbeille.length+' élève(s)) ?\nIrréversible.'))return;
+  if(window._firebaseReady&&window._fb){
+    DB.corbeille.forEach(e=>{
+      const fbId=e.id||e.matricule;
+      if(fbId) window._fb.del('corbeille',fbId).catch(()=>{});
+    });
+  }
   DB.corbeille=[];save('corbeille');renderCorbeille();
   showNotif('🗑 Corbeille vidée','info');
 }
@@ -2841,8 +3095,17 @@ function saveEleve() {
   if(iepp)     memoriserChamp('iepp',  iepp);
   if(nomEcole) memoriserChamp('ecole', nomEcole);
   const rec = { nom, prenoms, matricule:matric||genId('CI-2025'), sexe, ddn, lieu, classe, ecole_id, drena, iepp, nom_ecole:nomEcole };
-  if (editingEleveIdx !== null) { DB.eleves[editingEleveIdx] = { ...DB.eleves[editingEleveIdx], ...rec }; showNotif('✅ Élève modifié', 'success'); }
-  else { rec.id = genId('el'); DB.eleves.unshift(rec); showNotif('✅ Élève ajouté', 'success'); }
+  if (editingEleveIdx !== null) {
+    DB.eleves[editingEleveIdx] = { ...DB.eleves[editingEleveIdx], ...rec };
+    const updated = DB.eleves[editingEleveIdx];
+    if(window._firebaseReady&&window._fb) window._fb.set('eleves', updated.id, updated).catch(()=>{});
+    showNotif('✅ Élève modifié', 'success');
+  } else {
+    rec.id = genId('el');
+    DB.eleves.unshift(rec);
+    if(window._firebaseReady&&window._fb) window._fb.set('eleves', rec.id, rec).catch(()=>{});
+    showNotif('✅ Élève ajouté', 'success');
+  }
   save('eleves');
   closeModal('modal-eleve');
   updateStats();
@@ -2860,10 +3123,16 @@ function deleteEleve(idx) {
   }
   if (!confirm('Envoyer ' + eleve.nom + ' à la corbeille ?\n(Récupérable depuis Menu → Corbeille)')) return;
   const notesEleve = DB.notes.filter(n=>n.eleve_id===eleve.id);
-  DB.corbeille.push({...eleve, _supprime_le:new Date().toLocaleDateString('fr-FR'), _notes:notesEleve});
+  const corbeilleEntry = {...eleve, _supprime_le:new Date().toLocaleDateString('fr-FR'), _notes:notesEleve};
+  DB.corbeille.push(corbeilleEntry);
   DB.eleves.splice(idx,1);
   DB.notes = DB.notes.filter(n=>n.eleve_id!==eleve.id);
   save('eleves'); save('notes'); save('corbeille');
+  if(window._firebaseReady&&window._fb){
+    window._fb.del('eleves', eleve.id).catch(()=>{});
+    notesEleve.forEach(n=>window._fb.del('notes', n.id).catch(()=>{}));
+    window._fb.set('corbeille', eleve.id, corbeilleEntry).catch(()=>{});
+  }
   updateStats(); renderEleves(); renderDashboard();
   const b=document.getElementById('badge-corbeille'); if(b){b.textContent=DB.corbeille.length;b.style.display='inline-block';}
   showNotif('🗑 ' + eleve.nom + ' déplacé en corbeille', 'info');
@@ -3075,6 +3344,7 @@ function saveNote() {
   if (existing>=0) DB.notes[existing]=rec;
   else DB.notes.unshift(rec);
   save('notes');
+  if(window._firebaseReady&&window._fb) window._fb.set('notes', rec.id, rec).catch(()=>{});
   updateStats();
   renderDashboard();
   showNotif('✅ Notes enregistrées avec succès', 'success');
@@ -3172,10 +3442,16 @@ function passageClasse(idx) {
     // CM2 → archiver dans corbeille avec statut Admis en 6ème
     if (!confirm('Archiver ' + e.nom + ' ' + e.prenoms + ' (admis en 6ème) ?\nIl sera placé dans la Corbeille/Archives.')) return;
     const notesEleve = DB.notes.filter(n=>n.eleve_id===e.id);
-    DB.corbeille.push({...e, _archive:true, _archive_le:new Date().toLocaleDateString('fr-FR'), _statut:'Admis en 6ème', _notes:notesEleve});
+    const archEntry={...e, _archive:true, _archive_le:new Date().toLocaleDateString('fr-FR'), _statut:'Admis en 6ème', _notes:notesEleve};
+    DB.corbeille.push(archEntry);
     DB.eleves.splice(idx,1);
     DB.notes = DB.notes.filter(n=>n.eleve_id!==e.id);
     save('eleves'); save('notes'); save('corbeille');
+    if(window._firebaseReady&&window._fb){
+      window._fb.del('eleves',e.id).catch(()=>{});
+      notesEleve.forEach(n=>window._fb.del('notes',n.id).catch(()=>{}));
+      window._fb.set('corbeille',e.id,archEntry).catch(()=>{});
+    }
     const b=document.getElementById('badge-corbeille'); if(b){b.textContent=DB.corbeille.length;b.style.display='inline-block';}
     updateStats(); renderEleves(); renderDashboard();
     showNotif('🎓 ' + e.nom + ' archivé — admis en 6ème', 'success');
@@ -3183,8 +3459,12 @@ function passageClasse(idx) {
     const nouvelle = ordre[pos+1];
     if (!confirm('Passer ' + e.nom + ' ' + e.prenoms + ' de ' + e.classe + ' vers ' + nouvelle + ' ?\nLes notes seront réinitialisées pour la nouvelle année.')) return;
     DB.eleves[idx].classe = nouvelle;
+    const updatedEleve = DB.eleves[idx];
     DB.notes = DB.notes.filter(n=>n.eleve_id!==e.id);
     save('eleves'); save('notes');
+    if(window._firebaseReady&&window._fb){
+      window._fb.set('eleves',updatedEleve.id,updatedEleve).catch(()=>{});
+    }
     updateStats(); renderEleves(); renderDashboard();
     showNotif('✅ ' + e.nom + ' passé en ' + nouvelle + ' — notes réinitialisées', 'success');
   }
@@ -3218,7 +3498,9 @@ function deleteNote(noteId) {
   }
   if (!confirm('Supprimer ces notes ?')) return;
   DB.notes = DB.notes.filter(n=>n.id!==noteId);
-  save('notes'); updateStats(); renderResultats(); renderDashboard();
+  save('notes');
+  if(window._firebaseReady&&window._fb) window._fb.del('notes', noteId).catch(()=>{});
+  updateStats(); renderResultats(); renderDashboard();
   showNotif('🗑 Notes supprimées', 'info');
 }
 
@@ -3428,22 +3710,22 @@ function saveEcole() {
   if (!nom) { showNotif('Nom de l\'école obligatoire', 'error'); return; }
 
   if (editingEcoleIdx !== null) {
-    // Modification d'une école existante
     DB.ecoles[editingEcoleIdx] = { ...DB.ecoles[editingEcoleIdx], nom, code, iepp, drena };
+    const updated = DB.ecoles[editingEcoleIdx];
+    if(window._firebaseReady&&window._fb) window._fb.set('ecoles', updated.id, updated).catch(()=>{});
     save('ecoles'); updateStats(); renderEcoles();
     closeModal('modal-ecole');
     showNotif('✅ École modifiée', 'success');
   } else {
-    // Nouvelle école
     const rec = { id:genId('ec'), nom, code, iepp, drena };
     DB.ecoles.push(rec);
-    // Instituteur/Bénévole : rattacher automatiquement à sa nouvelle école
+    if(window._firebaseReady&&window._fb) window._fb.set('ecoles', rec.id, rec).catch(()=>{});
     if (currentUser && ['instituteur','benevole'].includes(currentUser.role)) {
       const u = DB.users.find(x=>x.login===currentUser.login);
       if (u) {
         u.ecole_val = rec.id;
         save('users');
-        // Mettre aussi à jour les élèves de sa classe si besoin
+        if(window._firebaseReady&&window._fb) window._fb.set('users', u.login, u).catch(()=>{});
         const structEl = document.getElementById('user-structure-label');
         if (structEl) structEl.textContent = getStructureLabel(u);
       }
@@ -3485,6 +3767,8 @@ function editEcoleInst(idx) {
 function deleteEcole(idx) {
   if (!canDelete()) { showNotif('🔒 Accès refusé', 'error'); return; }
   if (!confirm('Supprimer cette école ?')) return;
+  const ec = DB.ecoles[idx];
+  if(window._firebaseReady&&window._fb&&ec) window._fb.del('ecoles', ec.id).catch(()=>{});
   DB.ecoles.splice(idx,1); save('ecoles'); renderEcoles(); updateStats();
   showNotif('🗑 École supprimée', 'info');
 }
@@ -3856,16 +4140,21 @@ function saveImport() {
     if (mode === 'ajouter') {
       const exist = e.matricule ? DB.eleves.find(x=>x.matricule===e.matricule) : null;
       if (exist) { skipped++; return; }
-      DB.eleves.push({ id:genId('el'), ...rec });
+      const newEl = { id:genId('el'), ...rec };
+      DB.eleves.push(newEl);
+      if(window._firebaseReady&&window._fb) window._fb.set('eleves', newEl.id, newEl).catch(()=>{});
       added++;
     } else {
       // mettre_a_jour ou remplacer (après suppression)
       const idx = e.matricule ? DB.eleves.findIndex(x=>x.matricule===e.matricule) : -1;
       if (idx>=0) {
         DB.eleves[idx] = { ...DB.eleves[idx], ...rec };
+        if(window._firebaseReady&&window._fb) window._fb.set('eleves', DB.eleves[idx].id, DB.eleves[idx]).catch(()=>{});
         updated++;
       } else {
-        DB.eleves.push({ id:genId('el'), ...rec });
+        const newEl2 = { id:genId('el'), ...rec };
+        DB.eleves.push(newEl2);
+        if(window._firebaseReady&&window._fb) window._fb.set('eleves', newEl2.id, newEl2).catch(()=>{});
         added++;
       }
     }
@@ -4222,22 +4511,79 @@ function exportUsersPDF() {
   showNotif('✅ PDF ouvert — Ctrl+P pour sauvegarder','success');
 }
 
+function populateFiltresUsers() {
+  const ieppSel  = document.getElementById('filt-user-iepp');
+  const drenaSel = document.getElementById('filt-user-drena');
+  if (!ieppSel || !drenaSel) return;
+  const iepps  = [...new Set(DB.ecoles.map(e=>e.iepp).filter(Boolean))].sort();
+  const drenas = [...new Set(DB.ecoles.map(e=>e.drena).filter(Boolean))].sort();
+  const curIepp  = ieppSel.value;
+  const curDrena = drenaSel.value;
+  ieppSel.innerHTML  = '<option value="">Tous les IEPP</option>'  + iepps.map(v=>`<option value="${v}"${v===curIepp?'selected':''}>${v}</option>`).join('');
+  drenaSel.innerHTML = '<option value="">Tous les DRENAET</option>' + drenas.map(v=>`<option value="${v}"${v===curDrena?'selected':''}>${v}</option>`).join('');
+}
+
+function resetFiltresUsers() {
+  ['filt-user-nom','filt-user-role','filt-user-classe','filt-user-iepp','filt-user-drena'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  renderUsersList();
+}
+
 function renderUsersList() {
-  var visibleUsers = getScopeUsers();
-  var canEdit      = canManageComptes();
-  var u0           = getCurrentUserData();
-  var titreEl      = document.getElementById('comptes-titre');
+  populateFiltresUsers();
+  var allUsers   = getScopeUsers();
+  var canEdit    = canManageComptes();
+  var isRO       = isReadonlyComptes();
+  var u0         = getCurrentUserData();
+
+  // ── Appliquer les filtres ──
+  var filtNom   = (document.getElementById('filt-user-nom')?.value||'').toLowerCase().trim();
+  var filtRole  = document.getElementById('filt-user-role')?.value||'';
+  var filtClasse= document.getElementById('filt-user-classe')?.value||'';
+  var filtIepp  = document.getElementById('filt-user-iepp')?.value||'';
+  var filtDrena = document.getElementById('filt-user-drena')?.value||'';
+
+  var visibleUsers = allUsers.filter(function(u) {
+    if (filtNom && !(u.nom||'').toLowerCase().includes(filtNom) && !(u.login||'').toLowerCase().includes(filtNom)) return false;
+    if (filtRole && u.role !== filtRole) return false;
+    if (filtClasse && u.structure_val !== filtClasse && u.structure_type !== 'classe') return false;
+    if (filtClasse && u.structure_type === 'classe' && u.structure_val !== filtClasse) return false;
+    if (filtIepp) {
+      var eco = DB.ecoles.find(function(e){ return e.id===u.structure_val||e.id===u.ecole_val; });
+      if (!eco || eco.iepp !== filtIepp) return false;
+    }
+    if (filtDrena) {
+      var eco = DB.ecoles.find(function(e){ return e.id===u.structure_val||e.id===u.ecole_val; });
+      if (!eco) {
+        // pour coordinateurs/correspondants structure_val peut être drena/iepp direct
+        if (u.structure_type==='drena' && u.structure_val !== filtDrena) return false;
+        if (u.structure_type==='iepp') {
+          var found = DB.ecoles.some(function(e){ return e.iepp===u.structure_val && e.drena===filtDrena; });
+          if (!found) return false;
+        }
+      } else if (eco.drena !== filtDrena) return false;
+    }
+    return true;
+  });
+
+  var titreEl = document.getElementById('comptes-titre');
   if (titreEl) {
     var tmap = {admin:'Tous les utilisateurs',
-      coordinateur:'Utilisateurs DRENAET '+((u0&&u0.structure_val)||''),
-      correspondant:'Utilisateurs IEPP '+((u0&&u0.structure_val)||''),
-      directeur:'Enseignants de mon école'};
+      coordinateur:'Instituteurs — DRENAET '+((u0&&u0.structure_val)||''),
+      correspondant:'Instituteurs — IEPP '+((u0&&u0.structure_val)||''),
+      directeur:'Instituteurs de mon école'};
     titreEl.textContent = tmap[currentUser.role]||'Utilisateurs';
   }
   var container = document.getElementById('users-list');
   if (!container) return;
+
+  // Badge lecture seule pour les rôles non-admin
+  var roBadge = isRO ? '<span style="display:inline-block;background:#FEF9C3;border:1px solid #FDE68A;color:#92400E;border-radius:6px;padding:2px 9px;font-size:10px;font-weight:700;margin-left:8px;">👁 Lecture seule</span>' : '';
+  if (titreEl) titreEl.innerHTML = titreEl.textContent + roBadge;
+
   if (!visibleUsers.length) {
-    container.innerHTML = '<p style="text-align:center;color:var(--text3);padding:20px;">Aucun utilisateur dans votre périmètre</p>';
+    container.innerHTML = '<p style="text-align:center;color:var(--text3);padding:20px;">Aucun utilisateur correspondant aux filtres</p>';
   } else {
     var rows = '';
     for (var i=0; i<visibleUsers.length; i++) {
@@ -4253,22 +4599,33 @@ function renderUsersList() {
           actions = '<span style="opacity:0.3;font-size:11px;">🔒</span>';
         }
       } else {
-        actions = '<span style="font-size:10px;color:var(--text3);">👁</span>';
+        // Lecture seule : aucun bouton modifier ni supprimer — icône œil uniquement
+        actions = '<span title="Consultation uniquement — pas de modification autorisée" style="font-size:13px;cursor:default;">👁</span>';
       }
+      // Récupérer classe et IEPP/DRENAET pour affichage
+      var classeLabel = (u.structure_type==='classe') ? '<span style="background:var(--bleu-light);color:var(--bleu);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">'+u.structure_val+'</span>' : '<span style="color:var(--text3);font-size:10px;">—</span>';
+      var eco = DB.ecoles.find(function(e){ return e.id===u.ecole_val||e.id===u.structure_val; });
+      var ieppLabel  = eco ? '<span style="font-size:10px;color:var(--text2);">'+eco.iepp+'</span>'  : '<span style="color:var(--text3);font-size:10px;">—</span>';
+      var drenaLabel = eco ? '<span style="font-size:10px;color:var(--text2);">'+eco.drena+'</span>' : (u.structure_type==='drena'?'<span style="font-size:10px;color:var(--text2);">'+u.structure_val+'</span>':'<span style="color:var(--text3);font-size:10px;">—</span>');
+      var telLabel = u.telephone ? '<a href="tel:'+u.telephone+'" style="font-size:10px;color:var(--ci-vert);text-decoration:none;">📞 '+u.telephone+'</a>' : '<span style="color:var(--text3);font-size:10px;">—</span>';
       rows += '<tr style="background:'+bg+';">'
         + '<td style="padding:7px 6px;font-size:12px;"><strong>'+u.nom+'</strong><div style="font-size:10px;color:var(--text3);">@'+u.login+'</div></td>'
         + '<td style="padding:7px 6px;"><span style="background:'+rc+'20;color:'+rc+';padding:2px 7px;border-radius:6px;font-size:10px;font-weight:600;">'+(ROLE_LABELS[u.role]||u.role)+'</span></td>'
-        + '<td style="padding:7px 6px;font-size:11px;color:var(--text2);">'+getStructureLabel(u)+'</td>'
-        + '<td style="padding:7px 6px;font-size:11px;color:var(--text3);">'+(u.structure_val||'—')+'</td>'
+        + '<td style="padding:7px 6px;text-align:center;">'+classeLabel+'</td>'
+        + '<td style="padding:7px 6px;">'+ieppLabel+'</td>'
+        + '<td style="padding:7px 6px;">'+drenaLabel+'</td>'
+        + '<td style="padding:7px 6px;">'+telLabel+'</td>'
         + '<td style="padding:7px 6px;"><div class="actions-cell">'+actions+'</div></td>'
         + '</tr>';
     }
     container.innerHTML = '<table style="width:100%;border-collapse:collapse;">'
       + '<thead><tr style="background:var(--surface);">'
       + '<th style="padding:8px 6px;text-align:left;font-size:11px;border-bottom:2px solid var(--border);">Nom</th>'
-      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">Rôle</th>'
-      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">Structure</th>'
-      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">Zone</th>'
+      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">Emploi</th>'
+      + '<th style="padding:8px 6px;font-size:11px;text-align:center;border-bottom:2px solid var(--border);">Classe</th>'
+      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">IEPP</th>'
+      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">DRENAET</th>'
+      + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">📞 Tél.</th>'
       + '<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">⚙️</th>'
       + '</tr></thead><tbody>' + rows + '</tbody></table>';
   }
@@ -4280,7 +4637,7 @@ function resetCompteForm() {
   document.getElementById('compte-form-title').textContent = '➕ Nouveau compte';
   document.getElementById('edit-login-orig').value = '';
   editingLoginOrig = null;
-  ['new-login','new-nom-user','new-pass','new-pass2'].forEach(id=>document.getElementById(id).value='');
+  ['new-login','new-nom-user','new-pass','new-pass2','new-telephone'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById('new-role').value='correspondant';
   document.getElementById('compte-error').style.display='none';
   updateStructureFields();
@@ -4297,6 +4654,7 @@ function editCompte(login) {
   document.getElementById('new-pass').value='';
   document.getElementById('new-pass2').value='';
   document.getElementById('new-role').value=u.role;
+  const telEl=document.getElementById('new-telephone'); if(telEl) telEl.value=u.telephone||'';
   document.getElementById('compte-error').style.display='none';
 }
 
@@ -4315,6 +4673,7 @@ function saveCompte() {
   const valIepp  = document.getElementById('new-iepp')?.value.trim()||'';
   const valEcole = document.getElementById('new-ecole-user')?.value.trim()||'';
   const valClasse= document.getElementById('new-classe-user')?.value||'';
+  const valTel   = document.getElementById('new-telephone')?.value.trim()||'';
   // Mémoriser les valeurs saisies
   if(valDrena) memoriserChamp('drena', valDrena);
   if(valIepp)  memoriserChamp('iepp',  valIepp);
@@ -4331,13 +4690,21 @@ function saveCompte() {
   if(!orig&&DB.users.find(u=>u.login===login)){err('Identifiant déjà utilisé.');return;}
   if(orig){
     const idx=DB.users.findIndex(u=>u.login===orig);
-    DB.users[idx].nom=nom;DB.users[idx].role=role;DB.users[idx].structure_type=structure_type;DB.users[idx].structure_val=structure_val;DB.users[idx].ecole_val=ecole_val;
+    DB.users[idx].nom=nom;DB.users[idx].role=role;DB.users[idx].structure_type=structure_type;DB.users[idx].structure_val=structure_val;DB.users[idx].ecole_val=ecole_val;DB.users[idx].telephone=valTel;
     if(pass)DB.users[idx].pass=hashPass(pass);
+    if(window._firebaseReady&&window._fb) window._fb.set('users', login, DB.users[idx]).catch(()=>{});
     if(orig===currentUser?.login){currentUser.nom=nom;currentUser.role=role;applyRoleUI();}
     showNotif('✅ Compte modifié','success');
   } else {
     const hashed = hashPass(pass);
-    DB.users.push({login,nom,pass:hashed,role,structure_type,structure_val,ecole_val});
+    const email = login+'@pgnep-menaet.ci';
+    const newUser = {login,nom,pass:hashed,role,structure_type,structure_val,ecole_val,telephone:valTel,email};
+    DB.users.push(newUser);
+    // Créer aussi dans Firebase Auth si disponible
+    if(window._firebaseReady&&window._fb){
+      window._fb.set('users', login, newUser).catch(()=>{});
+      window._fb.createUser(email, pass).catch(()=>{});
+    }
     showNotif('✅ Compte créé','success');
   }
   save('users');renderUsersList();resetCompteForm();
@@ -4349,7 +4716,9 @@ function deleteCompte(login) {
   if(admin.length===1&&DB.users.find(u=>u.login===login)?.role==='admin'){showNotif('Impossible de supprimer le dernier admin','error');return;}
   if(!confirm(`Supprimer le compte "${login}" ?`))return;
   DB.users=DB.users.filter(u=>u.login!==login);
-  save('users');renderUsersList();showNotif('🗑 Compte supprimé','info');
+  save('users');
+  if(window._firebaseReady && window._fb) window._fb.del('users', login).catch(()=>{});
+  renderUsersList();showNotif('🗑 Compte supprimé','info');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -6100,46 +6469,25 @@ function renderStatsIEPP(containerId) {
 
   if (!statsByEval.length) { container.innerHTML='<p style="color:var(--text3);font-size:13px;padding:12px;">Aucune note saisie pour cet IEPP.</p>'; return; }
 
-  container.innerHTML = statsByEval.map(evStat => `
-    <div style="margin-bottom:20px;">
-      <div style="font-weight:700;font-size:13px;color:var(--ci-vert);margin-bottom:8px;padding:6px 10px;background:#E8F5EF;border-radius:6px;border-left:3px solid var(--ci-vert);">
-        📝 ${evStat.label}
-      </div>
-      <div style="overflow-x:auto;">
+  container.innerHTML = statsByEval.map(evStat => {
+    const rows = evStat.stats.map(s => `<tr>
+      <td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;">${s.ecole||s.nom||''}</td>
+      <td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${s.moy||'—'}</td>
+      <td style="padding:5px 10px;border-bottom:1px solid #e5e7eb;text-align:center;">${s.taux||'—'}</td>
+    </tr>`).join('');
+    return `<div style="margin-bottom:20px;">
+      <div style="font-weight:700;margin-bottom:6px;color:var(--ci-vert)">${evStat.evalLabel||evStat.eval||''}</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead>
-          <tr style="background:var(--surface);border-bottom:2px solid var(--border);">
-            <th style="padding:7px 8px;text-align:left;">Classe</th>
-            <th style="padding:7px 8px;text-align:center;">Effectif</th>
-            <th style="padding:7px 8px;text-align:center;">👦 G</th>
-            <th style="padding:7px 8px;text-align:center;">👧 F</th>
-            <th style="padding:7px 8px;text-align:center;">Moy. G /20</th>
-            <th style="padding:7px 8px;text-align:center;">Moy. F /20</th>
-            <th style="padding:7px 8px;text-align:center;">Moy. gén.</th>
-            <th style="padding:7px 8px;text-align:center;">Taux réussite G</th>
-            <th style="padding:7px 8px;text-align:center;">Taux réussite F</th>
-            <th style="padding:7px 8px;text-align:center;">Taux global</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${evStat.stats.map((s,i)=>`
-            <tr style="background:${i%2===0?'#fff':'var(--surface)'};">
-              <td style="padding:6px 8px;font-weight:700;"><span class="badge badge-vert">${s.cl}</span></td>
-              <td style="padding:6px 8px;text-align:center;font-weight:700;">${s.total}</td>
-              <td style="padding:6px 8px;text-align:center;color:var(--bleu);">${s.nbG}</td>
-              <td style="padding:6px 8px;text-align:center;color:var(--ci-orange);">${s.nbF}</td>
-              <td style="padding:6px 8px;text-align:center;">${s.moyG}</td>
-              <td style="padding:6px 8px;text-align:center;">${s.moyF}</td>
-              <td style="padding:6px 8px;text-align:center;font-weight:700;color:var(--ci-vert);">${s.moyAll}</td>
-              <td style="padding:6px 8px;text-align:center;">${s.tauxG}</td>
-              <td style="padding:6px 8px;text-align:center;">${s.tauxF}</td>
-              <td style="padding:6px 8px;text-align:center;font-weight:700;">${s.tauxAll}</td>
-            </tr>`).join('')}
-        </tbody>
+        <thead><tr>
+          <th style="text-align:left;padding:5px 10px;background:#f3f4f6;border-bottom:2px solid #e5e7eb;">École</th>
+          <th style="padding:5px 10px;background:#f3f4f6;border-bottom:2px solid #e5e7eb;">Moyenne</th>
+          <th style="padding:5px 10px;background:#f3f4f6;border-bottom:2px solid #e5e7eb;">Taux</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
       </table>
-      </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
+</script>
 </script>\n</body>\n</html>
