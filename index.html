@@ -1042,6 +1042,10 @@ tr:hover td{background:#F9FAFB;}
       <div class="nav-item" onclick="showPage('guide')">
         <span class="nav-icon">📖</span> Guide d'utilisation
       </div>
+      <div class="nav-item" onclick="showPage('ia')" id="nav-ia" style="background:linear-gradient(135deg,rgba(247,127,0,0.12),rgba(255,154,0,0.06));border:1px solid rgba(247,127,0,0.25);border-radius:10px;margin:2px 6px;">
+        <span class="nav-icon">🤖</span> Assistant IA
+        <span style="margin-left:auto;background:#F77F00;color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;">IA</span>
+      </div>
       <div class="nav-item" onclick="showPage('comptes')" id="nav-comptes" style="display:none;">
         <span class="nav-icon">👥</span> Comptes utilisateurs
       </div>
@@ -1067,8 +1071,9 @@ tr:hover td{background:#F9FAFB;}
       <button class="logout-btn" onclick="doLogout()">🚪 Déconnexion</button>
       <div style="margin-top:10px;padding:8px 10px;background:rgba(0,107,63,0.15);border:1px solid rgba(0,107,63,0.3);border-radius:8px;text-align:center;">
         <div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.5px;margin-bottom:4px;text-transform:uppercase;">📞 Assistance technique</div>
-        <a href="tel:+2250104924532" style="display:block;font-size:11px;font-weight:700;color:#4ADE80;text-decoration:none;">+225 0104 924 532</a>
-        <a href="tel:+2250104924578" style="display:block;font-size:11px;font-weight:700;color:#4ADE80;text-decoration:none;margin-top:2px;">+225 0104 924 578</a>
+        <a href="tel:+2250172710333" style="display:block;font-size:11px;font-weight:700;color:#4ADE80;text-decoration:none;">+225 0172 710 333</a>
+        <a href="tel:+2250789510966" style="display:block;font-size:11px;font-weight:700;color:#4ADE80;text-decoration:none;margin-top:2px;">+225 0789 510 966</a>
+        <a href="tel:+2250505154169" style="display:block;font-size:11px;font-weight:700;color:#4ADE80;text-decoration:none;margin-top:2px;">+225 0505 154 169</a>
       </div>
     </div>
   </aside>
@@ -1393,7 +1398,44 @@ tr:hover td{background:#F9FAFB;}
       <div id="page-export" class="page">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
           <div class="card">
-            <div class="card-header"><h3>📤 Exporter les données</h3></div>
+            <!-- ── IA SCANNER dans export ── -->
+          <div style="background:linear-gradient(135deg,#F77F00,#E06800);border-radius:12px;padding:16px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <span style="font-size:24px;">🤖</span>
+              <div>
+                <div style="color:#fff;font-weight:800;font-size:15px;">IA — Scanner &amp; Importer</div>
+                <div style="color:rgba(255,255,255,0.85);font-size:11px;">Chargez une image ou un fichier pour l'importer automatiquement</div>
+              </div>
+            </div>
+            <!-- Boutons caméra + fichier -->
+            <div style="display:flex;gap:8px;margin-bottom:10px;">
+              <button onclick="document.getElementById('ia-cam-input2').click()"
+                style="flex:1;background:rgba(255,255,255,0.25);color:#fff;border:2px solid rgba(255,255,255,0.5);border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;backdrop-filter:blur(4px);">
+                📷 Caméra
+              </button>
+              <button onclick="document.getElementById('ia-scan-input2').click()"
+                style="flex:1;background:rgba(255,255,255,0.25);color:#fff;border:2px solid rgba(255,255,255,0.5);border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;backdrop-filter:blur(4px);">
+                📁 Fichier
+              </button>
+            </div>
+            <input type="file" id="ia-cam-input2" accept="image/*" capture="environment" style="display:none;" onchange="iaScanFile(this)">
+            <input type="file" id="ia-scan-input2" accept="image/*,.xlsx,.xls,.csv,.docx,.doc,.pdf" style="display:none;" onchange="iaScanFile(this)">
+            <!-- Drop zone -->
+            <label style="display:block;border:2px dashed rgba(255,255,255,0.4);border-radius:10px;padding:12px;text-align:center;cursor:pointer;background:rgba(255,255,255,0.08);transition:all 0.2s;" for="ia-scan-input2"
+              ondragover="event.preventDefault();this.style.background='rgba(255,255,255,0.18)'"
+              ondragleave="this.style.background='rgba(255,255,255,0.08)'"
+              ondrop="iaScanDrop(event)">
+              <div style="color:rgba(255,255,255,0.8);font-size:11px;">ou glisser-déposer un fichier ici</div>
+            </label>
+            <div id="ia-scan-status" style="display:none;margin-top:10px;background:rgba(255,255,255,0.15);border-radius:8px;padding:10px;color:#fff;font-size:12px;"></div>
+            <div id="ia-scan-actions" style="display:none;margin-top:10px;display:none;gap:8px;">
+              <button onclick="iaScanExportWord()" style="flex:1;background:#fff;color:#E06800;border:none;border-radius:7px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;">📝 → Word</button>
+              <button onclick="iaScanExportExcel()" style="flex:1;background:#fff;color:#E06800;border:none;border-radius:7px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;">📊 → Excel</button>
+              <button onclick="iaScanImportSync()" style="flex:1;background:#1A56DB;color:#fff;border:none;border-radius:7px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;">📥 Import</button>
+            </div>
+          </div>
+
+          <div class="card-header"><h3>📤 Exporter les données</h3></div>
             <div style="padding:20px;display:flex;flex-direction:column;gap:10px;">
 
               <!-- CSV -->
@@ -1532,6 +1574,52 @@ tr:hover td{background:#F9FAFB;}
               <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="printRapport()">🖨️ Imprimer le rapport</button>
               <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="exportRapportXLSX()">📊 Exporter Excel (.xlsx)</button>
               <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="exportRapportWord()">📝 Exporter Word (.docx)</button>
+            </div>
+          </div>
+
+          <!-- ── IA RÉDACTION ── -->
+          <div style="border:2px solid #F77F00;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+            <div style="background:linear-gradient(135deg,#F77F00,#E06800);padding:12px 16px;display:flex;align-items:center;gap:10px;">
+              <span style="font-size:20px;">🤖</span>
+              <div>
+                <div style="color:#fff;font-weight:800;font-size:14px;">Assistant IA — Rédaction automatique</div>
+                <div style="color:rgba(255,255,255,0.85);font-size:11px;">L'IA rédige introduction, développement et conclusion</div>
+              </div>
+            </div>
+            <div style="padding:14px;background:#FFFBF5;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#92400E;display:block;margin-bottom:4px;">TYPE</label>
+                  <select id="ia-rpt-type2" style="width:100%;padding:8px;border:1px solid #FCD34D;border-radius:8px;font-family:inherit;font-size:13px;">
+                    <option value="composition">📝 Après composition</option>
+                    <option value="trim1">📅 1er Trimestre</option>
+                    <option value="trim2">📅 2e Trimestre</option>
+                    <option value="trim3">📅 3e Trimestre</option>
+                    <option value="annuel">📆 Rapport annuel</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#92400E;display:block;margin-bottom:4px;">SECTION</label>
+                  <select id="ia-rpt-section2" style="width:100%;padding:8px;border:1px solid #FCD34D;border-radius:8px;font-family:inherit;font-size:13px;">
+                    <option value="complet">📄 Complet</option>
+                    <option value="intro">1. Introduction</option>
+                    <option value="dev">2. Développement</option>
+                    <option value="conclu">3. Conclusion</option>
+                  </select>
+                </div>
+              </div>
+              <textarea id="ia-rpt-contexte2" style="width:100%;border:1px solid #FCD34D;border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;min-height:48px;margin-bottom:10px;" placeholder="Informations complémentaires (optionnel)..."></textarea>
+              <button id="ia-rpt-btn2" onclick="iaGenRapportInline()" style="width:100%;background:linear-gradient(135deg,#F77F00,#E06800);color:#fff;border:none;border-radius:8px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">
+                ✨ Générer le rapport avec l'IA
+              </button>
+              <div id="ia-rapport-result" style="margin-top:12px;display:none;">
+                <div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:6px;">TEXTE GÉNÉRÉ :</div>
+                <div id="ia-rapport-text" style="background:#fff;border:1px solid #FCD34D;border-radius:8px;padding:12px;font-size:13px;line-height:1.7;max-height:300px;overflow-y:auto;white-space:pre-wrap;"></div>
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                  <button onclick="iaCopierRapport()" style="flex:1;background:#00843D;color:#fff;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;">📋 Copier</button>
+                  <button onclick="iaExportRapportWord()" style="flex:1;background:#1A56DB;color:#fff;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;">📝 Word</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -2106,7 +2194,188 @@ tr:hover td{background:#F9FAFB;}
       </div>
 
     </div><!-- /content -->
-  </main>
+  
+    <!-- ===== PAGE IA ASSISTANT ===== -->
+    <div id="page-ia" class="page" style="display:none;">
+      <div style="display:grid;grid-template-columns:320px 1fr;gap:18px;height:calc(100vh - 80px);">
+
+        <!-- ── PANNEAU GAUCHE : Outils IA ── -->
+        <div style="display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+
+          <!-- Carte principale IA -->
+          <div class="card">
+            <div class="card-header" style="background:linear-gradient(135deg,#F77F00,#E06800);border-radius:10px 10px 0 0;">
+              <h3 style="color:#fff;display:flex;align-items:center;gap:8px;">
+                🤖 Assistant IA — Le Perroquet
+              </h3>
+              <div style="color:rgba(255,255,255,0.8);font-size:11px;margin-top:2px;">Propulsé par Claude (Anthropic)</div>
+            </div>
+            <div style="padding:14px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <button class="btn btn-secondary" style="flex-direction:column;padding:12px;gap:4px;font-size:12px;" onclick="iaSetMode('aide')">
+                  <span style="font-size:20px;">💬</span>Aide plateforme
+                </button>
+                <button class="btn btn-secondary" style="flex-direction:column;padding:12px;gap:4px;font-size:12px;" onclick="iaSetMode('rapport')">
+                  <span style="font-size:20px;">📝</span>Rédiger rapport
+                </button>
+                <button class="btn btn-secondary" style="flex-direction:column;padding:12px;gap:4px;font-size:12px;" onclick="iaSetMode('scan')">
+                  <span style="font-size:20px;">📷</span>Scanner image
+                </button>
+                <button class="btn btn-secondary" style="flex-direction:column;padding:12px;gap:4px;font-size:12px;" onclick="iaSetMode('transcription')">
+                  <span style="font-size:20px;">📄</span>Transcrire fichier
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 🔑 PANNEAU BYOK : Configuration clé API (admin uniquement) ── -->
+          <div class="card" id="ia-byok-panel" style="display:none;border:2px solid #F77F00;">
+            <div class="card-header" style="background:linear-gradient(135deg,#1F2937,#374151);border-radius:10px 10px 0 0;">
+              <h3 style="color:#fff;display:flex;align-items:center;gap:8px;font-size:14px;">
+                🔑 Configuration de la clé API Anthropic
+              </h3>
+              <div style="color:rgba(255,255,255,0.7);font-size:10px;margin-top:2px;">Réservé aux administrateurs</div>
+            </div>
+            <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
+              <div id="byok-status" style="padding:8px 10px;border-radius:6px;font-size:11px;font-weight:700;text-align:center;background:#FEF2F2;color:#991B1B;border:1px solid #FECACA;">
+                ❌ Aucune clé configurée
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <input type="password" id="byok-api-key" placeholder="sk-ant-api03-..." style="flex:1;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;font-family:monospace;">
+                <button type="button" onclick="byokToggleVisibility()" title="Afficher/masquer" style="border:1px solid var(--border);border-radius:6px;background:#fff;padding:8px 10px;cursor:pointer;font-size:14px;">👁️</button>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <button type="button" class="btn btn-primary" onclick="byokSaveKey()" style="font-size:11px;padding:8px;">💾 Enregistrer</button>
+                <button type="button" class="btn btn-secondary" onclick="byokDeleteKey()" style="font-size:11px;padding:8px;">🗑️ Supprimer</button>
+              </div>
+              <div style="font-size:10px;color:var(--text3);background:#F0F9FF;border:1px solid #BAE6FD;border-radius:6px;padding:8px;line-height:1.5;">
+                ℹ️ Votre clé est stockée <strong>uniquement dans ce navigateur</strong> (localStorage). Elle n'est jamais envoyée sur GitHub ni partagée avec d'autres utilisateurs.<br>
+                🔗 Obtenez une clé : <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:#0369A1;font-weight:700;">console.anthropic.com</a>
+              </div>
+            </div>
+          </div>
+            <div class="card-header"><h3>📷 Scanner / Charger un fichier</h3></div>
+            <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
+              <!-- Boutons d'action -->
+              <div style="display:flex;gap:8px;margin-bottom:10px;">
+                <button onclick="document.getElementById('ia-cam-input').click()"
+                  style="flex:1;background:linear-gradient(135deg,#F77F00,#E06800);color:#fff;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                  📷 Ouvrir la caméra
+                </button>
+                <button onclick="document.getElementById('ia-file-input').click()"
+                  style="flex:1;background:var(--ci-vert);color:#fff;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                  📁 Choisir un fichier
+                </button>
+              </div>
+              <!-- Inputs cachés -->
+              <input type="file" id="ia-cam-input" accept="image/*" capture="environment" style="display:none;" onchange="iaHandleFile(this)">
+              <input type="file" id="ia-file-input" accept="image/*,.pdf,.xlsx,.xls,.docx,.doc,.csv" style="display:none;" onchange="iaHandleFile(this)">
+              <!-- Drop zone -->
+              <label style="border:2px dashed var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:all 0.2s;display:block;" for="ia-file-input" id="ia-dropzone"
+                ondragover="event.preventDefault();this.style.borderColor='var(--ci-vert)'"
+                ondragleave="this.style.borderColor='var(--border)'"
+                ondrop="iaHandleDrop(event)">
+                <div style="font-size:11px;color:var(--text3);">ou glisser-déposer un fichier ici</div>
+              </label>
+              <div id="ia-file-preview" style="display:none;"></div>
+              <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;">Exporter vers :</div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="iaExportWord()">📝 Word</button>
+                <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="iaExportExcel()">📊 Excel</button>
+                <button class="btn btn-primary btn-sm" style="flex:1;" onclick="iaImportToSync()">📥 Synchro</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rapport IA -->
+          <div class="card" id="ia-panel-rapport" style="display:none;">
+            <div class="card-header"><h3>📝 Paramètres rapport</h3></div>
+            <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px;">TYPE</label>
+                <select class="filter-select" id="ia-rpt-type" style="width:100%;">
+                  <option value="composition">📝 Après composition</option>
+                  <option value="trim1">📅 1er Trimestre</option>
+                  <option value="trim2">📅 2e Trimestre</option>
+                  <option value="trim3">📅 3e Trimestre</option>
+                  <option value="annuel">📆 Rapport annuel</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px;">SECTION</label>
+                <select class="filter-select" id="ia-rpt-section" style="width:100%;">
+                  <option value="complet">📄 Rapport complet</option>
+                  <option value="intro">1. Introduction</option>
+                  <option value="dev">2. Développement</option>
+                  <option value="conclu">3. Conclusion</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--text3);display:block;margin-bottom:4px;">CONTEXTE ADDITIONNEL</label>
+                <textarea id="ia-rpt-contexte" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;resize:vertical;min-height:60px;font-family:inherit;" placeholder="Ex: École EPP NIAKARA, 43 élèves, classe CP1..."></textarea>
+              </div>
+              <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="iaGenererRapport()">
+                ✨ Générer avec l'IA
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── PANNEAU DROIT : Chat IA ── -->
+        <div class="card" style="display:flex;flex-direction:column;overflow:hidden;">
+          <div class="card-header" style="flex-shrink:0;">
+            <h3 id="ia-chat-title">💬 Aide — Plateforme Le Perroquet</h3>
+            <button class="btn btn-secondary btn-sm" onclick="iaClearChat()">🗑 Vider</button>
+          </div>
+
+          <!-- Messages -->
+          <div id="ia-messages" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;">
+            <!-- Message de bienvenue -->
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#F77F00,#E06800);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🤖</div>
+              <div style="background:#F3F4F6;border-radius:0 12px 12px 12px;padding:12px 14px;max-width:85%;font-size:13px;line-height:1.6;">
+                Bonjour ! Je suis l'assistant IA <strong>Le Perroquet</strong>, propulsé par Claude (Anthropic).<br><br>
+                Je peux vous aider à :<br>
+                • 💬 <strong>Répondre à vos questions</strong> sur la plateforme<br>
+                • 📝 <strong>Rédiger des rapports</strong> (introduction, développement, conclusion)<br>
+                • 📷 <strong>Transcrire des images</strong> ou fichiers en Word/Excel<br>
+                • 📊 <strong>Analyser vos données</strong> scolaires<br><br>
+                <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px;margin-top:6px;font-size:12px;">
+                  ⚡ <strong>Pour que l'IA fonctionne pleinement</strong>, la plateforme doit être hébergée en ligne (GitHub Pages, Firebase Hosting). 
+                  En mode fichier local, certains navigateurs peuvent bloquer les appels IA.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Zone de saisie -->
+          <div style="padding:14px;border-top:1px solid var(--border);flex-shrink:0;">
+            <div style="display:flex;gap:8px;">
+              <textarea id="ia-input" style="flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;resize:none;font-family:inherit;height:44px;line-height:1.4;transition:border-color 0.2s;overflow:hidden;"
+                placeholder="Posez votre question ou décrivez ce que vous souhaitez..."
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaEnvoyer();}"
+                oninput="this.style.height='44px';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+              <button class="btn btn-primary" style="padding:10px 16px;flex-shrink:0;" onclick="iaEnvoyer()" id="ia-send-btn">
+                <span id="ia-send-icon">➤</span>
+              </button>
+            </div>
+            <div style="font-size:10px;color:var(--text3);margin-top:6px;text-align:center;">
+              Entrée pour envoyer · Shift+Entrée pour saut de ligne · Propulsé par Claude (Anthropic)
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IA Floating Button -->
+    <div id="ia-fab" onclick="showPage('ia')" title="Assistant IA"
+      style="position:fixed;bottom:24px;right:24px;width:54px;height:54px;border-radius:50%;
+      background:linear-gradient(135deg,#F77F00,#E06800);color:#fff;font-size:22px;
+      display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:800;
+      box-shadow:0 4px 20px rgba(247,127,0,0.55);transition:all 0.2s;
+      animation:ia-fab-pulse 2.5s ease-in-out infinite;">🤖</div>
+
+</main>
 </div><!-- /app -->
 
 <!-- ══════════════════════════════════════════════════════════ -->
@@ -2194,7 +2463,56 @@ tr:hover td{background:#F9FAFB;}
 // Auth base64 synchrone — compatible file:// Android/PC
 const _enc = s => btoa(unescape(encodeURIComponent(s)));
 function hashPass(plain) { return _enc(plain); }
+// Decode passPlain for admin display
+function decodePass(encoded) {
+  try { return decodeURIComponent(escape(atob(encoded))); } catch(e) { return null; }
+}
 function verifyPass(plain, stored) { return stored === _enc(plain); }
+
+// ── Affichage du mot de passe par l'administrateur (3 secondes) ──
+function viewUserPassword(login) {
+  if (!currentUser || (currentUser.role !== 'admin' && currentUser.login !== 'diomande')) {
+    alert('Action réservée aux administrateurs.');
+    return;
+  }
+  var u = DB.users.find(function(x){ return x.login === login; });
+  if (!u) { alert('Utilisateur introuvable.'); return; }
+  var clear = decodePass(u.pass);
+  if (clear === null || clear === undefined) {
+    alert("Impossible de décoder ce mot de passe (compte créé avec une ancienne méthode de hachage).\n\nUtilisez le bouton ✏️ pour réinitialiser un nouveau mot de passe.");
+    return;
+  }
+  // Modal sobre avec auto-fermeture
+  var existing = document.getElementById('pw-view-modal');
+  if (existing) existing.remove();
+  var modal = document.createElement('div');
+  modal.id = 'pw-view-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = '<div style="background:#fff;border-radius:14px;padding:22px;max-width:400px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,0.3);">'
+    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;"><span style="font-size:28px;">🔐</span><div><div style="font-weight:800;font-size:15px;color:#1F2937;">Mot de passe — '+u.nom+'</div><div style="font-size:11px;color:#6B7280;">Login : @'+u.login+'</div></div></div>'
+    + '<div style="background:#FEF3C7;border:2px solid #F59E0B;border-radius:8px;padding:14px;text-align:center;margin-bottom:12px;">'
+    + '<div style="font-size:10px;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:6px;">Mot de passe actuel</div>'
+    + '<div style="font-family:monospace;font-size:18px;font-weight:800;color:#78350F;letter-spacing:1px;word-break:break-all;">'+clear.replace(/[<>&"]/g, function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c];})+'</div>'
+    + '</div>'
+    + '<div id="pw-countdown" style="text-align:center;font-size:11px;color:#6B7280;margin-bottom:12px;">Cette fenêtre se fermera automatiquement dans <strong>10</strong> secondes</div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button onclick="navigator.clipboard&amp;&amp;navigator.clipboard.writeText(\''+clear.replace(/'/g,"\\'")+'\').then(function(){var b=event.target;b.textContent=\'✅ Copié\';setTimeout(function(){b.textContent=\'📋 Copier\';},1500);})" style="flex:1;border:1px solid #D1D5DB;background:#F9FAFB;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;">📋 Copier</button>'
+    + '<button onclick="document.getElementById(\'pw-view-modal\').remove()" style="flex:1;border:none;background:#1F2937;color:#fff;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;">Fermer</button>'
+    + '</div></div>';
+  document.body.appendChild(modal);
+  // Compte à rebours et auto-fermeture
+  var sec = 10;
+  var timer = setInterval(function(){
+    sec--;
+    var cd = document.getElementById('pw-countdown');
+    if (cd) cd.innerHTML = 'Cette fenêtre se fermera automatiquement dans <strong>'+sec+'</strong> seconde'+(sec>1?'s':'');
+    if (sec <= 0 || !document.getElementById('pw-view-modal')) {
+      clearInterval(timer);
+      var m = document.getElementById('pw-view-modal');
+      if (m) m.remove();
+    }
+  }, 1000);
+}
 function isLegacyHash(h) { return true; }
 
 const DEFAUT_USERS = [
@@ -2586,7 +2904,7 @@ const PAGE_LABELS = {
   dashboard:'Tableau de bord', eleves:'Gestion des élèves',
   saisie:'Saisie des notes', resultats:'Résultats & Statistiques',
   bulletins:'Bulletins de notes', ecoles:'Écoles & Structures',
-  export:'Export / Synchronisation', comptes:'Comptes utilisateurs', rapport:'Rapports d\'activité', corbeille:'Corbeille', guide:'Guide d\'utilisation'
+  export:'Export / Synchronisation', comptes:'Comptes utilisateurs', rapport:'Rapports d\'activité', corbeille:'Corbeille', guide:'Guide d\'utilisation', ia:'🤖 Assistant IA'
 };
 
 function showPage(name) {
@@ -2611,6 +2929,7 @@ function showPage(name) {
   }
   if (name==='ecoles')    { renderEcoles(); }
   if (name==='saisie')    { populateSaisieEleves(); }
+  if (name==='ia')        { iaOnPageOpen(); try{ byokRefreshUI(); }catch(e){} }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -4591,9 +4910,14 @@ function renderUsersList() {
       var bg = i%2===0 ? 'var(--surface)' : 'var(--bg)';
       var rc = ROLE_COLORS[u.role]||'#6B7280';
       var actions = '';
+      // Bouton "Voir mot de passe" — uniquement pour admins (admin et diomande)
+      var canViewPass = currentUser && (currentUser.role === 'admin' || currentUser.login === 'diomande');
       if (canEdit) {
         if (u.login !== currentUser.login) {
-          actions = '<button class="icon-btn" data-login="'+u.login+'" onclick="editCompte(this.dataset.login)">✏️</button>'
+          if (canViewPass) {
+            actions += '<button class="icon-btn" data-login="'+u.login+'" onclick="viewUserPassword(this.dataset.login)" title="Voir le mot de passe" style="color:#0369A1;">👁️‍🗨️</button>';
+          }
+          actions += '<button class="icon-btn" data-login="'+u.login+'" onclick="editCompte(this.dataset.login)">✏️</button>'
                   + '<button class="icon-btn" data-login="'+u.login+'" onclick="deleteCompte(this.dataset.login)" style="color:var(--danger);">🗑</button>';
         } else {
           actions = '<span style="opacity:0.3;font-size:11px;">🔒</span>';
@@ -4691,7 +5015,7 @@ function saveCompte() {
   if(orig){
     const idx=DB.users.findIndex(u=>u.login===orig);
     DB.users[idx].nom=nom;DB.users[idx].role=role;DB.users[idx].structure_type=structure_type;DB.users[idx].structure_val=structure_val;DB.users[idx].ecole_val=ecole_val;DB.users[idx].telephone=valTel;
-    if(pass)DB.users[idx].pass=hashPass(pass);
+    if(pass){DB.users[idx].pass=hashPass(pass); DB.users[idx].passPlain=pass;}
     if(window._firebaseReady&&window._fb) window._fb.set('users', login, DB.users[idx]).catch(()=>{});
     if(orig===currentUser?.login){currentUser.nom=nom;currentUser.role=role;applyRoleUI();}
     showNotif('✅ Compte modifié','success');
@@ -5778,9 +6102,12 @@ function renderGuideAcces() {
       const struct = getStructureLabel(u);
       return `<tr>
         <td><code>${u.login}</code></td>
-        <td><code style="background:#FEF2F2;color:var(--danger);">••••••••</code>
-          <button onclick="togglePassGuide(this,'${u.login}')" style="margin-left:6px;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:10px;cursor:pointer;">👁</button>
-          <span id="gp-${u.login}" style="display:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--danger);margin-left:4px;"></span>
+        <td>
+          <code style="background:#FEF2F2;color:var(--danger);">••••••••</code>
+          <button onclick="togglePassGuide(this,'${u.login}')"
+            style="margin-left:6px;background:linear-gradient(135deg,#F77F00,#E06800);color:#fff;border:none;border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-weight:700;"
+            title="Voir le mot de passe (admin uniquement)">👁 Voir</button>
+          <span id="gp-${u.login}" style="display:none;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#DC2626;margin-left:6px;background:#FEF2F2;padding:2px 8px;border-radius:4px;border:1px solid #FECACA;"></span>
         </td>
         <td style="color:${roleColor};font-weight:700;">${roleLabel}</td>
         <td style="font-size:12px;">${struct}</td>
@@ -5807,20 +6134,22 @@ function renderGuideAcces() {
 }
 
 function togglePassGuide(btn, login) {
-  const span = document.getElementById('gp-' + login);
+  var u0 = getCurrentUserData ? getCurrentUserData() : null;
+  var isAdmin = u0 && (u0.role === 'admin' || u0.role === 'directeur');
+  var span = document.getElementById('gp-' + login);
   if (!span) return;
   if (span.style.display === 'none') {
-    // Décoder depuis la base
-    const u = DB.users.find(x => x.login === login);
-    if (u) {
-      // Les mots de passe sont hashés SHA-256 — on ne peut pas les décoder
-      // Mais on affiche l'identifiant pour repérage
-      span.textContent = '[hashé SHA-256]';
-      span.style.color = 'var(--text3)';
-      span.style.fontStyle = 'italic';
+    var u = DB.users.find(function(x){ return x.login === login; });
+    if (!u) return;
+    if (!isAdmin) {
+      if (typeof showToast === 'function') showToast('Mot de passe visible uniquement par l\'administrateur.', 'warning');
+      else alert('Mot de passe visible uniquement par l\'administrateur.');
+      return;
     }
+    var plain = u.passPlain || (u.pass ? decodePass(u.pass) : null) || '(chiffré - non récupérable)';
+    span.textContent = plain;
     span.style.display = 'inline';
-    btn.textContent = '🙈';
+    btn.textContent = '🔒';
   } else {
     span.style.display = 'none';
     btn.textContent = '👁';
@@ -6490,4 +6819,434 @@ function renderStatsIEPP(containerId) {
 }
 
 </script>
+
+<style>
+/* ── IA CHAT STYLES ── */
+.ia-msg-user {
+  display:flex;gap:10px;align-items:flex-start;flex-direction:row-reverse;
+}
+.ia-msg-user .ia-bubble {
+  background:linear-gradient(135deg,var(--ci-vert),var(--ci-vert2));
+  color:#fff;border-radius:12px 0 12px 12px;
+  padding:10px 14px;max-width:85%;font-size:13px;line-height:1.6;
+}
+.ia-msg-bot {
+  display:flex;gap:10px;align-items:flex-start;
+}
+.ia-msg-bot .ia-bubble {
+  background:#F3F4F6;color:#111827;
+  border-radius:0 12px 12px 12px;
+  padding:10px 14px;max-width:85%;font-size:13px;line-height:1.6;
+}
+.ia-typing { display:flex;gap:5px;align-items:center;padding:8px 0; }
+.ia-dot { width:8px;height:8px;border-radius:50%;background:#9CA3AF;animation:iaDot 1.2s infinite; }
+.ia-dot:nth-child(2){animation-delay:.2s;}
+.ia-dot:nth-child(3){animation-delay:.4s;}
+@keyframes iaDot{0%,60%,100%{transform:translateY(0);}30%{transform:translateY(-6px);}}
+.ia-nav-btn.active {
+  background:linear-gradient(135deg,rgba(247,127,0,0.2),rgba(255,154,0,0.1)) !important;
+  border-color:var(--ci-orange) !important;
+  color:var(--ci-orange) !important;
+}
+</style>
+
+<script>
+function iaSetMode(mode) {
+  _iaMode = mode;
+  var panelScan    = document.getElementById('ia-panel-scan');
+  var panelRapport = document.getElementById('ia-panel-rapport');
+  if (panelScan)    panelScan.style.display    = (mode === 'scan' || mode === 'transcription') ? 'block' : 'none';
+  if (panelRapport) panelRapport.style.display = (mode === 'rapport') ? 'block' : 'none';
+
+  var titleEl = document.getElementById('ia-chat-title');
+  if (titleEl) {
+    var titles = { aide:'💬 Aide — Plateforme Le Perroquet', rapport:'📝 Rédaction de rapport IA', scan:'📷 Scanner et transcrire', transcription:'📄 Transcription de fichier' };
+    titleEl.textContent = titles[mode] || '';
+  }
+  var msgs = { aide:'Je suis prêt à vous aider. Posez votre question !', rapport:'Configurez les paramètres du rapport, puis cliquez Générer.', scan:'Chargez une image ou un fichier pour le transcrire.', transcription:'Chargez votre fichier pour l’analyser et l’importer.' };
+  if (msgs[mode]) iaAddBotMsg(msgs[mode]);
+}
+
+function iaHandleDrop(e) {
+  e.preventDefault();
+  var dz = document.getElementById('ia-dropzone');
+  if (dz) dz.style.borderColor = 'var(--border)';
+  var file = e.dataTransfer.files[0];
+  if (file) iaProcessFile(file);
+}
+function iaHandleFile(input) { if (input.files[0]) iaProcessFile(input.files[0]); }
+
+function iaProcessFile(file) {
+  _iaFileType = file.type;
+  var preview = document.getElementById('ia-file-preview');
+  if (preview) {
+    preview.style.display = 'block';
+    var icon = file.type.includes('image') ? '🖼️' : file.type.includes('pdf') ? '📄' : '📊';
+    preview.innerHTML = '<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px;font-size:12px;display:flex;align-items:center;gap:8px;">'
+      + '<span style="font-size:18px;">' + icon + '</span>'
+      + '<div><div style="font-weight:700;">' + file.name + '</div>'
+      + '<div style="color:var(--text3);">' + (file.size/1024).toFixed(1) + ' Ko</div></div></div>';
+  }
+  if (file.type.startsWith('image/')) {
+    var reader = new FileReader();
+    reader.onload = function(e2) {
+      _iaFileData = e2.target.result;
+      iaAddBotMsg('Image chargée ✅ Que souhaitez-vous faire ?<br>'
+        + '<div style="display:flex;gap:6px;margin-top:8px;">'
+        + '<button class="btn btn-secondary btn-sm" onclick="iaAnalyseImage()">🔍 Analyser</button>'
+        + '<button class="btn btn-secondary btn-sm" onclick="iaTranscribeToWord()">📝 Word</button>'
+        + '<button class="btn btn-secondary btn-sm" onclick="iaTranscribeToExcel()">📊 Excel</button>'
+        + '</div>');
+    };
+    reader.readAsDataURL(file);
+  } else {
+    var reader = new FileReader();
+    reader.onload = function(e2) {
+      _iaFileData = e2.target.result;
+      iaAddBotMsg('Fichier chargé ✅ — ' + file.name + '<br>Je peux l’analyser ou l’importer dans la Synchro.');
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+}
+
+function iaEnvoyer() {
+  var input = document.getElementById('ia-input');
+  var msg = (input ? input.value : '').trim();
+  if (!msg) return;
+  input.value = ''; input.style.height = '44px';
+  iaAddUserMsg(msg);
+  var typingId = iaAddTyping();
+  iaCallClaude(msg, typingId);
+}
+
+function iaGetContexte() {
+  var u  = typeof getCurrentUserData === 'function' ? getCurrentUserData() : {};
+  var nb = (typeof DB !== 'undefined' && DB.eleves) ? DB.eleves.length : 0;
+  var ne = (typeof DB !== 'undefined' && DB.ecoles) ? DB.ecoles.length : 0;
+  var base = 'Tu es l’assistant IA de la plateforme Le Perroquet (PGNEP), '
+    + 'plateforme de gestion des notes du primaire pour le MENAET de Côte d’Ivoire. '
+    + 'Tu parles français, de façon claire et professionnelle. '
+    + 'Utilisateur : ' + (u.nom || 'Utilisateur') + ' (rôle : ' + (u.role || 'inconnu') + '). '
+    + 'Base : ' + nb + ' élèves, ' + ne + ' école(s). ';
+  if (_iaMode === 'rapport') base += 'Mode : rédaction de rapport pédagogique structuré (intro, développement, conclusion). Style formel MENAET.';
+  else if (_iaMode === 'scan') base += 'Mode : transcription de fichier/image en tableau structuré. Format CSV : Matricule;Nom;Prénom;Sexe;Classe;École.';
+  else base += 'Mode : assistance générale. Aide pour naviguer, comprendre les fonctionnalités, saisir des notes, résoudre des problèmes.';
+  return base;
+}
+
+function iaGenererRapport() {
+  var type    = (document.getElementById('ia-rpt-type')    || {value:'composition'}).value;
+  var section = (document.getElementById('ia-rpt-section') || {value:'complet'}).value;
+  var ctx     = (document.getElementById('ia-rpt-contexte')|| {value:''}).value;
+  var typeLabel = { composition:'après une composition', trim1:'du 1er Trimestre', trim2:'du 2e Trimestre', trim3:'du 3e Trimestre', annuel:'annuel' }[type] || type;
+  var secLabel  = { complet:'complet (introduction, développement et conclusion)', intro:'introduction', dev:'développement', conclu:'conclusion' }[section] || section;
+  var nb = (typeof DB !== 'undefined' && DB.eleves) ? DB.eleves.length : 0;
+  var prompt = 'Rédige le rapport pédagogique ' + secLabel + ' ' + typeLabel + '. '
+    + 'Contexte : ' + nb + ' élèves, école primaire en Côte d’Ivoire (MENAET/PGNEP). '
+    + (ctx ? 'Informations : ' + ctx + '. ' : '')
+    + 'Style formel, titres structurés, langue française.';
+  iaAddUserMsg('Générer rapport ' + secLabel + ' ' + typeLabel);
+  var tid = iaAddTyping();
+  iaCallClaude(prompt, tid);
+}
+
+function iaAnalyseImage()       { if (_iaFileData) iaEnvoyerAvecMsg('Lis et transcris le contenu de cette image en tableau structuré.'); }
+function iaTranscribeToWord()   { if (_iaFileData) iaEnvoyerAvecMsg('Transcris cette image en document Word avec tableau : Matricule, Nom, Prénom, Sexe, Classe, École.'); }
+function iaTranscribeToExcel()  { if (_iaFileData) iaEnvoyerAvecMsg('Transcris cette image en CSV (séparateur ;). Première ligne = en-têtes.'); }
+function iaEnvoyerAvecMsg(msg)  { document.getElementById('ia-input').value = msg; iaEnvoyer(); }
+
+function iaExportWord() {
+  var msgs = document.getElementById('ia-messages');
+  var content = msgs ? msgs.innerText : '';
+  var blob = new Blob(['<html><head><meta charset="UTF-8"></head><body><pre>' + content + '</pre></body></html>'], {type:'application/msword'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'ia_' + new Date().toISOString().slice(0,10) + '.doc'; a.click();
+}
+function iaExportExcel() {
+  var msgs = document.getElementById('ia-messages');
+  var content = msgs ? msgs.innerText : '';
+  var blob = new Blob(['﻿' + content], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'ia_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
+}
+function iaImportToSync() { if (typeof showPage === 'function') showPage('export'); }
+function iaClearChat() { _iaHistory = []; var m = document.getElementById('ia-messages'); if (m) m.innerHTML = ''; }
+
+function iaAddUserMsg(text) {
+  var msgs = document.getElementById('ia-messages'); if (!msgs) return;
+  var u = typeof getCurrentUserData === 'function' ? getCurrentUserData() : null;
+  var init = u ? (u.nom||'U').charAt(0).toUpperCase() : 'U';
+  var div = document.createElement('div'); div.className = 'ia-msg-user';
+  div.innerHTML = '<div class="ia-bubble">' + text + '</div>'
+    + '<div style="width:28px;height:28px;border-radius:50%;background:var(--ci-vert);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;">' + init + '</div>';
+  msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
+}
+function iaAddBotMsg(html_content) {
+  var msgs = document.getElementById('ia-messages'); if (!msgs) return;
+  var div = document.createElement('div'); div.className = 'ia-msg-bot';
+  div.innerHTML = '<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#F77F00,#E06800);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🤖</div>'
+    + '<div class="ia-bubble">' + html_content + '</div>';
+  msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
+}
+var _iaTypingCnt = 0;
+function iaAddTyping() {
+  var id = 'ia-typing-' + (++_iaTypingCnt);
+  var msgs = document.getElementById('ia-messages'); if (!msgs) return id;
+  var div = document.createElement('div'); div.className = 'ia-msg-bot'; div.id = id;
+  div.innerHTML = '<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#F77F00,#E06800);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🤖</div>'
+    + '<div class="ia-bubble"><div class="ia-typing"><div class="ia-dot"></div><div class="ia-dot"></div><div class="ia-dot"></div></div></div>';
+  msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
+  return id;
+}
+function iaRemoveTyping(id) { var el = document.getElementById(id); if (el) el.remove(); }
+</script>
+
+
+<style>
+@keyframes ia-fab-pulse {
+  0%,100% { box-shadow:0 4px 20px rgba(247,127,0,0.55); transform:scale(1); }
+  50%      { box-shadow:0 6px 30px rgba(247,127,0,0.8); transform:scale(1.06); }
+}
+#ia-fab:hover { transform:scale(1.12)!important; }
+#ia-fab { display:none; } /* hidden until logged in */
+</style>
+
+<script>
+function iaOnPageOpen() {
+  var msgs = document.getElementById('ia-messages');
+  if (msgs && msgs.children.length === 0) {
+    iaAddBotMsg("Bonjour ! Je suis l’assistant IA <strong>Le Perroquet</strong>.<br><br>"
+      + "Je peux vous aider :<br>"
+      + "• 💬 <strong>Répondre à vos questions</strong> sur la plateforme<br>"
+      + "• 📝 <strong>Rédiger des rapports</strong> (intro, développement, conclusion)<br>"
+      + "• 📷 <strong>Scanner des images</strong> → Word / Excel<br>"
+      + "• 📊 <strong>Analyser vos données</strong> scolaires<br><br>"
+      + "Que puis-je faire pour vous ?");
+  }
+}
+
+function iaGenRapportInline() {
+  var type    = (document.getElementById('ia-rpt-type2')    || {value:'composition'}).value;
+  var section = (document.getElementById('ia-rpt-section2') || {value:'complet'}).value;
+  var ctx     = (document.getElementById('ia-rpt-contexte2')|| {value:''}).value;
+  var btnEl   = document.getElementById('ia-rpt-btn2');
+  var resultEl = document.getElementById('ia-rapport-result');
+  var textEl   = document.getElementById('ia-rapport-text');
+  if (btnEl) { btnEl.textContent = '⏳ Génération...'; btnEl.disabled = true; }
+  if (resultEl) resultEl.style.display = 'none';
+  var nb = (typeof DB !== 'undefined' && DB.eleves) ? DB.eleves.length : 0;
+  var typeLabel = { composition:'après une composition', trim1:'du 1er Trimestre', trim2:'du 2e Trimestre', trim3:'du 3e Trimestre', annuel:'annuel' }[type] || type;
+  var secLabel  = { complet:'complet (introduction, développement et conclusion)', intro:'introduction', dev:'développement', conclu:'conclusion' }[section] || section;
+  var prompt = "Rédige le rapport pédagogique " + secLabel + " " + typeLabel + ". "
+    + "Contexte : " + nb + " élèves, école primaire en Côte d’Ivoire (MENAET/PGNEP). "
+    + (ctx ? "Informations : " + ctx + ". " : "")
+    + "Style : formel, professionnel, titres structurés.";
+  iaFetchClaude(prompt, function(reply) {
+    if (textEl) { textEl.textContent = reply; if (resultEl) resultEl.style.display = 'block'; }
+    if (btnEl) { btnEl.textContent = "✨ Générer le rapport avec l’IA"; btnEl.disabled = false; }
+  }, function(err) {
+    if (btnEl) { btnEl.textContent = "✨ Générer le rapport avec l’IA"; btnEl.disabled = false; }
+    alert("Erreur IA : " + err);
+  });
+}
+
+function iaCopierRapport() {
+  var el = document.getElementById('ia-rapport-text'); if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function() {
+    if (typeof showNotif === 'function') showNotif('Texte copié !', 'success');
+  });
+}
+function iaExportRapportWord() {
+  var el = document.getElementById('ia-rapport-text'); if (!el) return;
+  var doc = '<html><head><meta charset="UTF-8"><style>body{font-family:Arial;font-size:12pt;line-height:1.6;}</style></head><body><h1>Rapport — Le Perroquet PGNEP</h1><p>'
+    + el.textContent.split('\n').join('</p><p>') + '</p></body></html>';
+  var blob = new Blob([doc], {type:'application/msword'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'rapport_IA_' + new Date().toISOString().slice(0,10) + '.doc'; a.click();
+}
+
+var _iaScanData = null, _iaScanName = '';
+function iaScanDrop(e) { e.preventDefault(); var f = e.dataTransfer.files[0]; if (f) iaScanProcess(f); }
+function iaScanFile(input) { if (input.files[0]) iaScanProcess(input.files[0]); }
+
+function iaScanProcess(file) {
+  _iaScanName = file.name;
+  var status  = document.getElementById('ia-scan-status');
+  var actions = document.getElementById('ia-scan-actions');
+  if (status)  { status.style.display = 'block'; status.textContent = '⏳ Analyse en cours...'; }
+  if (actions) actions.style.display = 'none';
+  if (file.type.startsWith('image/')) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var b64 = e.target.result.split(',')[1];
+      var mime = e.target.result.split(';')[0].split(':')[1];
+      iaFetchClaude(
+        "Lis cette image contenant une liste d’élèves. Transcris en CSV avec colonnes : Matricule;Nom;Prénom;Sexe;Classe;École;Date naissance. Commence directement par les données.",
+        function(reply) {
+          _iaScanData = reply;
+          if (status) status.innerHTML = '✅ <strong>Image analysée !</strong><br><small>' + reply.substring(0,100) + '...</small>';
+          if (actions) { actions.style.display = 'flex'; }
+        },
+        function() { if (status) status.textContent = '⚠️ Erreur analyse.'; },
+        mime, b64
+      );
+    };
+    reader.readAsDataURL(file);
+  } else {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      _iaScanData = e.target.result;
+      if (status) status.innerHTML = '✅ <strong>Fichier chargé :</strong> ' + file.name;
+      if (actions) { actions.style.display = 'flex'; }
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+}
+function iaScanExportWord() {
+  if (!_iaScanData) return;
+  var blob = new Blob(['<html><head><meta charset="UTF-8"></head><body><h2>Transcription — ' + _iaScanName + '</h2><pre>' + _iaScanData + '</pre></body></html>'], {type:'application/msword'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'transcription_' + new Date().toISOString().slice(0,10) + '.doc'; a.click();
+}
+function iaScanExportExcel() {
+  if (!_iaScanData) return;
+  var blob = new Blob(['﻿' + _iaScanData], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'transcription_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
+}
+function iaScanImportSync() {
+  window._iaScanForImport = _iaScanData;
+  if (typeof showPage === 'function') showPage('export');
+  if (typeof showNotif === 'function') showNotif('Données prêtes pour import.', 'info');
+}
+
+// ========================================================================
+// ── BYOK : Bring Your Own Key (gestion de la clé API Anthropic locale) ──
+// ========================================================================
+function byokGetKey() { return localStorage.getItem('pgnep_claude_api_key') || ''; }
+
+function byokRefreshUI() {
+  var panel = document.getElementById('ia-byok-panel');
+  if (!panel) return;
+  // Afficher le panneau uniquement pour les admins
+  var isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.login === 'diomande');
+  panel.style.display = isAdmin ? '' : 'none';
+  if (!isAdmin) return;
+  // Statut
+  var key = byokGetKey();
+  var status = document.getElementById('byok-status');
+  var input = document.getElementById('byok-api-key');
+  if (key && key.indexOf('sk-ant-') === 0) {
+    var masked = key.substring(0, 14) + '••••••••••••' + key.substring(key.length - 4);
+    status.innerHTML = '✅ Clé configurée : <code style="font-family:monospace;font-size:10px;">' + masked + '</code>';
+    status.style.background = '#F0FDF4';
+    status.style.color = '#166534';
+    status.style.borderColor = '#BBF7D0';
+    if (input) input.value = '';
+    if (input) input.placeholder = 'Saisir une nouvelle clé pour remplacer...';
+  } else {
+    status.innerHTML = '❌ Aucune clé configurée';
+    status.style.background = '#FEF2F2';
+    status.style.color = '#991B1B';
+    status.style.borderColor = '#FECACA';
+    if (input) input.placeholder = 'sk-ant-api03-...';
+  }
+}
+
+function byokToggleVisibility() {
+  var input = document.getElementById('byok-api-key');
+  if (!input) return;
+  input.type = (input.type === 'password') ? 'text' : 'password';
+}
+
+function byokSaveKey() {
+  var input = document.getElementById('byok-api-key');
+  if (!input) return;
+  var val = (input.value || '').trim();
+  if (!val) { alert('Veuillez saisir une clé API.'); return; }
+  if (val.indexOf('sk-ant-') !== 0) {
+    alert("Format invalide. Une clé Anthropic commence par 'sk-ant-'.");
+    return;
+  }
+  localStorage.setItem('pgnep_claude_api_key', val);
+  input.value = '';
+  byokRefreshUI();
+  if (typeof showNotif === 'function') showNotif('✅ Clé API enregistrée localement.', 'success');
+  else alert('✅ Clé API enregistrée localement dans ce navigateur.');
+}
+
+function byokDeleteKey() {
+  if (!confirm('Supprimer la clé API stockée dans ce navigateur ?')) return;
+  localStorage.removeItem('pgnep_claude_api_key');
+  byokRefreshUI();
+  if (typeof showNotif === 'function') showNotif('🗑️ Clé API supprimée.', 'info');
+}
+
+// Rafraîchir l'UI BYOK lors de l'affichage de la page IA
+document.addEventListener('DOMContentLoaded', function(){
+  var tries = 0;
+  var iv = setInterval(function(){
+    tries++;
+    if (document.getElementById('ia-byok-panel') || tries > 40) {
+      clearInterval(iv);
+      try { byokRefreshUI(); } catch(e){}
+    }
+  }, 250);
+});
+
+function iaFetchClaude(prompt, onSuccess, onError, imgMime, imgB64) {
+  // ── BYOK : récupération de la clé API depuis localStorage ──
+  var apiKey = localStorage.getItem('pgnep_claude_api_key');
+  if (!apiKey || !apiKey.trim() || apiKey.indexOf('sk-ant-') !== 0) {
+    onError("Aucune clé API configurée. Allez dans 🤖 Assistant IA → 🔑 Configuration de la clé API pour saisir votre clé Anthropic. Obtenez-la sur console.anthropic.com");
+    return;
+  }
+  var messages = [];
+  if (imgMime && imgB64) {
+    messages.push({ role:'user', content:[
+      { type:'image', source:{ type:'base64', media_type:imgMime, data:imgB64 } },
+      { type:'text', text:prompt }
+    ]});
+  } else {
+    messages.push({ role:'user', content:prompt });
+  }
+  var body = JSON.stringify({
+    model:'claude-sonnet-4-20250514', max_tokens:2000,
+    system:"Tu es l’assistant pédagogique du système Le Perroquet (PGNEP/MENAET, Côte d’Ivoire). Réponds en français, de façon professionnelle et structurée.",
+    messages:messages
+  });
+  var hdrs = { 'Content-Type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' };
+  fetch('https://api.anthropic.com/v1/messages', {method:'POST', headers:hdrs, body:body})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.content && d.content[0] && d.content[0].text) onSuccess(d.content[0].text);
+      else if (d.error) onError(d.error.message || 'Erreur API');
+      else onError('Réponse inattendue');
+    })
+    .catch(function(){
+      fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.anthropic.com/v1/messages'),
+        {method:'POST', headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'}, body:body})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (d.content && d.content[0] && d.content[0].text) onSuccess(d.content[0].text);
+          else onError('Erreur proxy');
+        })
+        .catch(function(e){ onError(e.message || 'Connexion impossible'); });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var checkFab = setInterval(function() {
+    var app = document.getElementById('app');
+    var fab = document.getElementById('ia-fab');
+    if (app && fab) {
+      clearInterval(checkFab);
+      new MutationObserver(function() {
+        fab.style.display = (app.style.display === 'none' || app.classList.contains('hidden')) ? 'none' : 'flex';
+      }).observe(app, {attributes:true, attributeFilter:['class','style']});
+    }
+  }, 500);
+});
+</script>
+
 </script>\n</body>\n</html>
