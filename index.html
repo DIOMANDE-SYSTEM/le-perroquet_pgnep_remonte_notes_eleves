@@ -1549,6 +1549,19 @@ tr:hover td{background:#F9FAFB;}
                 Colonnes résultats reconnues : <strong>eleve / nom_eleve</strong>, eval_type / evaluation, classe, et les matières (cp_dictee, cecm_maths…)<br>
                 <span style="color:#7C3AED;font-weight:700;">📝 Word (.docx)</span> : le texte des tableaux est extrait automatiquement. Pour de meilleurs résultats, privilégier Excel ou CSV.
               </p>
+
+              <!-- 📚 Import avec matières détaillées -->
+              <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;">
+                <div style="font-size:11px;font-weight:700;color:var(--ci-orange);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">📚 Import avec matières détaillées</div>
+                <input type="file" id="import-matieres-file" accept=".csv,.xlsx,.xls" style="display:none;" onchange="importMatieres(this)">
+                <button class="btn btn-secondary" style="justify-content:flex-start;width:100%;" onclick="document.getElementById('import-matieres-file').click()">
+                  📚 Charger notes avec matières (.csv / .xlsx)
+                </button>
+                <p style="font-size:10px;color:var(--text3);margin-top:4px;line-height:1.5;">
+                  Reconnaît automatiquement les colonnes matières.<br>
+                  Met à jour ou ajoute les notes selon ce qui existe déjà.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -3242,11 +3255,20 @@ async function iaEnvoyer() {
 
   } catch(err) {
     iaRemoveTyping(typingId);
-    if (err.message.includes('Failed to fetch') || err.message.includes('network')) {
-      iaAddMessage("assistant", "📴 Mode hors ligne. Je suis indisponible sans internet. Vos donnees locales sont preservees.");
+    var errMsg = err && err.message ? err.message : String(err);
+    var iaErrMsg = "";
+    if (errMsg.includes('Failed to fetch') || errMsg.includes('network') || errMsg.includes('CORS')) {
+      iaErrMsg = "📴 Connexion impossible. L'IA necessite internet. Verifiez votre connexion et reessayez.";
+    } else if (errMsg.includes('401') || errMsg.includes('403')) {
+      iaErrMsg = "🔑 Erreur d'authentification. La cle API est invalide.";
+    } else if (errMsg.includes('429')) {
+      iaErrMsg = "⏳ Trop de requetes. Attendez quelques secondes puis reessayez.";
+    } else if (errMsg.includes('500') || errMsg.includes('503')) {
+      iaErrMsg = "🔧 Erreur serveur Claude. Reessayez dans un moment.";
     } else {
-      iaAddMessage('assistant', "Erreur: "+err.message+". Verifiez votre connexion.");
+      iaErrMsg = "⚠️ Erreur: " + errMsg + ". Reessayez.";
     }
+    iaAddMessage("assistant", iaErrMsg);
   }
 
   IA_TYPING = false;
@@ -7557,6 +7579,56 @@ function iaProcessFile(file) {
     };
     reader.readAsText(file, 'UTF-8');
   }
+}
+
+// ── IA : initialisation à l'ouverture de la page ─────────────
+function iaOnPageOpen() {
+  // Ajouter le message de bienvenue si le chat est vide
+  var container = document.getElementById('ia-messages');
+  if (!container) return;
+  if (container.children.length === 0) {
+    iaAddMessage("assistant", "🦜 Bonjour ! Je suis l'assistant IA Le Perroquet — PGNEP. Je peux vous aider à utiliser la plateforme, rédiger des rapports, analyser vos résultats ou donner des conseils pédagogiques. Comment puis-je vous aider ?");
+  }
+  // Focus sur le champ de saisie
+  setTimeout(function() {
+    var input = document.getElementById('ia-input');
+    if (input) input.focus();
+  }, 200);
+}
+
+// ── BYOK : Bring Your Own Key (clé API personnelle) ──────────
+function byokRefreshUI() {
+  var byokKey  = localStorage.getItem('pgnep_byok_key') || '';
+  var byokInfo = document.getElementById('byok-status');
+  if (byokInfo) {
+    byokInfo.textContent = byokKey
+      ? '✅ Clé personnelle active'
+      : '⚡ Clé partagée (limite 1000 tok/msg)';
+    byokInfo.style.color = byokKey ? 'var(--ci-vert)' : 'var(--ci-orange)';
+  }
+}
+
+function byokSaveKey() {
+  var input = document.getElementById('byok-input');
+  if (!input) return;
+  var key = input.value.trim();
+  if (key && !key.startsWith('sk-ant-')) {
+    showNotif('Clé invalide — doit commencer par sk-ant-', 'error');
+    return;
+  }
+  if (key) {
+    localStorage.setItem('pgnep_byok_key', key);
+    showNotif('✅ Clé API enregistrée', 'success');
+  } else {
+    localStorage.removeItem('pgnep_byok_key');
+    showNotif('Clé supprimée — utilisation de la clé partagée', 'info');
+  }
+  input.value = '';
+  byokRefreshUI();
+}
+
+function getApiKey() {
+  return localStorage.getItem('pgnep_byok_key') || '';
 }
 
 function iaEnvoyer() {
