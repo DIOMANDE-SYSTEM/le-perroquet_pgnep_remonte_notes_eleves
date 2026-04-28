@@ -3397,6 +3397,29 @@ function calcNote(note) {
   if (c==='CP1' || c==='CP2') {
     keys = ['cp_dictee','cp_lecture','cp_ecriture','cp_maths','cp_expression','cp_edhc','cp_dessin','cp_poesie'];
     keys.forEach(k => baremes[k] = 10);
+
+    // ── CP1/CP2 : moyenne sur /10 selon les matières saisies ──
+    let total=0, nbSaisies=0, nbAbs=0;
+    keys.forEach(k => {
+      const v = noteVal(n[k]);
+      totalBareme += 10;
+      if (v === null) { nbAbs++; }
+      else { total += v; nbSaisies++; }
+    });
+    // Moyenne = total des notes / nb matières saisies (sur /10)
+    // Si aucune note saisie → 0
+    const moy10 = nbSaisies > 0 ? Math.round((total / nbSaisies) * 100) / 100 : 0;
+    return {
+      total,
+      bareme: totalBareme,        // /80 (total barème)
+      baremeEffectif: nbSaisies * 10,
+      moy: moy10,                  // moyenne /10
+      maxMoy: 10,                  // CP est sur /10
+      nbAbs,
+      nbSaisies,
+      isCP: true
+    };
+
   } else if (note.eval_type==='entree6' && c==='CM2') {
     keys = ['e6_dictee','e6_exploitation','e6_maths','e6_eveil','e6_eps'];
     baremes = { e6_dictee:20, e6_exploitation:50, e6_maths:50, e6_eveil:50, e6_eps:20 };
@@ -3417,7 +3440,6 @@ function calcNote(note) {
     totalBareme += baremes[k];
   });
 
-  // Calcul du div proportionnel au barème effectif (matières non-ABS)
   const div = baremeEffectif > 0 ? baremeEffectif / 20 : 1;
   const moy = baremeEffectif > 0 ? Math.round((total / div) * 100) / 100 : 0;
   const maxMoy = 20;
@@ -4228,7 +4250,7 @@ function genBulletin() {
       </table>
 
       <div class="bulletin-mention">
-        <div style="font-size:13px;margin-bottom:6px;">Moyenne : <strong>${moy.toFixed(2)} / ${maxMoy}</strong></div>
+        <div style="font-size:13px;margin-bottom:6px;">Moyenne : <strong>${moy.toFixed(2)} / ${maxMoy}</strong>${n.classe==='CP1'||n.classe==='CP2' ? ' <span style="font-size:10px;color:var(--text3);">('+( calcNote(n).nbSaisies||0)+' mat. notées)</span>' : ''}</div>
         <div style="font-size:12px;margin-bottom:6px;font-weight:700;color:${(()=>{const rg=getRang(el.id,n.eval_type,n.classe);return rg&&rg.rang===1?'#D97706':rg&&rg.rang<=3?'#006B3F':'#4B5563';})()};">🏅 Rang dans la classe : ${formatRang(getRang(el.id,n.eval_type,n.classe))}</div>
         <span class="mention-badge" style="background:${mentionColor}20;color:${mentionColor};border:2px solid ${mentionColor}40;">${men.label}</span>
       </div>
@@ -7014,7 +7036,20 @@ function calcMoyAnnuelle(eleveId, classe) {
     const TGP=Math.round(((6*T1+4*T2)/10)*100)/100;
     return{TGP,T1,T2,MGA:Math.round(MGA*100)/100};
   }
-  // CP1→CM1 : [(M1+M2+M3)+M4×2]/5
+  // CP1/CP2 : moyenne annuelle sur /10 = moyenne des 4 compositions
+  if (classe==='CP1' || classe==='CP2') {
+    const evalsCP4=['composition1','composition2','composition3','composition4'];
+    const moysCP=evalsCP4.map(ev=>{
+      const n=DB.notes.find(x=>x.eleve_id===eleveId&&x.eval_type===ev);
+      if(!n)return null;
+      const res=calcNote(n);
+      return res.maxMoy>0?Math.round(res.moy*100)/100:null;
+    });
+    if(moysCP.some(m=>m===null))return null;
+    // Moyenne des 4 compositions sur /10
+    return Math.round((moysCP.reduce((s,m)=>s+m,0)/4)*100)/100;
+  }
+  // CE1→CM1 : [(M1+M2+M3)+M4×2]/5
   const evalsCP=['composition1','composition2','composition3','composition4'];
   const moys=evalsCP.map(ev=>{
     const n=DB.notes.find(x=>x.eleve_id===eleveId&&x.eval_type===ev);
@@ -7039,7 +7074,12 @@ function getStatutPassage(eleveId, classe) {
       color:admis?'var(--ci-vert)':'var(--danger)',moy:MGA,tgp:TGP,t1:T1,t2:T2};
   }
   if(res===null)return{statut:'incomplet',label:'⏳ Incomplet (4 compositions requises)',color:'var(--text3)',moy:null};
-  return res>=10?{statut:'admis',label:'✅ DFA Admis',color:'var(--ci-vert)',moy:res}:{statut:'echec',label:'❌ DFA Échec',color:'var(--danger)',moy:res};
+  // CP1/CP2 : seuil sur /10 (≥5), CE1→CM1 : seuil sur /20 (≥10)
+  const seuilAdmis = (classe==='CP1'||classe==='CP2') ? 5 : 10;
+  const maxNote    = (classe==='CP1'||classe==='CP2') ? 10 : 20;
+  return res>=seuilAdmis
+    ?{statut:'admis',label:'✅ DFA Admis — Moy: '+res+'/'+maxNote,color:'var(--ci-vert)',moy:res}
+    :{statut:'echec', label:'❌ DFA Échec — Moy: '+res+'/'+maxNote, color:'var(--danger)', moy:res};
 }
 
 // ══════════════════════════════════════════════════════════════
