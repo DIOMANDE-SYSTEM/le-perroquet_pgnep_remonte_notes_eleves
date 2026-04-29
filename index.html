@@ -2222,6 +2222,81 @@ tr:hover td{background:#F9FAFB;}
     <!-- ===== PAGE IA ASSISTANT ===== -->
     
 
+
+<div class="modal-overlay" id="modal-eleve" onclick="closeModal('modal-eleve',event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 id="modal-eleve-title">Ajouter un élève</h3>
+      <button class="modal-close" onclick="closeModal('modal-eleve')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-field"><label>Nom</label><input type="text" id="e-nom" placeholder="NOM"></label></div>
+        <div class="form-group"><label class="form-field"><label>Prénom(s)</label><input type="text" id="e-prenoms" placeholder="Prénoms"></label></div>
+        <div class="form-group"><label class="form-field"><label>Matricule</label><input type="text" id="e-matricule" placeholder="CI-2025-XXXXX"></label></div>
+        <div class="form-group"><label class="form-field"><label>Sexe</label>
+          <select id="e-sexe" class="filter-select" style="width:100%;padding:9px;">
+            <option value="M">Masculin</option><option value="F">Féminin</option>
+          </select></label>
+        </div>
+        <div class="form-group"><label class="form-field"><label>Date de naissance</label><input type="date" id="e-ddn"></label></div>
+        <div class="form-group"><label class="form-field"><label>Lieu de naissance</label><input type="text" id="e-lieu" placeholder="Ville"></label></div>
+        <div class="form-group" id="fg-e-drena"><label class="form-field"><label>DRENAET</label>
+          <input type="text" id="e-drena" placeholder="Ex: DRENAET Abidjan 1" style="padding:9px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:100%;" oninput="memoriserChamp('drena',this.value)"></label></div>
+        <div class="form-group" id="fg-e-iepp"><label class="form-field"><label>IEPP</label>
+          <input type="text" id="e-iepp" placeholder="Ex: IEPP Cocody" style="padding:9px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:100%;" oninput="memoriserChamp('iepp',this.value)"></label></div>
+        <div class="form-group" id="fg-e-nom-ecole"><label class="form-field"><label>École</label>
+          <input type="text" id="e-nom-ecole" placeholder="Ex: EPP Cocody Centre" style="padding:9px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:100%;" oninput="memoriserChamp('ecole',this.value)"></label></div>
+        <div class="form-group"><label class="form-field"><label>Classe</label>
+          <select id="e-classe" class="filter-select" style="width:100%;padding:9px;">
+            <option>CP1</option><option>CP2</option><option>CE1</option>
+            <option>CE2</option><option>CM1</option><option>CM2</option>
+          </select></label>
+        </div>
+        <div class="form-group"><label class="form-field"><label>École</label>
+          <select id="e-ecole" class="filter-select" style="width:100%;padding:9px;" ></select>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-eleve')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEleve()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ÉCOLE -->
+<div class="modal-overlay" id="modal-ecole" onclick="closeModal('modal-ecole',event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header"><h3>Ajouter une école</h3><button class="modal-close" onclick="closeModal('modal-ecole')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full"><label class="form-field"><label>Nom de l'école</label><input type="text" id="ec-nom-f" placeholder="École Primaire de ..."></label></div>
+        <div class="form-group"><label class="form-field"><label>Code d'ouverture</label><input type="text" id="ec-code" placeholder="CI-2025-XXXX"></label></div>
+        <div class="form-group"><label class="form-field"><label>IEPP</label><input type="text" id="ec-iepp" placeholder="IEPP ..."></label></div>
+        <div class="form-group"><label class="form-field"><label>DRENAET</label><input type="text" id="ec-drena" placeholder="DRENAET ..."></label></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-ecole')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEcole()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DÉTAIL NOTE -->
+<div class="modal-overlay" id="modal-detail-note" onclick="closeModal('modal-detail-note',event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header"><h3 id="detail-note-title">Détail des notes</h3><button class="modal-close" onclick="closeModal('modal-detail-note')">✕</button></div>
+    <div class="modal-body" id="detail-note-body"></div>
+    <div class="modal-footer">
+    <button class="btn btn-secondary" onclick="closeModal('modal-detail-note')">Fermer</button>
+    <button class="btn btn-orange" id="btn-passage" style="display:none;" onclick="passageFromModal()">🎓 Passage en classe supérieure</button>
+    <button class="btn btn-primary" id="btn-dfa-migrer" style="display:none;background:var(--ci-vert);" onclick="dfaMigrerFromModal()">🎓 Migration DFA</button>
+  </div>
+  </div>
+</div>
 <script>
 // ══════════════════════════════════════════════════════════════
 // DONNÉES
@@ -3257,12 +3332,72 @@ function viewEleve(idx) {
   // Afficher bouton passage si droits suffisants
   const btnP = document.getElementById('btn-passage');
   if (btnP) {
-    // CM2 : pas de bouton passage manuel (archivage via DFA uniquement)
     const isCM2eleve = e && e.classe === 'CM2';
     btnP.style.display = (canPassage() && !isCM2eleve) ? 'flex' : 'none';
     btnP.setAttribute('data-idx', idx);
   }
+  // ── Migration DFA automatique CP1/CP2 ──────────────────
+  // Si l'élève est admis DFA en CP1 ou CP2, afficher un bouton de migration immédiate
+  const btnDFA = document.getElementById('btn-dfa-migrer');
+  if (btnDFA) btnDFA.style.display = 'none';
+  if (e && (e.classe==='CP1' || e.classe==='CP2') && canPassage()) {
+    const dfa = getStatutPassage(e.id, e.classe);
+    if (dfa && dfa.peutMigrer) {
+      if (btnDFA) {
+        const classeSuperieure = e.classe==='CP1' ? 'CP2' : 'CE1';
+        btnDFA.textContent = '🎓 Migrer vers '+classeSuperieure+' (DFA Admis)';
+        btnDFA.style.display = 'flex';
+        btnDFA.setAttribute('data-idx', idx);
+      }
+    }
+  }
   document.getElementById('modal-detail-note').classList.add('active');
+}
+
+// ── Migration automatique DFA CP1→CP2 / CP2→CE1 ─────────────
+function dfaMigrerFromModal() {
+  const btn = document.getElementById('btn-dfa-migrer');
+  if (!btn) return;
+  const idx = parseInt(btn.getAttribute('data-idx'));
+  const e   = DB.eleves[idx];
+  if (!e) return;
+
+  const ordre = ['CP1','CP2','CE1','CE2','CM1','CM2'];
+  const pos   = ordre.indexOf(e.classe);
+  if (pos < 0 || pos >= ordre.length - 1) return;
+
+  const classeSuperieure = ordre[pos + 1];
+  const dfa = getStatutPassage(e.id, e.classe);
+  if (!dfa || !dfa.peutMigrer) {
+    showNotif("❌ L'élève n'est pas admis DFA", 'error');
+    return;
+  }
+
+  if (!confirm("Migrer " + e.nom + " " + e.prenoms + " de " + e.classe + " vers " + classeSuperieure + " ?\n"
+    + "Moy. DFA: " + dfa.moy + "/" + dfa.maxNote + "\n"
+    + "École: " + (e.nom_ecole || e.ecole_id || '—') + "\n"
+    + "IEPP: " + (e.iepp || '—') + " | DRENAET: " + (e.drena || '—') + "\n\n"
+    + "Les notes seront réinitialisées pour la nouvelle année.")) return;
+
+  // Migration : changer la classe en préservant TOUTES les infos de l'école
+  DB.eleves[idx].classe = classeSuperieure;
+  // Réinitialiser les notes pour la nouvelle année
+  DB.notes = DB.notes.filter(n => n.eleve_id !== e.id);
+
+  save('eleves');
+  save('notes');
+
+  // Firebase sync
+  if (window._firebaseReady && window._fb) {
+    window._fb.set('eleves', e.id, DB.eleves[idx]).catch(function(){});
+  }
+
+  closeModal('modal-detail-note');
+  updateStats();
+  renderEleves();
+  renderDashboard();
+
+  showNotif('✅ ' + e.nom + ' migré en ' + classeSuperieure + ' — notes réinitialisées', 'success');
 }
 
 function passageFromModal() {
@@ -3831,7 +3966,7 @@ function genBulletin() {
       </div>
 
       <div style="margin-top:12px;padding:8px 12px;border-radius:6px;background:#F0FAF5;border:1px solid #6EE7B7;font-size:12px;">
-        ${(()=>{const p=getStatutPassage(el.id,el.classe);if(!p||p.moy===null)return '<em style="color:var(--text3);">Résultat non disponible</em>';if(el.classe==='CM2'&&p.tgp!=null)return '<strong>Résultat Entrée 6ème:</strong> <span style="color:'+p.color+';font-weight:800;">'+p.label+'</span><br><small style="color:var(--text2);font-size:11px;">'+p.detail+'</small>';return '<strong>DFA:</strong> <span style="color:'+p.color+';font-weight:700;">'+p.label+'</span> — Moy.:<strong>'+p.moy+'/20</strong>';})()} 
+        ${(()=>{const p=getStatutPassage(el.id,el.classe);if(!p||p.moy===null)return '<em style="color:var(--text3);">Résultat non disponible</em>';if(el.classe==='CM2'&&p.tgp!=null)return '<strong>Résultat Entrée 6ème:</strong> <span style="color:'+p.color+';font-weight:800;">'+p.label+'</span><br><small style="color:var(--text2);font-size:11px;">'+p.detail+'</small>';return '<strong>DFA:</strong> <span style="color:'+p.color+';font-weight:700;">'+p.label+'</span> — Moy.:<strong>'+p.moy+'/'+(el.classe==='CP1'||el.classe==='CP2'?'10':'20')+'</strong>';})()} 
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);">
         <div>Signature CPPP / CPI : _______________</div>
@@ -6868,12 +7003,17 @@ function getStatutPassage(eleveId, classe) {
       color:admis?'var(--ci-vert)':'var(--danger)',moy:MGA,tgp:TGP,t1:T1,t2:T2};
   }
   if(res===null)return{statut:'incomplet',label:'⏳ Incomplet (4 compositions requises)',color:'var(--text3)',moy:null};
-  // CP1/CP2 : seuil sur /10 (≥5), CE1→CM1 : seuil sur /20 (≥10)
-  const seuilAdmis = (classe==='CP1'||classe==='CP2') ? 5 : 10;
+  // CP1/CP2 : seuil ≥5/10 | CE1→CM1 : seuil ≥10/20
+  const seuilAdmis = (classe==='CP1'||classe==='CP2') ? 5  : 10;
   const maxNote    = (classe==='CP1'||classe==='CP2') ? 10 : 20;
-  return res>=seuilAdmis
-    ?{statut:'admis',label:'✅ DFA Admis — Moy: '+res+'/'+maxNote,color:'var(--ci-vert)',moy:res}
-    :{statut:'echec', label:'❌ DFA Échec — Moy: '+res+'/'+maxNote, color:'var(--danger)', moy:res};
+  const admis = res >= seuilAdmis;
+  return {
+    statut: admis ? 'admis' : 'echec',
+    label:  admis ? '✅ DFA Admis — Moy: '+res+'/'+maxNote : '❌ DFA Échec — Moy: '+res+'/'+maxNote,
+    color:  admis ? 'var(--ci-vert)' : 'var(--danger)',
+    moy: res, maxNote,
+    peutMigrer: admis,   // flag pour migration automatique
+  };
 }
 
 // ══════════════════════════════════════════════════════════════
