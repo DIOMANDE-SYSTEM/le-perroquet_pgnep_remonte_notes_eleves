@@ -967,8 +967,12 @@ tr:hover td{background:#F9FAFB;}
       </div>
       <div class="form-field">
         <label>Mot de passe</label>
-        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
-          onkeydown="if(event.key==='Enter')doLogin()">
+        <div style="position:relative;display:flex;align-items:center;">
+          <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')doLogin()"
+            style="flex:1;padding-right:42px;">
+          <button type="button" onclick="(function(){var el=document.getElementById('login-pass');var btn=document.getElementById('perroquet-eye');if(el.type==='password'){el.type='text';btn.textContent='🙈';}else{el.type='password';btn.textContent='👁';}})()" id="perroquet-eye" title="Afficher / masquer le mot de passe" style="position:absolute;right:10px;background:none;border:none;cursor:pointer;font-size:17px;padding:0;line-height:1;color:rgba(0,0,0,0.4);">👁</button>
+        </div>
       </div>
       <button class="login-btn" onclick="doLogin()">Se connecter →</button>
     <button onclick="resetComptes()" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:10px;cursor:pointer;margin-top:8px;text-decoration:underline;display:block;width:100%;">Problème de connexion ? Réinitialiser les comptes</button>
