@@ -8502,16 +8502,16 @@ function espRenderFiches(){
 // Pour changer d'hébergement plus tard, il suffit de modifier cette seule ligne.
 const ESP_FICHES_BASE='https://resilient-kashata-5e530c.netlify.app/';
 const ESP_FICHE_LIB_CATALOG=[
-  {id:'lecture', classe:'CP1', label:'📖 Fiches de lecture CP1', url:'fiches-officielles/CP1/Fiches-Lecture-CP1.pdf', drive:'1ouMJST3737lVVnvqOt8Gt10-XHJLK765'},
-  {id:'maths',   classe:'CP1', label:'🔢 Fiches de Mathématiques CP1', url:'fiches-officielles/CP1/Fiches-Mathematiques-CP1.pdf', drive:'1XcxZFfAGDEp0d9wyzqru8-YwcWhAI8oQ'},
-  {id:'graphisme', classe:'CP1', label:'✏️ Fiches de Graphisme CP1', url:'fiches-officielles/CP1/graphisme.pdf', drive:'1VYfpkCgWOYMJ2zPoJjBKqQNMDZdOKpD9'},
-  {id:'discrimination', classe:'CP1', label:'👁️ Fiches de Discrimination visuelle CP1', url:'fiches-officielles/CP1/discrimination.pdf', drive:'17ZM4SF2GKkNDWdRIUbZ3MGUUm0GHNGl8'},
-  {id:'aec', classe:'CP1', label:'🤝 Fiches AEC CP1', url:'fiches-officielles/CP1/aec.pdf', drive:'1gu9OamQzPM1s1QfFZEA0TRYhHOUWXbAW'},
-  {id:'edhc', classe:'CP1', label:'🌍 Fiches EDHC CP1', url:'fiches-officielles/CP1/edhc.pdf', drive:'1tRc8i9kogSRzTe1_7DMzsCno7Qt6aK8K'},
-  {id:'expr_ecrite', classe:'CP1', label:'✍️ Fiches Expression écrite CP1', url:'fiches-officielles/CP1/expr_ecrite.pdf', drive:'1p9qJCiWpUY3sox5PUagd-GfqmrHLLld3'},
-  {id:'expr_orale', classe:'CP1', label:'🗣️ Fiches Expression orale CP1', url:'fiches-officielles/CP1/Fiches-Expression-Orale-CP1.pdf', drive:'1TmStRf2nA1VRqIWZxoGWBqJ2RtcaWN1C'},
-  {id:'poesie', classe:'CP1', label:'📜 Fiches de Poésie CP1', url:'fiches-officielles/CP1/poesie.pdf', drive:'1u-Qr3uTvToUsBucLrM3r-pxfZnbHIdAl'},
-  {id:'eps', classe:'CP1', label:'⚽ Fiches EPS CP1', url:'fiches-officielles/CP1/eps.pdf', drive:'1NOD4f_rmCRLMA7Y67g_IaIpAqIQO15se'},
+  {id:'lecture', classe:'CP1', label:'📖 Fiches Lecture-Écriture PNAPAS CP1', url:'cp1/fiches_lecture-ecriture_pnapas_cp1.pdf'},
+  {id:'maths',   classe:'CP1', label:'🔢 Fiches Mathématiques PNAPAS CP1', url:'cp1/fiches_mathematiques_pnapas_cp1.pdf'},
+  {id:'graphisme', classe:'CP1', label:'✏️ Fiches de Graphisme CP1', url:'cp1/fiches_graphisfme_cp1.pdf'},
+  {id:'discrimination', classe:'CP1', label:'👁️ Fiches de Discrimination visuelle CP1', url:'cp1/fiches_discrimination_visuelle.pdf'},
+  {id:'aec', classe:'CP1', label:'🤝 Fiches AEC CP1', url:'cp1/fiches_de_aec_cp1.pdf'},
+  {id:'edhc', classe:'CP1', label:'🌍 Fiches EDHC CP1', url:'cp1/fiches_de_edhc_cp1.pdf'},
+  {id:'expr_ecrite', classe:'CP1', label:'✍️ Fiches Expression écrite CP1', url:'cp1/fiches_de_expression_ecrite.pdf'},
+  {id:'expr_orale', classe:'CP1', label:'🗣️ Fiches Expression orale CP1', url:'cp1/fiches_de_expression_orale_cp1.pdf'},
+  {id:'poesie', classe:'CP1', label:'📜 Fiches de Poésie CP1', url:'cp1/fiches_de_poesie.pdf'},
+  {id:'eps', classe:'CP1', label:'⚽ Fiches EPS CP1', url:'cp1/fiches_eps_cp1.pdf'},
   {id:'cp2_francais', classe:'CP2', label:'🇫🇷 Fiches PNAPAS Français CP2', url:'cp2/fiches-pnapas-francais-cp2.pdf'},
   {id:'cp2_maths', classe:'CP2', label:'🔢 Fiches PNAPAS Mathématiques CP2', url:'cp2/fiches-pnapas-math%C3%A9matques-cp2.pdf'},
   {id:'cp2_aec', classe:'CP2', label:'🤝 Fiches AEC CP2', url:'cp2/fiche_de_aec_cp2.pdf'},
@@ -8624,7 +8624,7 @@ function espFicheLibOnSelect(id){
         espFicheLibRenderPage();
       }).catch(err=>{
         if(loading) loading.style.display='none';
-        alert('Impossible de charger ce fascicule.\n\nVérifiez que :\n— vous êtes connecté à Internet ;\n— le fichier PDF existe bien sur l\'hébergement Netlify au bon emplacement (dossier « fiches-officielles/ » avec le bon nom de fichier, en respectant les majuscules).');
+        alert('Impossible de charger ce fascicule.\n\nVérifiez que :\n— vous êtes connecté à Internet ;\n— le fichier PDF existe bien sur l\'hébergement Netlify au bon emplacement, avec le bon nom de fichier (en respectant les minuscules).');
         console.error(err);
       });
       return;
