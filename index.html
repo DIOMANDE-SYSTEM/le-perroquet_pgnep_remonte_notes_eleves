@@ -8198,10 +8198,16 @@ function espRenderAppel(){
     '<div class="eff-box ab"><div class="eff-lbl">Abandons</div><div class="eff-val">'+Ab+'</div></div>'+
     '<div class="eff-box t"><div class="eff-lbl">Effectif</div><div class="eff-val">'+eleves.length+'</div></div></div>';
   const head='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;"><label style="font-size:13px;font-weight:600;">Date :</label><input type="date" id="esp-appel-date" class="filter-select" value="'+d+'" onchange="espRenderAppel()"></div>';
-  const table='<div id="appel-print"><h3 style="font-size:13px;margin-bottom:8px;">Cahier d\'appel — '+espEsc(espMyClasse()||'')+' · '+d+'</h3>'+eff+'<div class="table-wrap"><table><thead><tr><th>#</th><th>Élève</th><th>Sexe</th><th>Présence</th><th>Statut</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5">'+espEmpty('Aucun élève dans votre classe.')+'</td></tr>')+'</tbody></table></div></div>';
-  const appelCard=espCard('📋 Cahier d\'appel et de présence journalier', '<button class="btn btn-secondary" onclick="espModeleAppel()">📋 Modèle Excel</button><button class="btn btn-primary" onclick="espImportAppel()">📥 Importer élèves</button> '+espTools('appel-print','Cahier d appel'), table);
+  // Bloc compteurs du jour (sans la liste des élèves)
+  const compteurs='<div id="appel-print"><h3 style="font-size:13px;margin-bottom:8px;">Cahier d\'appel — '+espEsc(espMyClasse()||'')+' · '+d+'</h3>'+eff+'</div>';
+  // Liste des élèves (tableau de pointage) — placée en bas
+  const listeEleves='<div id="appel-liste"><div class="table-wrap"><table><thead><tr><th>#</th><th>Élève</th><th>Sexe</th><th>Présence</th><th>Statut</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5">'+espEmpty('Aucun élève dans votre classe.')+'</td></tr>')+'</tbody></table></div></div>';
+
+  const appelCard=espCard('📋 Cahier d\'appel et de présence journalier', '<button class="btn btn-secondary" onclick="espModeleAppel()">📋 Modèle Excel</button><button class="btn btn-primary" onclick="espImportAppel()">📥 Importer élèves</button> '+espTools('appel-print','Cahier d appel'), compteurs);
   const synthCard=espCard('📊 Synthèse de l\'assiduité (journalière → annuelle)', espTools('synth-assiduite-mount','Synthese assiduite'), '<div id="synth-assiduite-mount"></div>');
-  box.innerHTML=head+appelCard+'<div style="height:16px;"></div>'+synthCard;
+  const listeCard=espCard('👥 Liste des élèves et pointage des présences', espTools('appel-liste','Liste des eleves'), listeEleves);
+  // Ordre : compteurs (haut) → synthèse → liste des élèves (bas)
+  box.innerHTML=head+appelCard+'<div style="height:16px;"></div>'+synthCard+'<div style="height:16px;"></div>'+listeCard;
   espRenderSynthese();
 }
 /* -- Cahier journal -- */
@@ -8493,76 +8499,80 @@ function espRenderFiches(){
    CP2 / CE1 / CE2 / CM1 / CM2 : prêts à recevoir leurs fascicules officiels
    dès qu'ils seront fournis (aucun fichier reçu à ce jour → listes vides). */
 const ESP_FICHE_LIB_CATALOG=[
-  {id:'lecture', classe:'CP1', label:'📖 Fiches de lecture CP1', url:'fiches-officielles/CP1/Fiches-Lecture-CP1.pdf'},
-  {id:'maths',   classe:'CP1', label:'🔢 Fiches de Mathématiques CP1', url:'fiches-officielles/CP1/Fiches-Mathematiques-CP1.pdf'},
-  {id:'graphisme', classe:'CP1', label:'✏️ Fiches de Graphisme CP1', url:'fiches-officielles/CP1/graphisme.pdf'},
-  {id:'discrimination', classe:'CP1', label:'👁️ Fiches de Discrimination visuelle CP1', url:'fiches-officielles/CP1/discrimination.pdf'},
-  {id:'aec', classe:'CP1', label:'🤝 Fiches AEC CP1', url:'fiches-officielles/CP1/aec.pdf'},
-  {id:'edhc', classe:'CP1', label:'🌍 Fiches EDHC CP1', url:'fiches-officielles/CP1/edhc.pdf'},
-  {id:'expr_ecrite', classe:'CP1', label:'✍️ Fiches Expression écrite CP1', url:'fiches-officielles/CP1/expr_ecrite.pdf'},
-  {id:'expr_orale', classe:'CP1', label:'🗣️ Fiches Expression orale CP1', url:'fiches-officielles/CP1/Fiches-Expression-Orale-CP1.pdf'},
-  {id:'poesie', classe:'CP1', label:'📜 Fiches de Poésie CP1', url:'fiches-officielles/CP1/poesie.pdf'},
-  {id:'eps', classe:'CP1', label:'⚽ Fiches EPS CP1', url:'fiches-officielles/CP1/eps.pdf'},
-  {id:'cp2_francais', classe:'CP2', label:'🇫🇷 Fiches PNAPAS Français CP2', url:'fiches-officielles/CP2/Fiches-Pnapas-Francais-Cp2.pdf'},
-  {id:'cp2_maths', classe:'CP2', label:'🔢 Fiches PNAPAS Mathématiques CP2', url:'fiches-officielles/CP2/Fiches-Pratiques-PNAPAS-Maths-CP2.pdf'},
-  {id:'cp2_aec', classe:'CP2', label:'🤝 Fiches AEC CP2', url:'fiches-officielles/CP2/cp2_aec.pdf'},
-  {id:'cp2_edhc', classe:'CP2', label:'🌍 Fiches EDHC CP2', url:'fiches-officielles/CP2/cp2_edhc.pdf'},
-  {id:'cp2_expr_ecrite', classe:'CP2', label:'✍️ Fiches Expression écrite CP2', url:'fiches-officielles/CP2/cp2_expr_ecrite.pdf'},
-  {id:'cp2_expr_orale', classe:'CP2', label:'🗣️ Fiches Expression orale CP2', url:'fiches-officielles/CP2/cp2_expr_orale.pdf'},
-  {id:'cp2_poesie', classe:'CP2', label:'📜 Fiches de Poésie CP2', url:'fiches-officielles/CP2/cp2_poesie.pdf'},
-  {id:'cp2_eps', classe:'CP2', label:'⚽ Fiches EPS CP2', url:'fiches-officielles/CP2/cp2_eps.pdf'},
-  {id:'ce1_aec', classe:'CE1', label:'🤝 Fiches AEC CE1', url:'fiches-officielles/CE1/ce1_aec.pdf'},
-  {id:'ce1_edhc', classe:'CE1', label:'🌍 Fiches EDHC CE1', url:'fiches-officielles/CE1/ce1_edhc.pdf'},
-  {id:'ce1_eps', classe:'CE1', label:'⚽ Fiches EPS CE1', url:'fiches-officielles/CE1/ce1_eps.pdf'},
-  {id:'ce1_expr_ecrite', classe:'CE1', label:'✍️ Fiches Expression écrite CE1', url:'fiches-officielles/CE1/ce1_expr_ecrite.pdf'},
-  {id:'ce1_expr_orale', classe:'CE1', label:'🗣️ Fiches Expression orale CE1', url:'fiches-officielles/CE1/ce1_expr_orale.pdf'},
-  {id:'ce1_geographie', classe:'CE1', label:'🗺️ Fiches Géographie CE1', url:'fiches-officielles/CE1/ce1_geographie.pdf'},
-  {id:'ce1_histoire', classe:'CE1', label:'🏛️ Fiches Histoire CE1', url:'fiches-officielles/CE1/ce1_histoire.pdf'},
-  {id:'ce1_poesie', classe:'CE1', label:'📜 Fiches de Poésie CE1', url:'fiches-officielles/CE1/ce1_poesie.pdf'},
-  {id:'ce1_sciences', classe:'CE1', label:'🔬 Fiches Sciences CE1', url:'fiches-officielles/CE1/ce1_sciences.pdf'},
-  {id:'ce2_lecture', classe:'CE2', label:'📖 Fiches de Lecture CE2', url:'fiches-officielles/CE2/ce2_lecture.pdf'},
-  {id:'ce2_math', classe:'CE2', label:'🔢 Fiches de Mathématiques CE2', url:'fiches-officielles/CE2/ce2_math.pdf'},
-  {id:'ce2_aec', classe:'CE2', label:'🤝 Fiches AEC CE2', url:'fiches-officielles/CE2/ce2_aec.pdf'},
-  {id:'ce2_edhc', classe:'CE2', label:'🌍 Fiches EDHC CE2', url:'fiches-officielles/CE2/ce2_edhc.pdf'},
-  {id:'ce2_eps', classe:'CE2', label:'⚽ Fiches EPS CE2', url:'fiches-officielles/CE2/ce2_eps.pdf'},
-  {id:'ce2_expl_texte1', classe:'CE2', label:'📘 Fiches Exploitation de texte 1 CE2', url:'fiches-officielles/CE2/ce2_expl_texte1.pdf'},
-  {id:'ce2_expl_texte2', classe:'CE2', label:'📘 Fiches Exploitation de texte 2 CE2', url:'fiches-officielles/CE2/ce2_expl_texte2.pdf'},
-  {id:'ce2_expr_ecrite', classe:'CE2', label:'✍️ Fiches Expression écrite CE2', url:'fiches-officielles/CE2/ce2_expr_ecrite.pdf'},
-  {id:'ce2_expr_orale', classe:'CE2', label:'🗣️ Fiches Expression orale CE2', url:'fiches-officielles/CE2/ce2_expr_orale.pdf'},
-  {id:'ce2_geographie', classe:'CE2', label:'🗺️ Fiches Géographie CE2', url:'fiches-officielles/CE2/ce2_geographie.pdf'},
-  {id:'ce2_histoire', classe:'CE2', label:'🏛️ Fiches Histoire CE2', url:'fiches-officielles/CE2/ce2_histoire.pdf'},
-  {id:'ce2_poesie', classe:'CE2', label:'📜 Fiches de Poésie CE2', url:'fiches-officielles/CE2/ce2_poesie.pdf'},
-  {id:'ce2_sciences', classe:'CE2', label:'🔬 Fiches Sciences CE2', url:'fiches-officielles/CE2/ce2_sciences.pdf'},
-  {id:'cm1_lecture', classe:'CM1', label:'📖 Fiches de Lecture CM1', url:'fiches-officielles/CM1/cm1_lecture.pdf'},
-  {id:'cm1_maths', classe:'CM1', label:'🔢 Fiches de Mathématiques CM1', url:'fiches-officielles/CM1/cm1_maths.pdf'},
-  {id:'cm1_aec', classe:'CM1', label:'🤝 Fiches AEC CM1', url:'fiches-officielles/CM1/cm1_aec.pdf'},
-  {id:'cm1_edhc', classe:'CM1', label:'🌍 Fiches EDHC CM1', url:'fiches-officielles/CM1/cm1_edhc.pdf'},
-  {id:'cm1_eps', classe:'CM1', label:'⚽ Fiches EPS CM1', url:'fiches-officielles/CM1/cm1_eps.pdf'},
-  {id:'cm1_expl_texte1', classe:'CM1', label:'📘 Fiches Exploitation de texte 1 CM1', url:'fiches-officielles/CM1/cm1_expl_texte1.pdf'},
-  {id:'cm1_expl_texte2', classe:'CM1', label:'📘 Fiches Exploitation de texte 2 CM1', url:'fiches-officielles/CM1/cm1_expl_texte2.pdf'},
-  {id:'cm1_expr_ecrite', classe:'CM1', label:'✍️ Fiches Expression écrite CM1', url:'fiches-officielles/CM1/cm1_expr_ecrite.pdf'},
-  {id:'cm1_expr_orale', classe:'CM1', label:'🗣️ Fiches Expression orale CM1', url:'fiches-officielles/CM1/cm1_expr_orale.pdf'},
-  {id:'cm1_geographie', classe:'CM1', label:'🗺️ Fiches Géographie CM1', url:'fiches-officielles/CM1/cm1_geographie.pdf'},
-  {id:'cm1_histoire', classe:'CM1', label:'🏛️ Fiches Histoire CM1', url:'fiches-officielles/CM1/cm1_histoire.pdf'},
-  {id:'cm1_poesie', classe:'CM1', label:'📜 Fiches de Poésie CM1', url:'fiches-officielles/CM1/cm1_poesie.pdf'},
-  {id:'cm1_sciences', classe:'CM1', label:'🔬 Fiches Sciences CM1', url:'fiches-officielles/CM1/cm1_sciences.pdf'},
-  {id:'cm2_lecture', classe:'CM2', label:'📖 Fiches de Lecture CM2', url:'fiches-officielles/CM2/Fiches-Lecture-CM2.pdf'},
-  {id:'cm2_maths', classe:'CM2', label:'🔢 Fiches de Mathématiques CM2', url:'fiches-officielles/CM2/Fiches-Mathematiques-CM2.pdf'},
-  {id:'cm2_sciences', classe:'CM2', label:'🔬 Fiches Sciences CM2', url:'fiches-officielles/CM2/Fiches-Sciences-CM2.pdf'},
-  {id:'cm2_eps', classe:'CM2', label:'⚽ Fiches EPS CM2', url:'fiches-officielles/CM2/Fiches-EPS-CM2.pdf'},
-  {id:'cm2_aec', classe:'CM2', label:'🤝 Fiches AEC CM2', url:'fiches-officielles/CM2/cm2_aec.pdf'},
-  {id:'cm2_edhc', classe:'CM2', label:'🌍 Fiches EDHC CM2', url:'fiches-officielles/CM2/cm2_edhc.pdf'},
-  {id:'cm2_expl_texte1', classe:'CM2', label:'📘 Fiches Exploitation de texte 1 CM2', url:'fiches-officielles/CM2/cm2_expl_texte1.pdf'},
-  {id:'cm2_expl_texte2', classe:'CM2', label:'📘 Fiches Exploitation de texte 2 CM2', url:'fiches-officielles/CM2/cm2_expl_texte2.pdf'},
-  {id:'cm2_expr_ecrite', classe:'CM2', label:'✍️ Fiches Expression écrite CM2', url:'fiches-officielles/CM2/cm2_expr_ecrite.pdf'},
-  {id:'cm2_expr_orale', classe:'CM2', label:'🗣️ Fiches Expression orale CM2', url:'fiches-officielles/CM2/cm2_expr_orale.pdf'},
-  {id:'cm2_geographie', classe:'CM2', label:'🗺️ Fiches Géographie CM2', url:'fiches-officielles/CM2/cm2_geographie.pdf'},
-  {id:'cm2_histoire', classe:'CM2', label:'🏛️ Fiches Histoire CM2', url:'fiches-officielles/CM2/cm2_histoire.pdf'},
-  {id:'cm2_poesie', classe:'CM2', label:'📜 Fiches de Poésie CM2', url:'fiches-officielles/CM2/cm2_poesie.pdf'}
+  {id:'lecture', classe:'CP1', label:'📖 Fiches de lecture CP1', url:'fiches-officielles/CP1/Fiches-Lecture-CP1.pdf', drive:'1ouMJST3737lVVnvqOt8Gt10-XHJLK765'},
+  {id:'maths',   classe:'CP1', label:'🔢 Fiches de Mathématiques CP1', url:'fiches-officielles/CP1/Fiches-Mathematiques-CP1.pdf', drive:'1XcxZFfAGDEp0d9wyzqru8-YwcWhAI8oQ'},
+  {id:'graphisme', classe:'CP1', label:'✏️ Fiches de Graphisme CP1', url:'fiches-officielles/CP1/graphisme.pdf', drive:'1VYfpkCgWOYMJ2zPoJjBKqQNMDZdOKpD9'},
+  {id:'discrimination', classe:'CP1', label:'👁️ Fiches de Discrimination visuelle CP1', url:'fiches-officielles/CP1/discrimination.pdf', drive:'17ZM4SF2GKkNDWdRIUbZ3MGUUm0GHNGl8'},
+  {id:'aec', classe:'CP1', label:'🤝 Fiches AEC CP1', url:'fiches-officielles/CP1/aec.pdf', drive:'1gu9OamQzPM1s1QfFZEA0TRYhHOUWXbAW'},
+  {id:'edhc', classe:'CP1', label:'🌍 Fiches EDHC CP1', url:'fiches-officielles/CP1/edhc.pdf', drive:'1tRc8i9kogSRzTe1_7DMzsCno7Qt6aK8K'},
+  {id:'expr_ecrite', classe:'CP1', label:'✍️ Fiches Expression écrite CP1', url:'fiches-officielles/CP1/expr_ecrite.pdf', drive:'1p9qJCiWpUY3sox5PUagd-GfqmrHLLld3'},
+  {id:'expr_orale', classe:'CP1', label:'🗣️ Fiches Expression orale CP1', url:'fiches-officielles/CP1/Fiches-Expression-Orale-CP1.pdf', drive:'1TmStRf2nA1VRqIWZxoGWBqJ2RtcaWN1C'},
+  {id:'poesie', classe:'CP1', label:'📜 Fiches de Poésie CP1', url:'fiches-officielles/CP1/poesie.pdf', drive:'1u-Qr3uTvToUsBucLrM3r-pxfZnbHIdAl'},
+  {id:'eps', classe:'CP1', label:'⚽ Fiches EPS CP1', url:'fiches-officielles/CP1/eps.pdf', drive:'1NOD4f_rmCRLMA7Y67g_IaIpAqIQO15se'},
+  {id:'cp2_francais', classe:'CP2', label:'🇫🇷 Fiches PNAPAS Français CP2', url:'fiches-officielles/CP2/Fiches-Pnapas-Francais-Cp2.pdf', drive:'1q-vMSQt7oHsmfuM8iQiYEq9LaFYFQNTe'},
+  {id:'cp2_maths', classe:'CP2', label:'🔢 Fiches PNAPAS Mathématiques CP2', url:'fiches-officielles/CP2/Fiches-Pratiques-PNAPAS-Maths-CP2.pdf', drive:'18wJSfYowSvJcFrHgKy1d82ZsUVUJQgM7'},
+  {id:'cp2_aec', classe:'CP2', label:'🤝 Fiches AEC CP2', url:'fiches-officielles/CP2/cp2_aec.pdf', drive:'1TRNimtUdjxdrptQPLxrV08fgvwuTwDzm'},
+  {id:'cp2_edhc', classe:'CP2', label:'🌍 Fiches EDHC CP2', url:'fiches-officielles/CP2/cp2_edhc.pdf', drive:'1RS87asna5MK-UrPjCPk44mTdqUZCdWj2'},
+  {id:'cp2_expr_ecrite', classe:'CP2', label:'✍️ Fiches Expression écrite CP2', url:'fiches-officielles/CP2/cp2_expr_ecrite.pdf', drive:'1lEx0BCRLqggTlfjO5E9aoyw8f6FTTPLJ'},
+  {id:'cp2_expr_orale', classe:'CP2', label:'🗣️ Fiches Expression orale CP2', url:'fiches-officielles/CP2/cp2_expr_orale.pdf', drive:'1Lrv06Guy_XAXkYpggaQ0ohdyWDHsT58b'},
+  {id:'cp2_poesie', classe:'CP2', label:'📜 Fiches de Poésie CP2', url:'fiches-officielles/CP2/cp2_poesie.pdf', drive:'1rcFiIusDeh0gG4uDubDNvQ6a0OvNJHQr'},
+  {id:'cp2_eps', classe:'CP2', label:'⚽ Fiches EPS CP2', url:'fiches-officielles/CP2/cp2_eps.pdf', drive:'16LOIeRiCgflfPSo1nwTxFccai2c650t-'},
+  {id:'ce1_aec', classe:'CE1', label:'🤝 Fiches AEC CE1', url:'fiches-officielles/CE1/ce1_aec.pdf', drive:'1w0o6GWaELly6nQf5HneVrjf6V2Qklhlz'},
+  {id:'ce1_edhc', classe:'CE1', label:'🌍 Fiches EDHC CE1', url:'fiches-officielles/CE1/ce1_edhc.pdf', drive:'1yUGO_b_9oNJs-suIfOlBuQ59njLuFGMC'},
+  {id:'ce1_eps', classe:'CE1', label:'⚽ Fiches EPS CE1', url:'fiches-officielles/CE1/ce1_eps.pdf', drive:'16VhYd3MMD8wUCoBvMfPHjZLXGxM0T1tT'},
+  {id:'ce1_expr_ecrite', classe:'CE1', label:'✍️ Fiches Expression écrite CE1', url:'fiches-officielles/CE1/ce1_expr_ecrite.pdf', drive:'129sWByUONm0jBCv80ucX-WFapES_abMc'},
+  {id:'ce1_expr_orale', classe:'CE1', label:'🗣️ Fiches Expression orale CE1', url:'fiches-officielles/CE1/ce1_expr_orale.pdf', drive:'1B__OdBsnO6HCbqOgs9-b_w3dvB3qlmkQ'},
+  {id:'ce1_geographie', classe:'CE1', label:'🗺️ Fiches Géographie CE1', url:'fiches-officielles/CE1/ce1_geographie.pdf', drive:'1MTs148tfZlorXez-tbhWlMUtXf7oaath'},
+  {id:'ce1_histoire', classe:'CE1', label:'🏛️ Fiches Histoire CE1', url:'fiches-officielles/CE1/ce1_histoire.pdf', drive:'1W5EDUQybo9Bbh_UUumC35E9Sr35NqjNm'},
+  {id:'ce1_poesie', classe:'CE1', label:'📜 Fiches de Poésie CE1', url:'fiches-officielles/CE1/ce1_poesie.pdf', drive:'1fNUk_BvvQLnwF89q_1np-XAs7T-F2alw'},
+  {id:'ce1_sciences', classe:'CE1', label:'🔬 Fiches Sciences CE1', url:'fiches-officielles/CE1/ce1_sciences.pdf', drive:'1urYlU5yRtSbyEtei3IJUmpdvJEXtxjmw'},
+  {id:'ce2_lecture', classe:'CE2', label:'📖 Fiches de Lecture CE2', url:'fiches-officielles/CE2/ce2_lecture.pdf', drive:'1vWRXokVlad7c12s2jHZ46kCD7OG8BuSg'},
+  {id:'ce2_math', classe:'CE2', label:'🔢 Fiches de Mathématiques CE2', url:'fiches-officielles/CE2/ce2_math.pdf', drive:'1EaSBM4ycf2EZriyHvTn2aOfAmYtSn3DX'},
+  {id:'ce2_aec', classe:'CE2', label:'🤝 Fiches AEC CE2', url:'fiches-officielles/CE2/ce2_aec.pdf', drive:'1Y_Ff8b8ql2CtqN48hwSN8tZYLgO0HcD-'},
+  {id:'ce2_edhc', classe:'CE2', label:'🌍 Fiches EDHC CE2', url:'fiches-officielles/CE2/ce2_edhc.pdf', drive:'19kSpZJwwaZ5lvIW-OSHNWL6E9zqzQ3t5'},
+  {id:'ce2_eps', classe:'CE2', label:'⚽ Fiches EPS CE2', url:'fiches-officielles/CE2/ce2_eps.pdf', drive:'1WE6PRCxZXfraXaIAukFSd67RsjBWvN_y'},
+  {id:'ce2_expl_texte1', classe:'CE2', label:'📘 Fiches Exploitation de texte 1 CE2', url:'fiches-officielles/CE2/ce2_expl_texte1.pdf', drive:'1BYKuKYqMZfMUvVvr0mqbe1_-NqWnFU6v'},
+  {id:'ce2_expl_texte2', classe:'CE2', label:'📘 Fiches Exploitation de texte 2 CE2', url:'fiches-officielles/CE2/ce2_expl_texte2.pdf', drive:'1xhpeMwHZPxGm3rENQ3awgeboTR5hVlgO'},
+  {id:'ce2_expr_ecrite', classe:'CE2', label:'✍️ Fiches Expression écrite CE2', url:'fiches-officielles/CE2/ce2_expr_ecrite.pdf', drive:'1bt6mYZw2bYQz-v1mfM5MfqD5qVNEE-Ov'},
+  {id:'ce2_expr_orale', classe:'CE2', label:'🗣️ Fiches Expression orale CE2', url:'fiches-officielles/CE2/ce2_expr_orale.pdf', drive:'1CAx0BnjtxF0IgIrnLKhzc16pJ7FMcutj'},
+  {id:'ce2_geographie', classe:'CE2', label:'🗺️ Fiches Géographie CE2', url:'fiches-officielles/CE2/ce2_geographie.pdf', drive:'1dcUEzpAm9BowUI0wqFvc8ClIcjFoP3GU'},
+  {id:'ce2_histoire', classe:'CE2', label:'🏛️ Fiches Histoire CE2', url:'fiches-officielles/CE2/ce2_histoire.pdf', drive:'1SzdW0CHqsnpcZNsTFAmW95RZESNm5Gt0'},
+  {id:'ce2_poesie', classe:'CE2', label:'📜 Fiches de Poésie CE2', url:'fiches-officielles/CE2/ce2_poesie.pdf', drive:'1bBjN6_Y35f66t_wLMb__qs2Y7VcxSozT'},
+  {id:'ce2_sciences', classe:'CE2', label:'🔬 Fiches Sciences CE2', url:'fiches-officielles/CE2/ce2_sciences.pdf', drive:'1HZntTIXRtcLSdilPmUMcFgEgZYlpgSJl'},
+  {id:'cm1_lecture', classe:'CM1', label:'📖 Fiches de Lecture CM1', url:'fiches-officielles/CM1/cm1_lecture.pdf', drive:'1HNxqk200MkrCdRtE_SmgZb7G-QvT5BHL'},
+  {id:'cm1_maths', classe:'CM1', label:'🔢 Fiches de Mathématiques CM1', url:'fiches-officielles/CM1/cm1_maths.pdf', drive:'1RmkmPbv-aU-07c0nA7pZwbwxLNUAweKl'},
+  {id:'cm1_aec', classe:'CM1', label:'🤝 Fiches AEC CM1', url:'fiches-officielles/CM1/cm1_aec.pdf', drive:'1aEB5v6eGc3nxv29Rudpt2c1kFhZoACl6'},
+  {id:'cm1_edhc', classe:'CM1', label:'🌍 Fiches EDHC CM1', url:'fiches-officielles/CM1/cm1_edhc.pdf', drive:'1kAMO3i_xq7nNsdQ9tlmScWX0HgFx9fvK'},
+  {id:'cm1_eps', classe:'CM1', label:'⚽ Fiches EPS CM1', url:'fiches-officielles/CM1/cm1_eps.pdf', drive:'1XVTvBgSNEcO3QvvoBY8rEXJGqCazH_WI'},
+  {id:'cm1_expl_texte1', classe:'CM1', label:'📘 Fiches Exploitation de texte 1 CM1', url:'fiches-officielles/CM1/cm1_expl_texte1.pdf', drive:'1CGnaBw7K4DVO6gXK-rH9paSLS6eyYIZ6'},
+  {id:'cm1_expl_texte2', classe:'CM1', label:'📘 Fiches Exploitation de texte 2 CM1', url:'fiches-officielles/CM1/cm1_expl_texte2.pdf', drive:'1BwdyIDdU9403n3jDoqN9fBgf2TY0tlOF'},
+  {id:'cm1_expr_ecrite', classe:'CM1', label:'✍️ Fiches Expression écrite CM1', url:'fiches-officielles/CM1/cm1_expr_ecrite.pdf', drive:'1PHurB_c2Q-d7mD6KagsIOJYIvjxzCHDn'},
+  {id:'cm1_expr_orale', classe:'CM1', label:'🗣️ Fiches Expression orale CM1', url:'fiches-officielles/CM1/cm1_expr_orale.pdf', drive:'1Lv-uXyIsWiR22R6la4OJvMPLrzxkM__t'},
+  {id:'cm1_geographie', classe:'CM1', label:'🗺️ Fiches Géographie CM1', url:'fiches-officielles/CM1/cm1_geographie.pdf', drive:'1Q6njMdIdr0ATe_y7SH735_9cGRBwpK3d'},
+  {id:'cm1_histoire', classe:'CM1', label:'🏛️ Fiches Histoire CM1', url:'fiches-officielles/CM1/cm1_histoire.pdf', drive:'13VHswQGk9ag4QCwKIXNMwKIZGBk0iqOQ'},
+  {id:'cm1_poesie', classe:'CM1', label:'📜 Fiches de Poésie CM1', url:'fiches-officielles/CM1/cm1_poesie.pdf', drive:'1yEj8-1SSeBlFn4OhGy9Nx05dkTcf19rU'},
+  {id:'cm1_sciences', classe:'CM1', label:'🔬 Fiches Sciences CM1', url:'fiches-officielles/CM1/cm1_sciences.pdf', drive:'1hDcHjJNlksz1GY0zTjwnr5d0iOHUZ8af'},
+  {id:'cm2_lecture', classe:'CM2', label:'📖 Fiches de Lecture CM2', url:'fiches-officielles/CM2/Fiches-Lecture-CM2.pdf', drive:'1GPWmQoNMpnCzxzvQoAQS8TKN1nyR63u8'},
+  {id:'cm2_maths', classe:'CM2', label:'🔢 Fiches de Mathématiques CM2', url:'fiches-officielles/CM2/Fiches-Mathematiques-CM2.pdf', drive:'12eVvQpa05AHVMyj8nhM34PckDMdF5kuX'},
+  {id:'cm2_sciences', classe:'CM2', label:'🔬 Fiches Sciences CM2', url:'fiches-officielles/CM2/Fiches-Sciences-CM2.pdf', drive:'1kTK1xGVSOgqthd2oqUYq5xZGkM8oVCrH'},
+  {id:'cm2_eps', classe:'CM2', label:'⚽ Fiches EPS CM2', url:'fiches-officielles/CM2/Fiches-EPS-CM2.pdf', drive:'1GsfAIsRAzxZm-0TCm6jOGiyehgM54zLj'},
+  {id:'cm2_aec', classe:'CM2', label:'🤝 Fiches AEC CM2', url:'fiches-officielles/CM2/cm2_aec.pdf', drive:'1vzVvazcv6w4dgBq5y7fylpeOo-LY4R2u'},
+  {id:'cm2_edhc', classe:'CM2', label:'🌍 Fiches EDHC CM2', url:'fiches-officielles/CM2/cm2_edhc.pdf', drive:'1nqrpB1VmpXVqnwa9vtS2bH2YxOUKwa7D'},
+  {id:'cm2_expl_texte1', classe:'CM2', label:'📘 Fiches Exploitation de texte 1 CM2', url:'fiches-officielles/CM2/cm2_expl_texte1.pdf', drive:'1EAPBnzoHMwwsHENxSsiHygQfFDhlro0-'},
+  {id:'cm2_expl_texte2', classe:'CM2', label:'📘 Fiches Exploitation de texte 2 CM2', url:'fiches-officielles/CM2/cm2_expl_texte2.pdf', drive:'1QlOi0-jcv99SkYeF3rK-3NJSoXA-cAB9'},
+  {id:'cm2_expr_ecrite', classe:'CM2', label:'✍️ Fiches Expression écrite CM2', url:'fiches-officielles/CM2/cm2_expr_ecrite.pdf', drive:'1rwa0iU4aaXJ-2JC6KPk1CUrey0sofRj_'},
+  {id:'cm2_expr_orale', classe:'CM2', label:'🗣️ Fiches Expression orale CM2', url:'fiches-officielles/CM2/cm2_expr_orale.pdf', drive:'1BgLSW-hoVM1Gx1K67v5PTU7apvPHiCq0'},
+  {id:'cm2_geographie', classe:'CM2', label:'🗺️ Fiches Géographie CM2', url:'fiches-officielles/CM2/cm2_geographie.pdf', drive:'1mhW33-aCmBCBxHlwzILM2PY0b13VnahE'},
+  {id:'cm2_histoire', classe:'CM2', label:'🏛️ Fiches Histoire CM2', url:'fiches-officielles/CM2/cm2_histoire.pdf', drive:'1fVq_LHkEUHKnnpJz3ZQWnQ8xYhcMcnRP'},
+  {id:'cm2_poesie', classe:'CM2', label:'📜 Fiches de Poésie CM2', url:'fiches-officielles/CM2/cm2_poesie.pdf', drive:'1ohFIjevt1AvOZoz_rdMUrhKhd--Tn8IO'}
   /* CP2 : à compléter — ex. {id:'cp2_lecture', classe:'CP2', label:'📖 Fiches de lecture CP2', b64var:'ESP_FICHE_CP2_LECTURE_B64'} */
   /* CE1 : à compléter */
   /* CE2 : à compléter */
-  /* CM1 : à compléter */
+  /* CM1 : à compléter */,
+  {id:'ce1_lecture_ecriture', classe:'CE1', label:'📖 Fiches Lecture Ecriture Pnapas CE1', drive:'1RL30Hr6ghxB8PuH3EkJX-a7PDM_oRMz0'},
+  {id:'ce1_mathematiques', classe:'CE1', label:'🔢 Fiches Mathématiques pnapas CE1', drive:'1PkhlAcbVFDGOH0cepo0n-H3Or6JS9VnK'},
+  {id:'ce1_expl_texte_1', classe:'CE1', label:'📘 Fiches Exploitation de Texte 1 CE1', drive:'1DXCZl7t-_PGWUD_xmLbDjvYonB1hl_dS'},
+  {id:'ce1_expl_texte_2', classe:'CE1', label:'📘 Fiches Exploitation de Texte 2 CE1', drive:'16_QBJQ1X6CGKMSq0g7UzQkcYQDzlOSz8'}
   /* CM2 : à compléter */
 ];
 let espFicheLib={doc:null,docId:null,page:1,total:0,scale:1.3,rendering:false};
@@ -8574,9 +8584,11 @@ function espRenderFicheLibBlock(){
   if(!catalog.length){
     body=espEmpty('Aucun fascicule officiel '+espEsc(cl)+' disponible pour le moment. Les fascicules de cette classe seront ajoutés dès qu\'ils seront transmis.');
   } else {
-    const opts='<option value="">— Choisir un fascicule —</option>'+catalog.map(c=>'<option value="'+c.id+'">'+c.label+(c.url?' 🌐':'')+'</option>').join('');
-    const hasUrl=catalog.some(c=>c.url);
-    body=(hasUrl?'<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">🌐 = fascicule volumineux hébergé à part (dossier « fiches-officielles/ » à côté de index.html) — nécessite une connexion si le site est en ligne, ou la présence du dossier en local.</div>':'')+
+    const opts='<option value="">— Choisir un fascicule —</option>'+catalog.map(c=>'<option value="'+c.id+'">'+c.label+(c.drive?' 📂':(c.url?' 🌐':''))+'</option>').join('');
+    const hasUrl=catalog.some(c=>c.url && !c.drive);
+    const hasDrive=catalog.some(c=>c.drive);
+    body=(hasDrive?'<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">📂 = fascicule officiel hébergé sur Google Drive — s\'ouvre dans un nouvel onglet (nécessite une connexion Internet).</div>':'')+
+      (hasUrl?'<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">🌐 = fascicule volumineux hébergé à part (dossier « fiches-officielles/ » à côté de index.html).</div>':'')+
       '<select class="fiche-lib-select" id="esp-fichelib-select" onchange="espFicheLibOnSelect(this.value)">'+opts+'</select>'+
       '<div class="fiche-lib-viewer" id="esp-fichelib-viewer" style="display:none;">'+
         '<div class="fiche-lib-toolbar">'+
@@ -8602,8 +8614,17 @@ function espFicheLibInitOnce(){
 function espFicheLibOnSelect(id){
   const viewer=document.getElementById('esp-fichelib-viewer'), loading=document.getElementById('esp-fichelib-loading');
   if(!id){ if(viewer) viewer.style.display='none'; espFicheLib.doc=null; espFicheLib.docId=null; return; }
-  if(typeof pdfjsLib==='undefined'){ alert('Le lecteur de fiches (pdf.js) n\'a pas pu être chargé. Vérifiez que le dossier « assets/pdfjs » accompagne bien ce fichier.'); return; }
   const entry=ESP_FICHE_LIB_CATALOG.find(c=>c.id===id); if(!entry) return;
+  // ── Fascicule hébergé sur Google Drive : ouverture dans un nouvel onglet ──
+  if(entry.drive){
+    if(viewer) viewer.style.display='none';
+    const url='https://drive.google.com/file/d/'+entry.drive+'/view';
+    window.open(url,'_blank');
+    // remettre le sélecteur à zéro pour permettre de rouvrir la même fiche
+    var sel=document.getElementById('esp-fichelib-select'); if(sel) sel.value='';
+    return;
+  }
+  if(typeof pdfjsLib==='undefined'){ alert('Le lecteur de fiches (pdf.js) n\'a pas pu être chargé. Vérifiez que le dossier « assets/pdfjs » accompagne bien ce fichier.'); return; }
   if(viewer) viewer.style.display='none';
   if(loading) loading.style.display='';
   setTimeout(function(){
