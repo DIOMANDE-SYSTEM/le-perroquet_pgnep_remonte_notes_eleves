@@ -8498,6 +8498,9 @@ function espRenderFiches(){
    l'Espace Maître de la classe correspondante (déterminée via espMyClasse()).
    CP2 / CE1 / CE2 / CM1 / CM2 : prêts à recevoir leurs fascicules officiels
    dès qu'ils seront fournis (aucun fichier reçu à ce jour → listes vides). */
+// Adresse de base où sont hébergés les PDF des fascicules (Netlify).
+// Pour changer d'hébergement plus tard, il suffit de modifier cette seule ligne.
+const ESP_FICHES_BASE='https://resilient-kashata-5e530c.netlify.app/';
 const ESP_FICHE_LIB_CATALOG=[
   {id:'lecture', classe:'CP1', label:'📖 Fiches de lecture CP1', url:'fiches-officielles/CP1/Fiches-Lecture-CP1.pdf', drive:'1ouMJST3737lVVnvqOt8Gt10-XHJLK765'},
   {id:'maths',   classe:'CP1', label:'🔢 Fiches de Mathématiques CP1', url:'fiches-officielles/CP1/Fiches-Mathematiques-CP1.pdf', drive:'1XcxZFfAGDEp0d9wyzqru8-YwcWhAI8oQ'},
@@ -8584,11 +8587,8 @@ function espRenderFicheLibBlock(){
   if(!catalog.length){
     body=espEmpty('Aucun fascicule officiel '+espEsc(cl)+' disponible pour le moment. Les fascicules de cette classe seront ajoutés dès qu\'ils seront transmis.');
   } else {
-    const opts='<option value="">— Choisir un fascicule —</option>'+catalog.map(c=>'<option value="'+c.id+'">'+c.label+(c.drive?' 📂':(c.url?' 🌐':''))+'</option>').join('');
-    const hasUrl=catalog.some(c=>c.url && !c.drive);
-    const hasDrive=catalog.some(c=>c.drive);
-    body=(hasDrive?'<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">📂 = fascicule officiel hébergé sur Google Drive — s\'ouvre dans un nouvel onglet (nécessite une connexion Internet).</div>':'')+
-      (hasUrl?'<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">🌐 = fascicule volumineux hébergé à part (dossier « fiches-officielles/ » à côté de index.html).</div>':'')+
+    const opts='<option value="">— Choisir un fascicule —</option>'+catalog.map(c=>'<option value="'+c.id+'">'+c.label+'</option>').join('');
+    body='<div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">📖 Consultation page par page dans la plateforme. Impression possible, téléchargement désactivé. Nécessite une connexion Internet.</div>'+
       '<select class="fiche-lib-select" id="esp-fichelib-select" onchange="espFicheLibOnSelect(this.value)">'+opts+'</select>'+
       '<div class="fiche-lib-viewer" id="esp-fichelib-viewer" style="display:none;">'+
         '<div class="fiche-lib-toolbar">'+
@@ -8615,29 +8615,21 @@ function espFicheLibOnSelect(id){
   const viewer=document.getElementById('esp-fichelib-viewer'), loading=document.getElementById('esp-fichelib-loading');
   if(!id){ if(viewer) viewer.style.display='none'; espFicheLib.doc=null; espFicheLib.docId=null; return; }
   const entry=ESP_FICHE_LIB_CATALOG.find(c=>c.id===id); if(!entry) return;
-  // ── Fascicule hébergé sur Google Drive : ouverture dans un nouvel onglet ──
-  if(entry.drive){
-    if(viewer) viewer.style.display='none';
-    const url='https://drive.google.com/file/d/'+entry.drive+'/view';
-    window.open(url,'_blank');
-    // remettre le sélecteur à zéro pour permettre de rouvrir la même fiche
-    var sel=document.getElementById('esp-fichelib-select'); if(sel) sel.value='';
-    return;
-  }
-  if(typeof pdfjsLib==='undefined'){ alert('Le lecteur de fiches (pdf.js) n\'a pas pu être chargé. Vérifiez que le dossier « assets/pdfjs » accompagne bien ce fichier.'); return; }
+  if(typeof pdfjsLib==='undefined'){ alert('Le lecteur de fiches (pdf.js) n\'a pas pu être chargé. Vérifiez votre connexion Internet et rechargez la page.'); return; }
   if(viewer) viewer.style.display='none';
   if(loading) loading.style.display='';
   setTimeout(function(){
-    // Fascicule volumineux hébergé à côté du fichier (dossier fiches-officielles/) : chargement à la demande.
+    // Fascicule hébergé sur Netlify : on construit l'adresse complète et on charge dans le lecteur intégré.
     if(entry.url){
-      pdfjsLib.getDocument({url:entry.url}).promise.then(pdf=>{
+      const fullUrl = (entry.url.indexOf('http')===0) ? entry.url : (ESP_FICHES_BASE + entry.url);
+      pdfjsLib.getDocument({url:fullUrl}).promise.then(pdf=>{
         espFicheLib.doc=pdf; espFicheLib.docId=id; espFicheLib.page=1; espFicheLib.total=pdf.numPages;
         if(loading) loading.style.display='none';
         if(viewer) viewer.style.display='';
         espFicheLibRenderPage();
       }).catch(err=>{
         if(loading) loading.style.display='none';
-        alert('Impossible de charger ce fascicule.\n\nCe fascicule est un fichier externe (dossier « fiches-officielles/ » à côté de index.html). Vérifiez que :\n— ce dossier accompagne bien le fichier lors de l\'hébergement (GitHub Pages / Netlify) ou de la copie locale ;\n— vous êtes connecté à Internet si le site est hébergé en ligne.');
+        alert('Impossible de charger ce fascicule.\n\nVérifiez que :\n— vous êtes connecté à Internet ;\n— le fichier PDF existe bien sur l\'hébergement Netlify au bon emplacement (dossier « fiches-officielles/ » avec le bon nom de fichier, en respectant les majuscules).');
         console.error(err);
       });
       return;
