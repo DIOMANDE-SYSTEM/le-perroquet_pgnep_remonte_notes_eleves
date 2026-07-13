@@ -1054,6 +1054,129 @@ tr:hover td{background:#F9FAFB;}
 .esp-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
 </style>
 
+
+<style id="aff-v32-style">
+/* ===== Tableau d'affichage enrichi v3.1+ ===== */
+.aff-subbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px;border-bottom:2px solid var(--border,#e5e9ef);padding-bottom:10px;}
+.aff-subtab{border:1px solid var(--border,#e5e9ef);background:#fff;border-radius:10px;padding:8px 14px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--text2,#475569);transition:.15s;}
+.aff-subtab:hover{background:#f1f5f9;}
+.aff-subtab.active{background:#123a63;color:#fff;border-color:#123a63;box-shadow:0 2px 6px rgba(18,58,99,.25);}
+.aff-classbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#F1F5F9;border:1px solid var(--border,#e5e9ef);border-radius:10px;padding:10px 14px;margin-bottom:14px;}
+.aff-classbar label{font-weight:700;font-size:13px;}
+.aff-classbar-note{font-size:12px;color:var(--text3,#94a3b8);}
+.aff-toolrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#F8FAFC;border:1px dashed var(--border,#e5e9ef);border-radius:10px;}
+.aff-toolrow label{font-weight:700;font-size:13px;}
+.aff-note{font-size:11.5px;color:var(--text3,#94a3b8);flex:1;min-width:180px;}
+
+/* Emploi du temps — grille 2 colonnes de jours */
+.aff-edt-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:760px){.aff-edt-grid{grid-template-columns:1fr;}}
+.aff-day-card{border:1px solid var(--border,#e5e9ef);border-radius:12px;overflow:hidden;background:#fff;}
+.aff-day-head{background:#123a63;color:#fff;font-weight:800;text-align:center;padding:7px;letter-spacing:.5px;}
+.aff-edt-table{width:100%;border-collapse:collapse;font-size:12px;}
+.aff-edt-table th{background:#EAF0F7;color:#123a63;padding:5px 6px;border:1px solid #dfe6ee;font-size:11px;}
+.aff-edt-table td{border:1px solid #eef1f5;padding:0;}
+.aff-cell{padding:5px 7px;min-height:20px;outline:none;font-size:12px;}
+.aff-cell:focus{background:#FFFDEB;box-shadow:inset 0 0 0 2px #FCD34D;}
+.aff-c{text-align:center;}
+.aff-edt-table tr.aff-break td{background:#E8EEF6;font-weight:700;text-align:center;color:#123a63;}
+.aff-x{width:34px;text-align:center;}
+.aff-x button,.aff-delrow,.aff-delcol{background:none;border:none;cursor:pointer;color:#DC2626;font-size:13px;padding:2px 5px;border-radius:4px;}
+.aff-x button:hover,.aff-delrow:hover,.aff-delcol:hover{background:#FEE2E2;}
+.aff-addrow{margin:8px;padding:4px 10px !important;font-size:12px !important;}
+
+/* Répartition mensuelle */
+.aff-rep-entete{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;background:#F8FAFC;border:1px solid var(--border,#e5e9ef);border-radius:10px;padding:12px 14px;margin-bottom:12px;}
+.aff-ent-f{display:flex;align-items:center;gap:6px;font-size:13px;}
+.aff-ent-f label{font-weight:700;white-space:nowrap;}
+.aff-ent-f .aff-cell{flex:1;border:1px solid #e5e9ef;border-radius:6px;background:#fff;}
+.aff-rep-table{width:100%;border-collapse:collapse;font-size:12px;}
+.aff-rep-table th{background:#123a63;color:#fff;padding:6px;border:1px solid #0e2e50;position:relative;vertical-align:top;}
+.aff-rep-table td{border:1px solid #e6eaf0;vertical-align:top;min-width:150px;}
+.aff-rep-table .aff-matcell{background:#F1F5F9;color:#123a63;text-align:left;min-width:170px;}
+.aff-rep-table .aff-matcell .aff-cell{color:#123a63;font-weight:700;}
+.aff-semh{color:#fff;font-weight:700;}
+.aff-delrow,.aff-delcol{position:absolute;top:2px;right:2px;color:#fff;}
+.aff-delrow:hover,.aff-delcol:hover{background:rgba(255,255,255,.2);}
+.aff-repcell:focus{background:#FFFDEB;box-shadow:inset 0 0 0 2px #FCD34D;}
+.aff-rep-foot{display:flex;justify-content:space-between;gap:20px;margin-top:12px;font-size:13px;font-weight:600;flex-wrap:wrap;}
+.aff-sign,.aff-rep-foot .aff-cell{border-bottom:1px dotted #94a3b8;min-width:140px;display:inline-block;}
+
+/* Récapitulatif — checkboxes scolarité */
+.aff-sco-ck{width:16px;height:16px;cursor:pointer;accent-color:#123a63;}
+
+
+.aff-nivbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#F8FAFC;border:1px dashed var(--border,#e5e9ef);border-radius:10px;}
+.aff-nivbar-lbl{font-weight:700;font-size:13px;margin-right:2px;}
+.aff-niv-chip{border:1px solid var(--border,#e5e9ef);background:#fff;border-radius:8px;padding:5px 13px;font-size:13px;font-weight:700;cursor:pointer;color:#123a63;transition:.12s;}
+.aff-niv-chip:hover{background:#eef2f7;}
+.aff-niv-chip.active{background:#123a63;color:#fff;border-color:#123a63;box-shadow:0 2px 5px rgba(18,58,99,.25);}
+.aff-niv-apply{margin-left:auto;}
+@media(max-width:640px){.aff-niv-apply{margin-left:0;width:100%;}}
+</style>
+
+<style id="doclib-v32-style">
+/* ===== Bibliothèque documentaire v3.1+ ===== */
+.doclib-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.doclib-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+.doclib-filters select,.doclib-filters input{padding:7px 10px;border:1px solid var(--border,#e5e9ef);border-radius:8px;font-size:13px;font-family:inherit;}
+.doclib-form{border:1px dashed var(--border,#e5e9ef);border-radius:10px;padding:14px;margin-bottom:14px;background:#F8FAFC;display:none;}
+.doclib-form.open{display:block;}
+.doclib-form .fld{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+.doclib-form label{font-size:12px;font-weight:700;color:#334155;}
+.doclib-form input,.doclib-form select{padding:8px 10px;border:1px solid var(--border,#e5e9ef);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;}
+.doclib-form .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:560px){.doclib-form .grid2{grid-template-columns:1fr;}}
+.doclib-src{border-top:1px solid #e5e9ef;margin-top:6px;padding-top:12px;}
+.doclib-group{margin-bottom:18px;}
+.doclib-group-h{font-weight:800;color:#123a63;font-size:14px;margin:6px 0 10px;padding-bottom:6px;border-bottom:2px solid #EAF0F7;}
+.doclib-thumb{height:110px;display:flex;align-items:center;justify-content:center;font-size:42px;background:#F1F5F9;}
+.doclib-overlay{position:fixed;inset:0;background:rgba(15,23,42,.72);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;}
+.doclib-modal{background:#fff;border-radius:12px;width:min(940px,96vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.doclib-modal-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:#123a63;color:#fff;}
+.doclib-modal-h button{background:rgba(255,255,255,.18);border:none;color:#fff;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;flex-shrink:0;}
+.doclib-modal-b{padding:0;flex:1;overflow:auto;display:flex;justify-content:center;align-items:center;background:#DDE1E6;}
+.doclib-modal-b iframe{width:100%;height:82vh;border:none;}
+.doclib-modal-b img{display:block;}
+
+</style>
+
+<style id="docp-v33-style">
+.docp-stat{background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:12px;}
+.docp-help{background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:9px 12px;font-size:12px;line-height:1.55;margin-bottom:14px;color:#78350F;}
+.docp-ok{color:#059669;font-weight:800;font-size:12px;}
+.docp-ko{color:#DC2626;font-weight:700;font-size:12px;}
+.docp-b{padding:3px 8px !important;font-size:10.5px !important;margin-right:3px;}
+</style>
+
+<style id="dens-v35-style">
+.dens-form{border:1px dashed var(--border,#e5e9ef);border-radius:10px;padding:14px;margin-bottom:14px;background:#F8FAFC;}
+.dens-form-t{font-weight:800;color:#123a63;margin-bottom:12px;font-size:14px;}
+.dens-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;}
+.dens-grid .fld{display:flex;flex-direction:column;gap:4px;}
+.dens-grid .fld span{font-size:12px;font-weight:700;color:#334155;}
+.dens-grid input,.dens-grid select{padding:8px 10px;border:1px solid var(--border,#e5e9ef);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;}
+.dens-grid input[readonly]{background:#EEF2F7;color:#64748b;}
+.dens-act{display:flex;gap:8px;margin-top:12px;}
+.ptg-sub{font-size:11px;color:var(--text3,#94a3b8);margin-top:2px;}
+.ptg-x{padding:3px 8px !important;font-size:10.5px !important;margin-right:3px;}
+.ptg-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#F1F5F9;border:1px solid var(--border,#e5e9ef);border-radius:10px;padding:10px 12px;margin-bottom:12px;}
+.ptg-bar label{font-weight:700;font-size:13px;}
+.ptg-ref{font-size:11.5px;color:var(--text3,#94a3b8);flex:1;min-width:170px;}
+.ptg-h{font-family:monospace;font-size:13px;font-weight:700;}
+.ptg-mini{background:none;border:none;cursor:pointer;font-size:11px;opacity:.55;padding:0 3px;}
+.ptg-mini:hover{opacity:1;}
+.ptg-b{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:800;}
+.ptg-ok{background:#DCFCE7;color:#166534;}
+.ptg-ret{background:#FEF3C7;color:#92400E;}
+.ptg-abs{background:#FEE2E2;color:#991B1B;}
+.ptg-non{background:#F1F5F9;color:#64748B;}
+.ptg-row-abs{background:#FFF5F5;}
+</style>
+
+<style id="cat-scope-style">
+.cat-scope{background:#EEF6FF;border:1px solid #BFDBFE;border-left:4px solid #2563EB;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#1E3A8A;margin-bottom:12px;line-height:1.5;}
+</style>
 </head>
 <body>
 
@@ -1188,6 +1311,13 @@ tr:hover td{background:#F9FAFB;}
       </div>
       <div class="nav-item" onclick="showPage('bulletins')">
         <span class="nav-icon">📄</span> Bulletins de notes
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Ressources pédagogiques</div>
+      <div class="nav-item" onclick="showPage('docs-pnapas'); if(typeof renderDocsPnapas==='function') renderDocsPnapas();">
+        <span class="nav-icon">📚</span> Documents PNAPAS & Guides
       </div>
     </div>
 
@@ -2399,6 +2529,16 @@ tr:hover td{background:#F9FAFB;}
       </div>
 
       <!-- ══════════ ESPACE SUPER ADMINISTRATEUR ══════════ -->
+      <!-- ══════════ DOCUMENTS PNAPAS & GUIDES PÉDAGOGIQUES ══════════ -->
+      <div id="page-docs-pnapas" class="page">
+        <div class="esp-banner" style="background:linear-gradient(135deg,#1A3D6E,#2563EB);"><span class="esp-emoji">📚</span>
+          <div><h2>Documents PNAPAS &amp; Guides Pédagogiques</h2><p>Bibliothèque des documents des maîtres — tous niveaux (CP1 → CM2)</p></div>
+        </div>
+        <div id="docp-catalogue"></div>
+        <div style="height:18px;"></div>
+        <div id="docpnapas-body"></div>
+      </div>
+
       <div id="page-espace-superadmin" class="page">
         <div class="esp-banner sa"><span class="esp-emoji">👑</span>
           <div><h2>Espace Super Administrateur</h2><p>Supervision de l'ensemble des comptes de la plateforme</p></div>
@@ -3060,7 +3200,7 @@ const PAGE_LABELS = {
   dashboard:'Tableau de bord', eleves:'Gestion des élèves',
   saisie:'Saisie des notes', resultats:'Résultats & Statistiques',
   bulletins:'Bulletins de notes', ecoles:'Écoles & Structures',
-  export:'Export / Synchronisation', comptes:'Comptes utilisateurs', rapport:'Rapports d\'activité', corbeille:'Corbeille', guide:'Guide d\'utilisation', ia:'🤖 Assistant IA'
+  export:'Export / Synchronisation', comptes:'Comptes utilisateurs', rapport:'Rapports d\'activité', corbeille:'Corbeille', guide:'Guide d\'utilisation', ia:'🤖 Assistant IA', 'docs-pnapas':'Documents PNAPAS & Guides Pédagogiques'
 };
 
 function showPage(name) {
@@ -8453,20 +8593,8 @@ function espRenderEdt(key, mountId){
 function espEffectifs(eleves){ const d=espToday(); const m=espLsGet('pgnep_presences',{}); const ab=espLsGet('pgnep_abandons',[]);
   let P=0,A=0,Ab=0; eleves.forEach(e=>{ if(ab.includes(e.id)){Ab++;return;} const s=m[d+'__'+e.id]; if(s==='A')A++; else if(s==='P'||s==='R')P++; }); return {P:P,A:A,Ab:Ab,T:eleves.length}; }
 function espRenderAffMaitre(){
-  const box=document.getElementById('esp-maitre-affichage'); if(!box) return; espSetMaitreSub();
-  const eleves=espMyEleves().slice().sort(espByName); const ef=espEffectifs(eleves);
-  const effHtml='<div class="eff-grid"><div class="eff-box p"><div class="eff-lbl">Présents (auj.)</div><div class="eff-val">'+ef.P+'</div></div><div class="eff-box a"><div class="eff-lbl">Absents (auj.)</div><div class="eff-val">'+ef.A+'</div></div><div class="eff-box ab"><div class="eff-lbl">Abandons</div><div class="eff-val">'+ef.Ab+'</div></div><div class="eff-box t"><div class="eff-lbl">Effectif total</div><div class="eff-val">'+ef.T+'</div></div></div>';
-  const key=espEdtKey();
-  const lst=eleves.map((e,i)=>'<tr><td>'+(i+1)+'</td><td><strong>'+espEsc(e.nom)+'</strong> '+espEsc(e.prenoms)+'</td><td>'+espEsc(e.sexe)+'</td><td>'+espEsc(e.matricule||'—')+'</td></tr>').join('');
-  const _nonp=Math.max(0,ef.T-ef.Ab-ef.P-ef.A);
-  const _donut=(typeof espDonut==='function')?espDonut([{label:'Présents',value:ef.P,color:'#059669'},{label:'Absents',value:ef.A,color:'#DC2626'},{label:'Abandons',value:ef.Ab,color:'#F77F00'},{label:'Non pointés',value:_nonp,color:'#CBD5E1'}],{center:ef.T,centerLabel:'Élèves'}):'';
-  box.innerHTML=
-    espCard('📊 Tableau des effectifs · présence du jour (anneau)','',effHtml+(_donut?'<div style="margin-top:6px;">'+_donut+'</div>':''))+
-    '<div style="height:16px;"></div>'+
-    espCard('🕒 Emploi du temps · '+(espMyClasse()||''), espTools('edt-render-'+key,'Emploi du temps'), '<div id="edt-render-'+key+'"></div>')+
-    '<div style="height:16px;"></div>'+
-    espCard('👥 Élèves de la classe · '+eleves.length, espTools('aff-lst','Liste des eleves'), '<div class="table-wrap" id="aff-lst"><table><thead><tr><th>#</th><th>Élève</th><th>Sexe</th><th>Matricule</th></tr></thead><tbody>'+(lst||'<tr><td colspan="4">'+espEmpty('Aucun élève.')+'</td></tr>')+'</tbody></table></div>');
-  espRenderEdt(key,'edt-render-'+key);
+  var box=document.getElementById('esp-maitre-affichage'); if(!box) return;
+  if(typeof affRenderBoard==='function'){ affRenderBoard('maitre'); return; }
 }
 /* -- Fiches pratiques + scan/photo/import/export -- */
 function espPickFiche(kind){ document.getElementById(kind==='photo'?'esp-fiche-cam':'esp-fiche-file').click(); }
@@ -8841,8 +8969,8 @@ function espMakeOfficialLibModule(catalogArr, storeVarName, idPrefix, cardTitleB
 }
 const espEvalLibMod=espMakeOfficialLibModule(ESP_EVAL_LIB_CATALOG,'espEvalLib','esp-evallib','📝 Évaluations officielles', ' sujet d\'évaluation officiel');
 const espCorrLibMod=espMakeOfficialLibModule(ESP_CORRECTION_LIB_CATALOG,'espCorrLib','esp-corrlib','✅ Corrections officielles', 'e correction officielle');
-function espRenderEvalLibBlockPanel(){ const box=document.getElementById('esp-maitre-evaluations'); if(!box) return; espSetMaitreSub(); box.innerHTML=espEvalLibMod.render(); espEvalLibMod.initOnce(); }
-function espRenderCorrLibBlockPanel(){ const box=document.getElementById('esp-maitre-corrections'); if(!box) return; espSetMaitreSub(); box.innerHTML=espCorrLibMod.render(); espCorrLibMod.initOnce(); }
+function espRenderEvalLibBlockPanel(){ const box=document.getElementById('esp-maitre-evaluations'); if(!box) return; espSetMaitreSub(); box.innerHTML='<div id="cat-eval"></div><div style="height:16px;"></div>'+espEvalLibMod.render()+(typeof docLibBlock==='function'?('<div style="height:16px;"></div>'+docLibBlock('eval',{title:'🗂️ Compositions des années antérieures',intro:'Archivez ici les sujets de composition des années précédentes, classés par niveau. Ajout par lien Google Drive, autre lien ou fichier.',defaultNiveau:(espMyClasse()||'Tous')})):''); espEvalLibMod.initOnce(); if(typeof catRender==='function') catRender('eval'); if(typeof docLibRenderGrid==='function') docLibRenderGrid('eval'); }
+function espRenderCorrLibBlockPanel(){ const box=document.getElementById('esp-maitre-corrections'); if(!box) return; espSetMaitreSub(); box.innerHTML='<div id="cat-corr"></div><div style="height:16px;"></div>'+espCorrLibMod.render()+(typeof docLibBlock==='function'?('<div style="height:16px;"></div>'+docLibBlock('corr',{title:'🗂️ Corrections des années antérieures',intro:'Archivez ici les corrigés des années précédentes, classés par niveau. Ajout par lien Google Drive, autre lien ou fichier.',defaultNiveau:(espMyClasse()||'Tous')})):''); espCorrLibMod.initOnce(); if(typeof catRender==='function') catRender('corr'); if(typeof docLibRenderGrid==='function') docLibRenderGrid('corr'); }
 
 /* ══════════ ESPACE DIRECTEUR ══════════ */
 function espSetDirSub(){ const el=document.getElementById('esp-directeur-sub'); if(el) el.textContent=espEcoleNom(espMyEcoleId()); }
@@ -8854,10 +8982,12 @@ function espRenderDirEns(){
   const eid=espMyEcoleId(); const ens=espSchoolEnseignants();
   const rows=ESP_ORD.map(cl=>{ const profs=ens.filter(u=>u.structure_val===cl).map(u=>espEsc(u.nom)).join(', ')||'<span style="color:var(--text3);">— non affecté —</span>';
     const eff=espDB().eleves.filter(e=>e.ecole_id===eid&&e.classe===cl); const g=eff.filter(e=>e.sexe==='M').length, f=eff.filter(e=>e.sexe==='F').length;
-    return '<tr><td><span class="badge badge-bleu">'+cl+'</span></td><td>'+profs+'</td><td style="text-align:center;">'+g+'</td><td style="text-align:center;">'+f+'</td><td style="text-align:center;font-weight:700;">'+eff.length+'</td></tr>'; }).join('');
+    var _act=(typeof densShowForm==='function')?('<td style="white-space:nowrap;text-align:center;"><button class="btn btn-secondary ptg-x" onclick="densShowForm(null,\''+cl+'\')">➕ Ajouter</button></td>'):'<td></td>';
+    return '<tr><td><span class="badge badge-bleu">'+cl+'</span></td><td>'+profs+'</td><td style="text-align:center;">'+g+'</td><td style="text-align:center;">'+f+'</td><td style="text-align:center;font-weight:700;">'+eff.length+'</td>'+_act+'</tr>'; }).join('');
   const tot=espSchoolEleves().length;
-  const table='<div class="table-wrap" id="dir-ens-tab"><table><thead><tr><th>Classe</th><th>Enseignant(s)</th><th>Garçons</th><th>Filles</th><th>Effectif</th></tr></thead><tbody>'+rows+'<tr style="background:#F9FAFB;font-weight:800;"><td colspan="4" style="text-align:right;">TOTAL ÉCOLE</td><td style="text-align:center;">'+tot+'</td></tr></tbody></table></div>';
-  box.innerHTML=espCard('👥 Enseignants et effectifs par classe (CP1 → CM2)', espTools('dir-ens-tab','Enseignants et effectifs'), table);
+  const table='<div class="table-wrap" id="dir-ens-tab"><table><thead><tr><th>Classe</th><th>Enseignant(s)</th><th>Garçons</th><th>Filles</th><th>Effectif</th><th>Action</th></tr></thead><tbody>'+rows+'<tr style="background:#F9FAFB;font-weight:800;"><td colspan="4" style="text-align:right;">TOTAL ÉCOLE</td><td style="text-align:center;">'+tot+'</td><td></td></tr></tbody></table></div>';
+  var _gest=(typeof densGestCard==='function')?(densGestCard(ens)+'<div style="height:16px;"></div>'):'';
+  box.innerHTML=_gest+espCard('👥 Enseignants et effectifs par classe (CP1 → CM2)', espTools('dir-ens-tab','Enseignants et effectifs'), table);
 }
 /* -- Présence enseignants + autorisation d'absence -- */
 function espSetPresEns(login,val){ const d=document.getElementById('esp-presens-date').value||espToday(); const m=espLsGet('pgnep_presence_ens',{}); m[d+'__'+login]=val; espLsSet('pgnep_presence_ens',m); espRenderPresEns(); }
@@ -8901,26 +9031,12 @@ function espRenderPresEns(){
     '<label class="form-field" style="grid-column:1/-1;"><span style="font-size:12px;font-weight:600;">Motif</span><input type="text" id="abs-motif" class="filter-select" placeholder="Motif de l\'absence"></label>'+
     '<div><button class="btn btn-primary" onclick="espAddAbsEns()">➕ Enregistrer la demande</button></div></div>'+
     '<div class="table-wrap" id="abs-tab"><table><thead><tr><th>Enseignant</th><th>Période</th><th>Motif</th><th>Statut</th><th>Décision</th></tr></thead><tbody>'+(absRows||'<tr><td colspan="5">'+espEmpty('Aucune demande.')+'</td></tr>')+'</tbody></table></div>');
-  box.innerHTML=presCard+'<div style="height:16px;"></div>'+absCard;
+  box.innerHTML=(typeof ptgBlock==='function'?(ptgBlock()+'<div style="height:16px;"></div>'):'')+presCard+'<div style="height:16px;"></div>'+absCard;
 }
 /* -- Tableau d'affichage (directeur) -- */
 function espRenderAffDir(){
-  const box=document.getElementById('esp-directeur-affichage'); if(!box) return; espSetDirSub();
-  const eid=espMyEcoleId();
-  const effRows=ESP_ORD.map(cl=>{ const el=espDB().eleves.filter(e=>e.ecole_id===eid&&e.classe===cl); const ef=espEffectifs(el);
-    return '<tr><td><span class="badge badge-bleu">'+cl+'</span></td><td style="text-align:center;color:var(--ci-vert);font-weight:700;">'+ef.P+'</td><td style="text-align:center;color:var(--danger);font-weight:700;">'+ef.A+'</td><td style="text-align:center;color:var(--ci-orange);font-weight:700;">'+ef.Ab+'</td><td style="text-align:center;font-weight:800;">'+ef.T+'</td></tr>'; }).join('');
-  const allEf=espEffectifs(espSchoolEleves());
-  const effTable='<div class="table-wrap" id="dir-aff-tab"><table><thead><tr><th>Classe</th><th>Présents</th><th>Absents</th><th>Abandons</th><th>Effectif</th></tr></thead><tbody>'+effRows+'<tr style="background:#F9FAFB;font-weight:800;"><td>TOTAL</td><td style="text-align:center;">'+allEf.P+'</td><td style="text-align:center;">'+allEf.A+'</td><td style="text-align:center;">'+allEf.Ab+'</td><td style="text-align:center;">'+allEf.T+'</td></tr></tbody></table></div>';
-  const selKey=(document.getElementById('dir-edt-classe')&&document.getElementById('dir-edt-classe').value)||'CP1';
-  const edtKey=eid+'__'+selKey;
-  const _nonp=Math.max(0,allEf.T-allEf.Ab-allEf.P-allEf.A);
-  const _donut=(typeof espDonut==='function')?espDonut([{label:'Présents',value:allEf.P,color:'#059669'},{label:'Absents',value:allEf.A,color:'#DC2626'},{label:'Abandons',value:allEf.Ab,color:'#F77F00'},{label:'Non pointés',value:_nonp,color:'#CBD5E1'}],{center:allEf.T,centerLabel:'Élèves'}):'';
-  box.innerHTML=
-    espCard('📊 Effectifs de toutes les classes · présence du jour (anneau)', espTools('dir-aff-tab','Effectifs toutes classes'), (_donut?'<div style="margin-bottom:14px;">'+_donut+'</div>':'')+effTable)+
-    '<div style="height:16px;"></div>'+
-    espCard('🕒 Emploi du temps par classe','',
-      '<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;"><label style="font-size:13px;font-weight:600;">Classe :</label><select id="dir-edt-classe" class="filter-select" onchange="espRenderAffDir()">'+ESP_ORD.map(c=>'<option value="'+c+'"'+(c===selKey?' selected':'')+'>'+c+'</option>').join('')+'</select><span style="flex:1;"></span>'+espTools('edt-render-'+edtKey,'Emploi du temps '+selKey)+'</div><div id="edt-render-'+edtKey+'"></div>');
-  espRenderEdt(edtKey,'edt-render-'+edtKey);
+  var box=document.getElementById('esp-directeur-affichage'); if(!box) return;
+  if(typeof affRenderBoard==='function'){ affRenderBoard('directeur'); return; }
 }
 /* -- Calendrier scolaire -- */
 function espAddCal(){ const tit=document.getElementById('cal-tit').value.trim(), type=document.getElementById('cal-type').value, du=document.getElementById('cal-du').value, au=document.getElementById('cal-au').value;
@@ -9305,6 +9421,1585 @@ try{ if(typeof PAGE_LABELS!=='undefined') PAGE_LABELS['stats-global']='📊 Stat
 #ia-fab { display:none; } /* hidden until logged in */
 </style>
 
+
+</script>
+
+<script id="aff-v32-script">
+/* ══════════════════════════════════════════════════════════════════════
+   TABLEAU D'AFFICHAGE ENRICHI — v3.1+ (module additif, non destructif)
+   • Sous-onglets : Présences · Emploi du temps (modèles officiels CP1→CM2,
+     scan/photo, import/export) · Tableau récapitulatif · Répartition mensuelle
+   • Réutilise les helpers existants : espEffectifs, espDonut, getAge,
+     espLsGet/Set, espEsc, espCard, espMyEleves, espSchoolEleves, espDB…
+   • Aucune fonction existante n'est supprimée.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ---------- Modèles officiels d'emploi du temps (MENA / DPFC) ---------- */
+var AFF_EDT_MODELES = {
+ CP1:{
+  Lundi:[['7h45-8h00','Salut aux couleurs','15'],['8h05-8h35','Lecture 1','30'],['8h38-9h18','Mathématiques (Acquisition systématique)','40'],['9h18-9h58','Lecture 2','40'],['9h58-10h15','Poésie','25'],['','RÉCRÉATION',''],['10h15-10h55','Expression orale 1','40'],['10h55-11h20','Mathématiques (Renforcement)','25'],['11h20-11h40','Lecture 3','20'],['11h40-11h55','EDHC','15'],['','APRÈS-MIDI',''],['14h30-14h55','Lecture (Activités de soutien)','25'],['14h55-15h35','Mathématiques (Évaluation)','40'],['15h35-15h55','Expression orale 2','20'],['','RÉCRÉATION',''],['16h15-16h40','Expression écrite (Exercice)','25'],['16h40-17h05','Expression orale 3','25'],['17h05-17h30','Mathématiques (Fixation / approfondissement)','25']],
+  Mardi:[['7h45-8h25','EPS','40'],['8h28-9h13','Mathématiques (Acquisition systématique)','45'],['9h15-9h45','Lecture 4','30'],['9h45-10h00','Dictée préparée 1','15'],['','RÉCRÉATION',''],['10h15-10h45','Lecture 5','30'],['10h45-11h25','Mathématiques (Renforcement)','40'],['11h25-11h55','Lecture récréative','30'],['11h55-12h15','Écriture (Exercices dans cahier)','20'],['','APRÈS-MIDI',''],['14h30-15h00','Mathématiques (Évaluation)','30'],['15h00-15h30','Expression orale 4','30'],['15h30-16h00','AEC','30'],['','RÉCRÉATION',''],['16h15-16h50','Mathématiques (Fixation / approfondissement)','35'],['16h50-17h15','Expression orale 5','25'],['17h15-17h30','Lecture (Activités de soutien)','15']],
+  Jeudi:[['7h45-8h15','Lecture 1','30'],['8h20-9h05','Mathématiques (Acquisition systématique)','45'],['9h05-9h30','Expression orale 6','25'],['9h30-10h00','Lecture 2','30'],['','RÉCRÉATION',''],['10h15-10h35','Dictée (administration)','20'],['10h35-11h15','Mathématiques (Renforcement)','40'],['11h15-11h45','Lecture 3','30'],['11h45-12h15','Expression orale 7','30'],['','APRÈS-MIDI',''],['14h30-15h00','Lecture (Activités de soutien)','30'],['15h00-15h40','Mathématiques (Évaluation)','40'],['15h40-16h00','Chant','20'],['','RÉCRÉATION',''],['16h15-16h35','Poésie','20'],['16h35-17h10','Mathématiques (Fixation / approfondissement)','35'],['17h10-17h30','Lecture (Activités de soutien)','20']],
+  Vendredi:[['7h45-8h10','Expression écrite (Exercices)','25'],['8h10-8h50','Mathématiques (Activités de soutien)','40'],['8h50-9h20','Lecture 4','30'],['9h20-9h45','Expression orale 9','25'],['9h45-10h00','Lecture (Activités de soutien)','15'],['','RÉCRÉATION',''],['10h15-10h55','Lecture 5','40'],['10h55-11h20','Mathématiques (Évaluation)','25'],['11h20-11h40','Écriture (Exercice)','20'],['11h40-12h15','Mots utiles / Lettres muettes','35'],['','APRÈS-MIDI',''],['14h30-14h55','Lecture récréative','25'],['14h55-15h35','Mathématiques (Activités de soutien)','40'],['15h35-16h00','Expression orale 10','25'],['','RÉCRÉATION',''],['16h15-16h40','Expression orale 10','25'],['16h40-17h20','Activités entrepreneuriales','40'],['17h20-17h30','Salut aux couleurs','10']]
+ },
+ CE1:{
+  Lundi:[['7h45-8h00','Salut aux couleurs','15'],['8h05-8h35','Expression orale 1','30'],['8h37-9h17','Mathématiques (Acquisition)','40'],['9h20-10h00','Lecture 1','40'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation lecture-écriture','45'],['11h00-11h20','Mathématiques (Renforcement)','20'],['11h20-12h00','Expression écrite 1','40'],['12h00-12h15','Écriture','15'],['','APRÈS-MIDI',''],['14h30-15h05','Lecture 2','35'],['15h10-15h40','Mathématiques (Exercices)','30'],['15h40-16h00','Lecture (Animation)','20'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','EDHC / AEC','30']],
+  Mardi:[['7h45-8h25','Mathématiques (Acquisition)','40'],['8h27-8h52','Exploitation de texte 1 (vocabulaire)','25'],['8h55-9h35','Sciences et technologie','40'],['9h35-10h00','Exploitation de texte 1 (orthographe)','25'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation lecture-écriture','45'],['11h00-11h40','Mathématiques (Renforcement)','40'],['11h40-12h00','Poésie','20'],['12h00-12h15','Français (soutien pédagogique)','15'],['','APRÈS-MIDI',''],['14h30-15h00','Expression orale 2','30'],['15h00-15h30','Mathématiques (Exercices)','30'],['15h30-16h00','Expression écrite 2','30'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','EPS','30']],
+  Jeudi:[['7h45-8h15','Expression écrite 3','30'],['8h17-8h57','Mathématiques (Acquisition)','40'],['9h00-9h40','Lecture 1','40'],['9h40-10h00','Poésie','20'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation lecture-écriture','45'],['11h00-11h30','Mathématiques (Exercices)','30'],['11h30-11h45','Écriture','15'],['11h45-12h15','Sciences et technologie','30'],['','APRÈS-MIDI',''],['14h30-14h55','Dictée (préparation)','25'],['14h55-15h10','Chant','15'],['15h10-15h30','Sciences et technologie (Exercice)','20'],['15h30-16h00','Lecture 2','30'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','Expression orale 3','30']],
+  Vendredi:[['7h45-8h10','Exploitation de texte 2 (grammaire)','25'],['8h10-8h50','Mathématiques (Acquisition 1)','40'],['8h50-9h15','Exploitation de texte 2 (conjugaison)','25'],['9h15-9h45','Histoire / Géographie','30'],['9h45-10h00','Animation lecture','15'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation lecture-écriture','45'],['11h00-11h20','Mathématiques (Exercices)','20'],['11h20-11h50','Lecture 1 et 2 (Renforcement)','30'],['11h50-12h15','Sciences et technologie (soutien)','25'],['','APRÈS-MIDI',''],['14h30-15h05','Dictée 2 (Administration)','35'],['15h05-15h30','Expression écrite 4','25'],['15h30-16h00','Activités coopératives / entrepreneuriales','30'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h15','Lecture animation','15'],['17h15-17h30','Salut aux couleurs','15']]
+ },
+ CM1:{
+  Lundi:[['7h45-8h00','Salut aux couleurs','15'],['8h05-8h35','Lecture 1','30'],['8h40-9h25','Mathématiques (Acquisition)','45'],['9h25-10h00','Expression orale 1','35'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation Français','45'],['11h00-11h30','Lecture 2','30'],['11h30-11h55','Chant','25'],['11h55-12h15','Écriture','20'],['','APRÈS-MIDI',''],['14h30-15h10','Histoire / Géographie','40'],['15h10-15h30','Mathématiques (Exercices)','20'],['15h30-16h00','Expression écrite 1','30'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','EDHC / AEC','30']],
+  Mardi:[['7h45-8h10','Exploitation de texte 1 (vocabulaire)','25'],['8h15-9h00','Mathématiques (Acquisition)','45'],['9h00-9h30','Expression orale 2','30'],['9h30-10h00','Expression écrite 2','30'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation français','45'],['11h00-11h25','Exploitation de texte 1 (orthographe)','25'],['11h25-11h45','Poésie','20'],['11h45-12h15','Mathématiques exercices','30'],['','APRÈS-MIDI',''],['14h30-15h15','Sciences et technologie','45'],['15h15-15h40','Lecture 1 & 2 (Renforcement)','25'],['15h40-16h00','Exploitation de texte (Renforcement)','20'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','Sciences et technologie (Renforcement)','30']],
+  Jeudi:[['7h45-8h25','EPS','40'],['8h30-9h15','Mathématiques (Acquisition)','45'],['9h20-10h00','Sciences et technologie','40'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation français','45'],['11h05-11h40','Mathématiques exercices','35'],['11h40-12h15','Lecture 1','35'],['','APRÈS-MIDI',''],['14h30-15h00','Lecture 2','30'],['15h00-15h30','Dictée (préparation)','30'],['15h30-16h00','Expression orale','30'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','Expression écrite 3','30']],
+  Vendredi:[['7h45-8h10','Exploitation de texte 2 (grammaire)','25'],['8h15-9h00','Mathématiques (Acquisition)','45'],['9h00-9h25','Exploitation de texte 2 (conjugaison)','25'],['9h25-10h00','Sciences et technologie (Renforcement)','35'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation français','45'],['11h00-11h25','Écriture','25'],['11h25-11h55','Dictée 2 (Administration)','30'],['11h55-12h15','Mathématiques (Exercices)','20'],['','APRÈS-MIDI',''],['14h30-15h10','Sciences et technologie (soutien)','40'],['15h10-15h35','Poésie','25'],['15h35-16h00','Animation lecture','25'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h20','Activités entrepreneuriales','20'],['17h20-17h30','Salut aux couleurs','10']]
+ }
+};
+/* CP2 identique à CP1 ; CE2 identique à CE1 ; CM2 = CM1 + études surveillées */
+AFF_EDT_MODELES.CP2 = JSON.parse(JSON.stringify(AFF_EDT_MODELES.CP1));
+AFF_EDT_MODELES.CE2 = JSON.parse(JSON.stringify(AFF_EDT_MODELES.CE1));
+AFF_EDT_MODELES.CM2 = JSON.parse(JSON.stringify(AFF_EDT_MODELES.CM1));
+['Lundi','Mardi','Jeudi','Vendredi'].forEach(function(j){
+  AFF_EDT_MODELES.CM2[j].unshift(['7h30-7h45','Études surveillées','15']);
+});
+
+/* ---------- Matières par défaut de la répartition mensuelle ---------- */
+var AFF_REP_MAT = {
+  CP:['ENRICHISSEMENT DU VOCABULAIRE','DISCRIMINATION VISUELLE','DISCRIMINATION AUDITIVE','GRAPHISME','LECTURE / PRÉLECTURE','EXPRESSION ÉCRITE','MATHÉMATIQUES','EXPRESSION ORALE','EDHC','AEC','EPS','POÉSIE / CHANT'],
+  CECM:['LECTURE','EXPLOITATION DE TEXTE 1 (Voc. / Orth.)','EXPLOITATION DE TEXTE 2 (Gram. / Conj.)','EXPRESSION ÉCRITE','EXPRESSION ORALE','ÉCRITURE','MATHÉMATIQUES','HISTOIRE - GÉOGRAPHIE','SCIENCES ET TECHNOLOGIE','EDHC / AEC','POÉSIE / CHANT','EPS']
+};
+function affCycle(cl){ return (cl==='CP1'||cl==='CP2')?'CP':'CECM'; }
+
+/* ---------- État des sous-onglets ---------- */
+var AFF_SUB = { maitre:'presences', directeur:'presences' };
+var AFF_DIR_CL = 'CP1';
+var AFF_EDT_NIV = { maitre:null, directeur:null }; /* niveau d'emploi du temps consulté */
+function affEdtNiveau(scope){ return AFF_EDT_NIV[scope] || affClasse(scope) || 'CP1'; }
+function affEdtKeyN(scope){ return (affEcoleId(scope)||'x')+'__'+affEdtNiveau(scope); }
+function affSetEdtNiv(scope,niv){ AFF_EDT_NIV[scope]=niv; affRenderBoard(scope); }
+var AFF_SUBTABS = [
+  {id:'presences',   icon:'📋', label:'Présences & effectifs'},
+  {id:'edt',         icon:'🕒', label:'Emploi du temps'},
+  {id:'recap',       icon:'📊', label:'Tableau récapitulatif'},
+  {id:'repartition', icon:'📅', label:'Répartition mensuelle'}
+];
+
+/* ---------- Contexte (classe / école / élèves) selon l'espace ---------- */
+function affClasse(scope){ return scope==='directeur' ? AFF_DIR_CL : (espMyClasse()||''); }
+function affEcoleId(scope){ return espMyEcoleId(); }
+function affEleves(scope){
+  if(scope==='directeur'){ var eid=espMyEcoleId(); return espDB().eleves.filter(function(e){return e.ecole_id===eid && e.classe===AFF_DIR_CL;}).slice().sort(espByName); }
+  return espMyEleves().slice().sort(espByName);
+}
+function affKey(scope){ return (affEcoleId(scope)||'x')+'__'+(affClasse(scope)||'x'); }
+
+/* ---------- Rendu principal (remplace le corps de espRenderAffMaitre/Dir) ---------- */
+function affRenderBoard(scope){
+  var boxId = scope==='directeur' ? 'esp-directeur-affichage' : 'esp-maitre-affichage';
+  var box=document.getElementById(boxId); if(!box) return;
+  if(scope==='directeur'){ if(typeof espSetDirSub==='function') espSetDirSub(); } else { if(typeof espSetMaitreSub==='function') espSetMaitreSub(); }
+
+  var sub=AFF_SUB[scope]||'presences';
+  var tabbar='<div class="aff-subbar">'+AFF_SUBTABS.map(function(t){
+    return '<button class="aff-subtab'+(t.id===sub?' active':'')+'" onclick="affSwitchSub(\''+scope+'\',\''+t.id+'\')">'+t.icon+' '+t.label+'</button>';
+  }).join('')+'</div>';
+
+  var clSel='';
+  if(scope==='directeur'){
+    clSel='<div class="aff-classbar"><label>Classe :</label><select class="filter-select" onchange="affSetDirClasse(this.value)">'+
+      ESP_ORD.map(function(c){return '<option value="'+c+'"'+(c===AFF_DIR_CL?' selected':'')+'>'+c+'</option>';}).join('')+
+      '</select><span class="aff-classbar-note">Toutes les sections ci-dessous concernent la classe sélectionnée.</span></div>';
+  }
+
+  var eleves=affEleves(scope);
+  var panel='';
+  if(sub==='presences')        panel=affPanelPresences(scope,eleves);
+  else if(sub==='edt')         panel=affPanelEdt(scope);
+  else if(sub==='recap')       panel=affPanelRecap(scope,eleves);
+  else if(sub==='repartition') panel=affPanelRepartition(scope);
+
+  box.innerHTML=clSel+tabbar+'<div class="aff-panel-body">'+panel+'</div>';
+
+  // montages différés
+  if(sub==='edt') affEdtMount(scope);
+  if(sub==='repartition') affRepMount(scope);
+}
+function affSwitchSub(scope,sub){ AFF_SUB[scope]=sub; affRenderBoard(scope); }
+function affSetDirClasse(cl){ AFF_DIR_CL=cl; affRenderBoard('directeur'); }
+
+/* ══════════════ PANNEAU 1 — PRÉSENCES & EFFECTIFS ══════════════ */
+function affPanelPresences(scope,eleves){
+  var ef=espEffectifs(eleves);
+  var nonp=Math.max(0,ef.T-ef.Ab-ef.P-ef.A);
+  var effHtml='<div class="eff-grid"><div class="eff-box p"><div class="eff-lbl">Présents (auj.)</div><div class="eff-val">'+ef.P+'</div></div><div class="eff-box a"><div class="eff-lbl">Absents (auj.)</div><div class="eff-val">'+ef.A+'</div></div><div class="eff-box ab"><div class="eff-lbl">Abandons</div><div class="eff-val">'+ef.Ab+'</div></div><div class="eff-box t"><div class="eff-lbl">Effectif total</div><div class="eff-val">'+ef.T+'</div></div></div>';
+  var donut=(typeof espDonut==='function')?espDonut([{label:'Présents',value:ef.P,color:'#059669'},{label:'Absents',value:ef.A,color:'#DC2626'},{label:'Abandons',value:ef.Ab,color:'#F77F00'},{label:'Non pointés',value:nonp,color:'#CBD5E1'}],{center:ef.T,centerLabel:'Élèves'}):'';
+  var lst=eleves.map(function(e,i){return '<tr><td>'+(i+1)+'</td><td><strong>'+espEsc(e.nom)+'</strong> '+espEsc(e.prenoms)+'</td><td>'+espEsc(e.sexe)+'</td><td>'+espEsc(e.matricule||'—')+'</td></tr>';}).join('');
+  return espCard('📊 Tableau des effectifs · présence du jour','',effHtml+(donut?'<div style="margin-top:6px;">'+donut+'</div>':''))+
+    '<div style="height:16px;"></div>'+
+    espCard('👥 Élèves de la classe · '+eleves.length, espTools('aff-lst-'+scope,'Liste des eleves'), '<div class="table-wrap" id="aff-lst-'+scope+'"><table><thead><tr><th>#</th><th>Élève</th><th>Sexe</th><th>Matricule</th></tr></thead><tbody>'+(lst||'<tr><td colspan="4">'+espEmpty('Aucun élève.')+'</td></tr>')+'</tbody></table></div>');
+}
+
+/* ══════════════ PANNEAU 2 — EMPLOI DU TEMPS (modèles officiels) ══════════════ */
+var AFF_EDT_JOURS=['Lundi','Mardi','Jeudi','Vendredi'];
+function affEdtStoreKey(scope){ return 'pgnep_edt_off'; }
+function affEdtGet(scope){
+  var all=espLsGet('pgnep_edt_off',{}); var k=affEdtKeyN(scope);
+  if(all[k]) return all[k];
+  var cl=affEdtNiveau(scope); var mod=AFF_EDT_MODELES[cl];
+  return mod ? JSON.parse(JSON.stringify(mod)) : {Lundi:[],Mardi:[],Jeudi:[],Vendredi:[]};
+}
+function affEdtSetData(scope,data){ var all=espLsGet('pgnep_edt_off',{}); all[affEdtKeyN(scope)]=data; espLsSet('pgnep_edt_off',all); }
+
+function affPanelEdt(scope){
+  var niv=affEdtNiveau(scope);
+  var nivbar='<div class="aff-nivbar"><span class="aff-nivbar-lbl">Niveau :</span>'+
+    ESP_ORD.map(function(c){return '<button class="aff-niv-chip'+(c===niv?' active':'')+'" onclick="affSetEdtNiv(\''+scope+'\',\''+c+'\')">'+c+'</button>';}).join('')+
+    '<button class="btn btn-primary aff-niv-apply" onclick="affEdtApplyModele(\''+scope+'\')">📥 Charger le modèle officiel '+niv+'</button></div>'+
+    '<div class="aff-note" style="margin:-6px 0 12px;">Chaque niveau (CP1 → CM2) possède son propre emploi du temps, consultable, modifiable et exportable séparément.</div>';
+  var tools='<button class="btn btn-secondary" onclick="affEdtExportWord(\''+scope+'\')">📄 Word</button>'+
+    '<button class="btn btn-secondary" onclick="affEdtExportExcel(\''+scope+'\')">📊 Excel</button>'+
+    '<button class="btn btn-secondary" onclick="affEdtPrint(\''+scope+'\')">📕 PDF / 🖨️ Imprimer</button>'+
+    '<button class="btn btn-secondary" onclick="affEdtModeleExcel()">📋 Modèle Excel</button>'+
+    '<button class="btn btn-secondary" onclick="affEdtImportExcel(\''+scope+'\')">📥 Importer Excel</button>'+
+    '<button class="btn btn-secondary" onclick="affScanFor(\''+scope+'\',\'edt\')">📷 Scanner / Photo</button>';
+  var scans=affScanGallery(scope,'edt');
+  return espCard('🕒 Emploi du temps · Niveau '+niv, tools, nivbar+'<div id="aff-edt-mount-'+scope+'"></div>'+
+    '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-primary" onclick="affEdtSave(\''+scope+'\')">💾 Enregistrer l\'emploi du temps</button></div>')+
+    (scans?('<div style="height:16px;"></div>'+espCard('📷 Modèles scannés / importés (images)','',scans)):'');
+}
+function affEdtMount(scope){
+  var data=affEdtGet(scope);
+  var mount=document.getElementById('aff-edt-mount-'+scope); if(!mount) return;
+  var html='<div class="aff-edt-grid">';
+  AFF_EDT_JOURS.forEach(function(j){
+    var rows=(data[j]||[]).map(function(r,idx){ return affEdtRowHtml(scope,j,idx,r); }).join('');
+    html+='<div class="aff-day-card"><div class="aff-day-head">'+j+'</div>'+
+      '<table class="aff-edt-table"><thead><tr><th style="width:34%;">Horaires</th><th>Activités</th><th style="width:16%;">Durée</th><th style="width:34px;"></th></tr></thead>'+
+      '<tbody id="aff-edt-body-'+scope+'-'+j+'">'+rows+'</tbody></table>'+
+      '<button class="btn btn-secondary aff-addrow" onclick="affEdtAddRow(\''+scope+'\',\''+j+'\')">＋ Créneau</button></div>';
+  });
+  html+='</div>';
+  mount.innerHTML=html;
+}
+function affEdtRowHtml(scope,j,idx,r){
+  var isBreak=/RÉCRÉATION|APRÈS-MIDI|RECREATION/i.test(r[1]||'');
+  var cls=isBreak?' class="aff-break"':'';
+  return '<tr'+cls+'>'+
+    '<td contenteditable="true" class="aff-cell">'+espEsc(r[0]||'')+'</td>'+
+    '<td contenteditable="true" class="aff-cell">'+espEsc(r[1]||'')+'</td>'+
+    '<td contenteditable="true" class="aff-cell aff-c">'+espEsc(r[2]||'')+'</td>'+
+    '<td class="aff-x"><button onclick="this.closest(\'tr\').remove()" title="Supprimer">🗑</button></td></tr>';
+}
+function affEdtAddRow(scope,j){
+  var tb=document.getElementById('aff-edt-body-'+scope+'-'+j); if(!tb) return;
+  var tr=document.createElement('tr'); tr.innerHTML='<td contenteditable="true" class="aff-cell"></td><td contenteditable="true" class="aff-cell"></td><td contenteditable="true" class="aff-cell aff-c"></td><td class="aff-x"><button onclick="this.closest(\'tr\').remove()">🗑</button></td>';
+  tb.appendChild(tr);
+}
+function affEdtReadDOM(scope){
+  var data={};
+  AFF_EDT_JOURS.forEach(function(j){
+    var rows=document.querySelectorAll('#aff-edt-body-'+scope+'-'+j+' tr'); var arr=[];
+    rows.forEach(function(tr){ var c=tr.querySelectorAll('.aff-cell'); if(!c.length) return;
+      var h=(c[0].textContent||'').trim(), a=(c[1].textContent||'').trim(), d=(c[2].textContent||'').trim();
+      if(h||a||d) arr.push([h,a,d]); });
+    data[j]=arr;
+  });
+  return data;
+}
+function affEdtSave(scope){ affEdtSetData(scope,affEdtReadDOM(scope)); alert('✅ Emploi du temps enregistré.'); }
+function affEdtApplyModele(scope){
+  var cl=affEdtNiveau(scope);
+  var mod=AFF_EDT_MODELES[cl]; if(!mod){ alert('Aucun modèle pour '+cl+'.'); return; }
+  if(!confirm('Charger le modèle officiel '+cl+' ? Les créneaux actuellement affichés seront remplacés (pensez à enregistrer avant si besoin).')) return;
+  affEdtSetData(scope, JSON.parse(JSON.stringify(mod))); affEdtMount(scope);
+}
+function affEdtModeleExcel(){ espDownloadModele(['Jour','Horaires','Activités','Durée'], ['Lundi','7h45-8h00','Salut aux couleurs','15'], 'modele_emploi_du_temps'); }
+function affEdtImportExcel(scope){
+  espImportExcel(function(rows){
+    var data={Lundi:[],Mardi:[],Jeudi:[],Vendredi:[]};
+    rows.forEach(function(r){
+      var j=String(espCol(r,'Jour')||'').trim(); var jn=affNormJour(j);
+      var h=String(espCol(r,'Horaires','Horaire','Heure')||'').trim();
+      var a=String(espCol(r,'Activités','Activites','Activité','Activite')||'').trim();
+      var d=String(espCol(r,'Durée','Duree')||'').trim();
+      if(jn && (h||a||d)) data[jn].push([h,a,d]);
+    });
+    var tot=data.Lundi.length+data.Mardi.length+data.Jeudi.length+data.Vendredi.length;
+    if(!tot){ alert('Aucune ligne exploitable (colonnes attendues : Jour, Horaires, Activités, Durée).'); return; }
+    affEdtSetData(scope,data); affEdtMount(scope);
+    alert('✅ Emploi du temps importé ('+tot+' créneaux).');
+  });
+}
+function affNormJour(s){ var n=String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(n.indexOf('lun')===0) return 'Lundi'; if(n.indexOf('mar')===0) return 'Mardi';
+  if(n.indexOf('jeu')===0) return 'Jeudi'; if(n.indexOf('ven')===0) return 'Vendredi'; return ''; }
+function affEdtBuildExportHTML(scope){
+  var data=affEdtReadDOM(scope); var cl=affEdtNiveau(scope)||'';
+  var ent=affEnteteHTML('EMPLOI DU TEMPS','Classe : '+cl+' — '+espEcoleNom(affEcoleId(scope)));
+  var grid='<table style="width:100%;border:none;"><tr>';
+  AFF_EDT_JOURS.forEach(function(j,i){
+    var rows=(data[j]||[]).map(function(r){
+      var br=/RÉCRÉATION|APRÈS-MIDI/i.test(r[1]||''); var st=br?' style="background:#E8EEF6;font-weight:700;text-align:center;"':'';
+      return '<tr'+st+'><td>'+espEsc(r[0])+'</td><td>'+espEsc(r[1])+'</td><td style="text-align:center;">'+espEsc(r[2])+'</td></tr>';
+    }).join('');
+    grid+='<td style="vertical-align:top;border:none;padding:4px;width:50%;"><table style="width:100%;"><thead><tr><th colspan="3" style="background:#123a63;color:#fff;">'+j+'</th></tr><tr><th>Horaires</th><th>Activités</th><th>Durée</th></tr></thead><tbody>'+rows+'</tbody></table></td>';
+    if(i===1) grid+='</tr><tr>';
+  });
+  grid+='</tr></table>';
+  return ent+grid;
+}
+function affEdtExportWord(scope){ affExportWordHTML(affEdtBuildExportHTML(scope), 'Emploi_du_temps_'+(affEdtNiveau(scope)||'')); }
+function affEdtPrint(scope){ affPrintHTML(affEdtBuildExportHTML(scope), 'Emploi du temps'); }
+function affEdtExportExcel(scope){
+  var data=affEdtReadDOM(scope);
+  if(typeof XLSX==='undefined'||!XLSX.utils){ alert('Module Excel indisponible.'); return; }
+  var aoa=[['Jour','Horaires','Activités','Durée']];
+  AFF_EDT_JOURS.forEach(function(j){ (data[j]||[]).forEach(function(r){ aoa.push([j,r[0],r[1],r[2]]); }); });
+  var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:12},{wch:16},{wch:44},{wch:8}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Emploi du temps');
+  XLSX.writeFile(wb,'Emploi_du_temps_'+(affEdtNiveau(scope)||'')+'.xlsx');
+}
+
+/* ══════════════ PANNEAU 3 — TABLEAU RÉCAPITULATIF ══════════════ */
+function affPanelRecap(scope,eleves){
+  var cl=affClasse(scope)||'—', ecole=espEcoleNom(affEcoleId(scope));
+  var G=eleves.filter(function(e){return e.sexe==='M';}), F=eleves.filter(function(e){return e.sexe==='F';});
+
+  /* -- a) Effectif total -- */
+  var effT='<div class="table-wrap" id="rec-eff-'+scope+'"><table><thead><tr><th>Rubrique</th><th>Garçons</th><th>Filles</th><th>Total</th></tr></thead><tbody>'+
+    '<tr><td><strong>Effectif inscrit</strong></td><td style="text-align:center;">'+G.length+'</td><td style="text-align:center;">'+F.length+'</td><td style="text-align:center;font-weight:800;">'+eleves.length+'</td></tr>'+
+    '</tbody></table></div>';
+
+  /* -- b) Tableau des âges -- */
+  var ages=eleves.map(function(e){return getAge(e.ddn);}).filter(function(a){return a!=null;});
+  var minA=ages.length?Math.min.apply(null,ages):5, maxA=ages.length?Math.max.apply(null,ages):12;
+  if(minA>5) minA=5; if(maxA<12) maxA=12;
+  var cols=[]; for(var a=minA;a<=maxA;a++) cols.push(a);
+  function countAge(list,a){ return list.filter(function(e){return getAge(e.ddn)===a;}).length; }
+  var ageHead='<tr><th>Sexe</th>'+cols.map(function(a){return '<th>'+a+' ans</th>';}).join('')+'<th>N.C.</th><th>Total</th></tr>';
+  function ageRow(lbl,list){ var nc=list.filter(function(e){return getAge(e.ddn)==null;}).length;
+    return '<tr><td><strong>'+lbl+'</strong></td>'+cols.map(function(a){var n=countAge(list,a);return '<td style="text-align:center;">'+(n||'')+'</td>';}).join('')+'<td style="text-align:center;">'+(nc||'')+'</td><td style="text-align:center;font-weight:700;">'+list.length+'</td></tr>'; }
+  var ageTab='<div class="table-wrap" id="rec-age-'+scope+'"><table><thead>'+ageHead+'</thead><tbody>'+ageRow('Garçons',G)+ageRow('Filles',F)+
+    '<tr style="background:#F9FAFB;font-weight:800;"><td>TOTAL</td>'+cols.map(function(a){return '<td style="text-align:center;">'+(countAge(eleves,a)||'')+'</td>';}).join('')+'<td style="text-align:center;">'+(eleves.filter(function(e){return getAge(e.ddn)==null;}).length||'')+'</td><td style="text-align:center;">'+eleves.length+'</td></tr>'+
+    '</tbody></table></div>';
+
+  /* -- c) Présents / Absents (du jour) -- */
+  var d=espToday(), pres=espLsGet('pgnep_presences',{}), ab=espLsGet('pgnep_abandons',[]);
+  function statut(e){ if(ab.indexOf(e.id)>=0) return {t:'Abandon',c:'#F77F00'}; var s=pres[d+'__'+e.id];
+    if(s==='A') return {t:'Absent',c:'#DC2626'}; if(s==='P'||s==='R') return {t:'Présent',c:'#059669'}; return {t:'Non pointé',c:'#94A3B8'}; }
+  var paRows=eleves.map(function(e,i){var st=statut(e);return '<tr><td>'+(i+1)+'</td><td><strong>'+espEsc(e.nom)+'</strong> '+espEsc(e.prenoms)+'</td><td style="text-align:center;">'+espEsc(e.sexe)+'</td><td style="text-align:center;color:'+st.c+';font-weight:700;">'+st.t+'</td></tr>';}).join('');
+  var ef=espEffectifs(eleves);
+  var paTab='<div style="margin-bottom:10px;font-size:13px;">Journée du <strong>'+d+'</strong> — Présents : <strong style="color:#059669;">'+ef.P+'</strong> · Absents : <strong style="color:#DC2626;">'+ef.A+'</strong> · Abandons : <strong style="color:#F77F00;">'+ef.Ab+'</strong></div>'+
+    '<div class="table-wrap" id="rec-pa-'+scope+'"><table><thead><tr><th>#</th><th>Élève</th><th>Sexe</th><th>Statut du jour</th></tr></thead><tbody>'+(paRows||'<tr><td colspan="4">'+espEmpty('Aucun élève.')+'</td></tr>')+'</tbody></table></div>';
+
+  /* -- d) Tableau de scolarité (cocher l'âge de chaque élève) -- */
+  var scoHead='<tr><th>#</th><th>Nom & Prénoms</th><th>Sexe</th>'+cols.map(function(a){return '<th>'+a+' ans</th>';}).join('')+'</tr>';
+  var scoBody=eleves.map(function(e,i){
+    var ag=getAge(e.ddn);
+    var checks=cols.map(function(a){ var ck=(ag===a)?' checked':''; return '<td style="text-align:center;"><input type="checkbox" class="aff-sco-ck"'+ck+' data-age="'+a+'"></td>'; }).join('');
+    return '<tr><td>'+(i+1)+'</td><td><strong>'+espEsc(e.nom)+'</strong> '+espEsc(e.prenoms)+'</td><td style="text-align:center;">'+espEsc(e.sexe)+'</td>'+checks+'</tr>';
+  }).join('');
+  var scoFoot='<tr style="background:#F9FAFB;font-weight:800;"><td colspan="3">TOTAL par âge</td>'+cols.map(function(a){return '<td style="text-align:center;" data-agecol="'+a+'">'+(countAge(eleves,a)||'')+'</td>';}).join('')+'</tr>';
+  var scoTab='<div class="aff-note" style="margin-bottom:8px;">Les cases sont pré-cochées d\'après la date de naissance. Vous pouvez les corriger : la ligne des totaux se met à jour automatiquement.</div>'+
+    '<div class="table-wrap" id="rec-sco-'+scope+'"><table onchange="affScoRecount(\''+scope+'\')"><thead>'+scoHead+'</thead><tbody>'+(scoBody||'<tr><td colspan="'+(3+cols.length)+'">'+espEmpty('Aucun élève.')+'</td></tr>')+'</tbody><tfoot>'+scoFoot+'</tfoot></table></div>';
+
+  /* -- e) Liste alphabétique -- */
+  var alpha=eleves.slice().sort(function(a,b){return ((a.nom||'')+' '+(a.prenoms||'')).localeCompare(((b.nom||'')+' '+(b.prenoms||'')),'fr');});
+  var alphaRows=alpha.map(function(e,i){var ag=getAge(e.ddn);return '<tr><td>'+(i+1)+'</td><td><strong>'+espEsc(e.nom)+'</strong> '+espEsc(e.prenoms)+'</td><td style="text-align:center;">'+espEsc(e.sexe)+'</td><td style="text-align:center;">'+espEsc(e.ddn||'—')+'</td><td style="text-align:center;">'+(ag!=null?ag+' ans':'—')+'</td></tr>';}).join('');
+  var alphaTab='<div class="table-wrap" id="rec-alpha-'+scope+'"><table><thead><tr><th>#</th><th>Nom & Prénoms</th><th>Sexe</th><th>Date de naissance</th><th>Âge</th></tr></thead><tbody>'+(alphaRows||'<tr><td colspan="5">'+espEmpty('Aucun élève.')+'</td></tr>')+'</tbody></table></div>';
+
+  var sub='Classe '+cl+' — '+ecole;
+  return espCard('👥 Effectif total — '+sub, espTools('rec-eff-'+scope,'Effectif total '+cl), effT)+
+    '<div style="height:16px;"></div>'+
+    espCard('🎂 Tableau des âges', espTools('rec-age-'+scope,'Tableau des ages '+cl), ageTab)+
+    '<div style="height:16px;"></div>'+
+    espCard('✅ Présents & absents du jour', espTools('rec-pa-'+scope,'Presents absents '+cl), paTab)+
+    '<div style="height:16px;"></div>'+
+    espCard('🏫 Tableau de scolarité (âge coché par élève)', espTools('rec-sco-'+scope,'Tableau de scolarite '+cl), scoTab)+
+    '<div style="height:16px;"></div>'+
+    espCard('🔤 Liste alphabétique', espTools('rec-alpha-'+scope,'Liste alphabetique '+cl), alphaTab);
+}
+function affScoRecount(scope){
+  var tb=document.querySelector('#rec-sco-'+scope+' tbody'); if(!tb) return;
+  var foot=document.querySelector('#rec-sco-'+scope+' tfoot tr'); if(!foot) return;
+  var cells=foot.querySelectorAll('[data-agecol]');
+  cells.forEach(function(td){
+    var a=td.getAttribute('data-agecol');
+    var n=tb.querySelectorAll('.aff-sco-ck[data-age="'+a+'"]:checked').length;
+    td.textContent=n||'';
+  });
+}
+
+/* ══════════════ PANNEAU 4 — RÉPARTITION MENSUELLE ══════════════ */
+var AFF_MOIS=['Septembre','Octobre','Novembre','Décembre','Janvier','Février','Mars','Avril','Mai','Juin'];
+function affRepMoisCourant(){ var m=new Date().getMonth(); var map={8:'Septembre',9:'Octobre',10:'Novembre',11:'Décembre',0:'Janvier',1:'Février',2:'Mars',3:'Avril',4:'Mai',5:'Juin'}; return map[m]||'Octobre'; }
+var AFF_REP_MOIS={maitre:null,directeur:null};
+
+function affRepKey(scope){ return affKey(scope)+'__'+(AFF_REP_MOIS[scope]||affRepMoisCourant()); }
+function affRepDefault(scope){
+  var cl=affClasse(scope); var mats=AFF_REP_MAT[affCycle(cl)];
+  var u=espCU()||{};
+  return {
+    entete:{ drena:'', iepp:'', ecole:espEcoleNom(affEcoleId(scope)), classe:cl,
+             mois:(AFF_REP_MOIS[scope]||affRepMoisCourant()), annee:(typeof ANNEE_SCOLAIRE!=='undefined'?ANNEE_SCOLAIRE:'2025 - 2026'),
+             maitre:(u.nom_complet||u.nom||''), directeur:'' },
+    semaines:['Semaine 1','Semaine 2','Semaine 3','Semaine 4'],
+    matieres:mats.slice(),
+    cells:{} /* clé "row_col" -> texte */
+  };
+}
+function affRepGet(scope){ var all=espLsGet('pgnep_repartition',{}); var k=affRepKey(scope); return all[k]?all[k]:affRepDefault(scope); }
+function affRepSetData(scope,data){ var all=espLsGet('pgnep_repartition',{}); all[affRepKey(scope)]=data; espLsSet('pgnep_repartition',all); }
+
+function affPanelRepartition(scope){
+  var cl=affClasse(scope)||'—';
+  var moisSel='<div class="aff-toolrow"><label>Mois :</label><select id="aff-rep-mois-'+scope+'" class="filter-select" onchange="affRepSwitchMois(\''+scope+'\',this.value)">'+
+    AFF_MOIS.map(function(m){var sel=(m===(AFF_REP_MOIS[scope]||affRepMoisCourant()))?' selected':'';return '<option'+sel+'>'+m+'</option>';}).join('')+'</select>'+
+    '<button class="btn btn-secondary" onclick="affRepLoadDefault(\''+scope+'\')">↺ Matières officielles ('+affCycle(cl)+')</button>'+
+    '<span class="aff-note">Répartition modifiable — chaque case se remplit librement.</span></div>';
+  var tools='<button class="btn btn-secondary" onclick="affRepExportWord(\''+scope+'\')">📄 Word</button>'+
+    '<button class="btn btn-secondary" onclick="affRepExportExcel(\''+scope+'\')">📊 Excel</button>'+
+    '<button class="btn btn-secondary" onclick="affRepPrint(\''+scope+'\')">📕 PDF / 🖨️ Imprimer</button>'+
+    '<button class="btn btn-secondary" onclick="affRepModeleExcel(\''+scope+'\')">📋 Modèle Excel</button>'+
+    '<button class="btn btn-secondary" onclick="affRepImportExcel(\''+scope+'\')">📥 Importer Excel</button>'+
+    '<button class="btn btn-secondary" onclick="affRepImportWord(\''+scope+'\')">📥 Importer Word</button>'+
+    '<button class="btn btn-secondary" onclick="affScanFor(\''+scope+'\',\'rep\')">📷 Scanner / Photo</button>';
+  var scans=affScanGallery(scope,'rep');
+  return espCard('📅 Répartition mensuelle · '+cl, tools, moisSel+'<div id="aff-rep-mount-'+scope+'"></div>'+
+    '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-secondary" onclick="affRepAddMat(\''+scope+'\')">＋ Matière</button><button class="btn btn-secondary" onclick="affRepAddSem(\''+scope+'\')">＋ Semaine</button><button class="btn btn-primary" onclick="affRepSave(\''+scope+'\')">💾 Enregistrer la répartition</button></div>')+
+    (scans?('<div style="height:16px;"></div>'+espCard('📷 Répartitions scannées / importées (images)','',scans)):'');
+}
+function affRepMount(scope){
+  var mount=document.getElementById('aff-rep-mount-'+scope); if(!mount) return;
+  var d=affRepGet(scope); var e=d.entete;
+  var ent='<div class="aff-rep-entete">'+
+    affEntField('DRENA',scope,'drena',e.drena)+affEntField('IEPP',scope,'iepp',e.iepp)+
+    affEntField('École',scope,'ecole',e.ecole)+affEntField('Classe',scope,'classe',e.classe)+
+    affEntField('Mois',scope,'mois',e.mois)+affEntField('Année scolaire',scope,'annee',e.annee)+
+    '</div>';
+  var head='<tr><th style="min-width:180px;">MATIÈRES</th>'+d.semaines.map(function(s,ci){
+    return '<th><div contenteditable="true" class="aff-cell aff-semh" data-col="'+ci+'">'+espEsc(s)+'</div><button class="aff-delcol" title="Supprimer la semaine" onclick="affRepDelSem(\''+scope+'\','+ci+')">✕</button></th>';
+  }).join('')+'</tr>';
+  var body=d.matieres.map(function(m,ri){
+    var tds=d.semaines.map(function(s,ci){ var v=d.cells[ri+'_'+ci]||''; return '<td contenteditable="true" class="aff-cell aff-repcell" data-row="'+ri+'" data-col="'+ci+'">'+espEsc(v)+'</td>'; }).join('');
+    return '<tr><th class="aff-matcell"><div contenteditable="true" class="aff-cell" data-row="'+ri+'">'+espEsc(m)+'</div><button class="aff-delrow" title="Supprimer la matière" onclick="affRepDelMat(\''+scope+'\','+ri+')">✕</button></th>'+tds+'</tr>';
+  }).join('');
+  var foot='<div class="aff-rep-foot">'+
+    '<div>Le Chargé du Cours : <span contenteditable="true" class="aff-cell aff-sign" data-ent="maitre">'+espEsc(e.maitre||'')+'</span></div>'+
+    '<div>Le Directeur : <span contenteditable="true" class="aff-cell aff-sign" data-ent="directeur">'+espEsc(e.directeur||'')+'</span></div></div>';
+  mount.innerHTML=ent+'<div class="table-wrap" id="aff-rep-table-'+scope+'"><table class="aff-rep-table"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'+foot;
+}
+function affEntField(lbl,scope,key,val){ return '<div class="aff-ent-f"><label>'+lbl+' :</label><span contenteditable="true" class="aff-cell" data-ent="'+key+'">'+espEsc(val||'')+'</span></div>'; }
+function affRepReadDOM(scope){
+  var d=affRepGet(scope); var mount=document.getElementById('aff-rep-mount-'+scope); if(!mount) return d;
+  // entête
+  mount.querySelectorAll('.aff-rep-entete [data-ent]').forEach(function(el){ d.entete[el.getAttribute('data-ent')]=(el.textContent||'').trim(); });
+  mount.querySelectorAll('.aff-rep-foot [data-ent]').forEach(function(el){ d.entete[el.getAttribute('data-ent')]=(el.textContent||'').trim(); });
+  // semaines
+  var sems=[]; mount.querySelectorAll('.aff-semh').forEach(function(el){ sems.push((el.textContent||'').trim()); }); if(sems.length) d.semaines=sems;
+  // matières
+  var mats=[]; mount.querySelectorAll('.aff-matcell > [data-row]').forEach(function(el){ mats.push((el.textContent||'').trim()); }); if(mats.length) d.matieres=mats;
+  // cellules
+  var cells={}; mount.querySelectorAll('.aff-repcell').forEach(function(td){ var r=td.getAttribute('data-row'),c=td.getAttribute('data-col'); var v=(td.textContent||'').trim(); if(v) cells[r+'_'+c]=v; });
+  d.cells=cells;
+  return d;
+}
+function affRepSave(scope){ affRepSetData(scope,affRepReadDOM(scope)); alert('✅ Répartition mensuelle enregistrée.'); }
+function affRepSwitchMois(scope,m){ affRepSetData(scope,affRepReadDOM(scope)); AFF_REP_MOIS[scope]=m; affRepMount(scope); }
+function affRepLoadDefault(scope){ var d=affRepReadDOM(scope); d.matieres=AFF_REP_MAT[affCycle(affClasse(scope))].slice(); affRepSetData(scope,d); affRepMount(scope); }
+function affRepAddMat(scope){ var d=affRepReadDOM(scope); d.matieres.push('NOUVELLE MATIÈRE'); affRepSetData(scope,d); affRepMount(scope); }
+function affRepDelMat(scope,ri){ var d=affRepReadDOM(scope); d.matieres.splice(ri,1);
+  var nc={}; Object.keys(d.cells).forEach(function(k){var p=k.split('_'),r=+p[0],c=+p[1]; if(r===ri) return; nc[(r>ri?r-1:r)+'_'+c]=d.cells[k];}); d.cells=nc;
+  affRepSetData(scope,d); affRepMount(scope); }
+function affRepAddSem(scope){ var d=affRepReadDOM(scope); d.semaines.push('Semaine '+(d.semaines.length+1)); affRepSetData(scope,d); affRepMount(scope); }
+function affRepDelSem(scope,ci){ var d=affRepReadDOM(scope); if(d.semaines.length<=1){alert('Au moins une semaine est requise.');return;} d.semaines.splice(ci,1);
+  var nc={}; Object.keys(d.cells).forEach(function(k){var p=k.split('_'),r=+p[0],c=+p[1]; if(c===ci) return; nc[r+'_'+(c>ci?c-1:c)]=d.cells[k];}); d.cells=nc;
+  affRepSetData(scope,d); affRepMount(scope); }
+function affRepModeleExcel(scope){
+  var d=affRepGet(scope); var headers=['MATIÈRES'].concat(d.semaines);
+  var ex=[d.matieres[0]||'LECTURE'].concat(d.semaines.map(function(){return '';}));
+  espDownloadModele(headers, ex, 'modele_repartition_'+(affClasse(scope)||''));
+}
+function affRepImportExcel(scope){
+  espImportExcel(function(rows){
+    if(!rows.length){ alert('Fichier vide.'); return; }
+    var keys=Object.keys(rows[0]); var matKey=keys[0];
+    // colonnes semaines = toutes sauf la 1ère
+    var sems=keys.slice(1); var mats=[], cells={};
+    rows.forEach(function(r,ri){ var m=String(r[matKey]||'').trim(); if(!m) return; mats.push(m);
+      sems.forEach(function(sk,ci){ var v=String(r[sk]||'').trim(); if(v) cells[(mats.length-1)+'_'+ci]=v; }); });
+    if(!mats.length){ alert('Aucune matière détectée (1ère colonne).'); return; }
+    var d=affRepReadDOM(scope); d.semaines=sems.map(function(s){return String(s).trim();}); d.matieres=mats; d.cells=cells;
+    affRepSetData(scope,d); affRepMount(scope);
+    alert('✅ Répartition importée ('+mats.length+' matières, '+sems.length+' semaines).');
+  });
+}
+function affRepImportWord(scope){
+  var inp=document.createElement('input'); inp.type='file'; inp.accept='.docx';
+  inp.onchange=function(){ var f=this.files&&this.files[0]; if(!f) return;
+    affLoadMammoth(function(ok){
+      if(!ok){ alert('Le lecteur Word (mammoth.js) n\'a pas pu être chargé. Astuce : exportez d\'abord votre fichier Word en Excel, puis utilisez « Importer Excel ».'); return; }
+      var reader=new FileReader();
+      reader.onload=function(ev){
+        window.mammoth.convertToHtml({arrayBuffer:ev.target.result}).then(function(res){
+          var doc=new DOMParser().parseFromString(res.value,'text/html');
+          var table=doc.querySelector('table');
+          if(!table){ alert('Aucun tableau trouvé dans ce document Word.'); return; }
+          var trs=table.querySelectorAll('tr'); if(trs.length<2){ alert('Tableau trop court.'); return; }
+          var headCells=trs[0].querySelectorAll('th,td'); var sems=[];
+          for(var c=1;c<headCells.length;c++) sems.push((headCells[c].textContent||'').trim());
+          var mats=[],cells={};
+          for(var i=1;i<trs.length;i++){ var tds=trs[i].querySelectorAll('th,td'); if(!tds.length) continue;
+            var m=(tds[0].textContent||'').trim(); if(!m) continue; mats.push(m);
+            for(var c2=1;c2<tds.length;c2++){ var v=(tds[c2].textContent||'').trim(); if(v) cells[(mats.length-1)+'_'+(c2-1)]=v; } }
+          if(!mats.length){ alert('Aucune matière détectée dans le tableau Word.'); return; }
+          var d=affRepReadDOM(scope); d.semaines=sems.length?sems:d.semaines; d.matieres=mats; d.cells=cells;
+          affRepSetData(scope,d); affRepMount(scope);
+          alert('✅ Répartition importée depuis Word ('+mats.length+' matières).');
+        }).catch(function(err){ console.error(err); alert('Lecture du fichier Word impossible. Utilisez plutôt l\'import Excel.'); });
+      };
+      reader.readAsArrayBuffer(f);
+    });
+  };
+  inp.click();
+}
+function affLoadMammoth(cb){
+  if(window.mammoth){ cb(true); return; }
+  var s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+  s.onload=function(){ cb(!!window.mammoth); }; s.onerror=function(){ cb(false); };
+  document.head.appendChild(s);
+}
+function affRepBuildExportHTML(scope){
+  var d=affRepReadDOM(scope); var e=d.entete;
+  var ent=affEnteteHTML('RÉPARTITION MENSUELLE','');
+  var meta='<table style="width:100%;border:none;margin-bottom:8px;"><tr>'+
+    '<td style="border:none;"><strong>DRENA :</strong> '+espEsc(e.drena)+'</td><td style="border:none;"><strong>IEPP :</strong> '+espEsc(e.iepp)+'</td></tr><tr>'+
+    '<td style="border:none;"><strong>École :</strong> '+espEsc(e.ecole)+'</td><td style="border:none;"><strong>Classe :</strong> '+espEsc(e.classe)+'</td></tr><tr>'+
+    '<td style="border:none;"><strong>Mois :</strong> '+espEsc(e.mois)+'</td><td style="border:none;"><strong>Année scolaire :</strong> '+espEsc(e.annee)+'</td></tr></table>';
+  var head='<tr><th>MATIÈRES</th>'+d.semaines.map(function(s){return '<th>'+espEsc(s)+'</th>';}).join('')+'</tr>';
+  var body=d.matieres.map(function(m,ri){ return '<tr><th style="text-align:left;background:#F1F5F9;">'+espEsc(m)+'</th>'+d.semaines.map(function(s,ci){return '<td>'+espEsc(d.cells[ri+'_'+ci]||'')+'</td>';}).join('')+'</tr>'; }).join('');
+  var foot='<table style="width:100%;border:none;margin-top:14px;"><tr><td style="border:none;"><strong>Le Chargé du Cours :</strong> '+espEsc(e.maitre)+'</td><td style="border:none;text-align:right;"><strong>Le Directeur :</strong> '+espEsc(e.directeur)+'</td></tr></table>';
+  return ent+meta+'<table><thead>'+head+'</thead><tbody>'+body+'</tbody></table>'+foot;
+}
+function affRepExportWord(scope){ affExportWordHTML(affRepBuildExportHTML(scope),'Repartition_'+(affClasse(scope)||'')+'_'+(AFF_REP_MOIS[scope]||affRepMoisCourant())); }
+function affRepPrint(scope){ affPrintHTML(affRepBuildExportHTML(scope),'Répartition mensuelle'); }
+function affRepExportExcel(scope){
+  var d=affRepReadDOM(scope);
+  if(typeof XLSX==='undefined'||!XLSX.utils){ alert('Module Excel indisponible.'); return; }
+  var aoa=[['MATIÈRES'].concat(d.semaines)];
+  d.matieres.forEach(function(m,ri){ aoa.push([m].concat(d.semaines.map(function(s,ci){return d.cells[ri+'_'+ci]||'';}))); });
+  var ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=[{wch:32}].concat(d.semaines.map(function(){return {wch:26};}));
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Répartition');
+  XLSX.writeFile(wb,'Repartition_'+(affClasse(scope)||'')+'_'+(AFF_REP_MOIS[scope]||affRepMoisCourant())+'.xlsx');
+}
+
+/* ══════════════ SCAN / PHOTO (images de modèles) ══════════════ */
+function affScanFor(scope,kind){
+  var id='aff-scan-input';
+  var inp=document.getElementById(id);
+  if(!inp){ inp=document.createElement('input'); inp.type='file'; inp.id=id; inp.accept='image/*'; inp.setAttribute('capture','environment'); inp.style.display='none'; document.body.appendChild(inp); }
+  inp.onchange=function(){ var f=this.files&&this.files[0]; if(!f){return;} 
+    espImgCompress(f,function(dataUrl){
+      var arr=espLsGet('pgnep_aff_scans',[]);
+      var _k=(kind==='edt')?affEdtKeyN(scope):affKey(scope);
+      var _c=(kind==='edt')?affEdtNiveau(scope):affClasse(scope);
+      arr.push({id:espUid(),kind:kind,scope:scope,key:_k,classe:_c,img:dataUrl,date:espToday()});
+      if(espLsSet('pgnep_aff_scans',arr)) affRenderBoard(scope);
+    });
+    this.value='';
+  };
+  inp.click();
+}
+function affScanGallery(scope,kind){
+  var _k=(kind==='edt')?affEdtKeyN(scope):affKey(scope);
+  var arr=espLsGet('pgnep_aff_scans',[]).filter(function(x){return x.kind===kind && x.key===_k;}).sort(function(a,b){return b.date.localeCompare(a.date);});
+  if(!arr.length) return '';
+  return '<div class="fiche-grid">'+arr.map(function(x){
+    return '<div class="fiche-card"><img src="'+x.img+'" alt=""><div class="fiche-body"><div class="fiche-m">'+espEsc(x.date)+' · '+espEsc(x.classe||'')+'</div><div style="margin-top:6px;"><button class="btn btn-secondary" style="padding:3px 8px;font-size:10px;" onclick="affScanDel(\''+x.id+'\',\''+scope+'\')">🗑 Supprimer</button></div></div></div>';
+  }).join('')+'</div>';
+}
+function affScanDel(id,scope){ if(!confirm('Supprimer cette image ?')) return; var arr=espLsGet('pgnep_aff_scans',[]).filter(function(x){return x.id!==id;}); espLsSet('pgnep_aff_scans',arr); affRenderBoard(scope); }
+
+/* ══════════════ EN-TÊTE OFFICIEL + EXPORT/IMPRESSION GÉNÉRIQUES ══════════════ */
+function affEnteteHTML(titre,sous){
+  return '<div style="text-align:center;margin-bottom:10px;">'+
+    '<div style="font-size:12px;">RÉPUBLIQUE DE CÔTE D\'IVOIRE</div>'+
+    '<div style="font-size:11px;font-style:italic;">Union — Discipline — Travail</div>'+
+    '<div style="font-size:12px;margin-top:4px;font-weight:700;">MINISTÈRE DE L\'ÉDUCATION NATIONALE ET DE L\'ALPHABÉTISATION</div>'+
+    '<div style="font-size:11px;">Direction de la Pédagogie et de la Formation Continue</div>'+
+    '<h1 style="margin:10px 0 2px;color:#123a63;">'+titre+'</h1>'+
+    (sous?('<div style="font-size:13px;color:#333;">'+sous+'</div>'):'')+'</div>';
+}
+function affExportWordHTML(inner,filename){
+  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><style>@page{size:A4 landscape;margin:12mm;}body{font-family:Arial,sans-serif;font-size:11px;color:#111;}table{border-collapse:collapse;width:100%;}td,th{border:1px solid #888;padding:4px 6px;vertical-align:top;}th{background:#123a63;color:#fff;}</style></head><body>'+inner+'</body></html>';
+  var blob=new Blob(['\ufeff'+html],{type:'application/msword'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename.replace(/[^\w\-]+/g,'_')+'.doc'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},1500);
+}
+function affPrintHTML(inner,title){
+  var w=window.open('','_blank'); if(!w){ alert('Autorisez les fenêtres pop-up pour imprimer / exporter en PDF.'); return; }
+  w.document.write('<html><head><meta charset="UTF-8"><title>'+title+'</title><style>@page{size:A4 landscape;margin:12mm;}body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:8px;}table{border-collapse:collapse;width:100%;margin-bottom:10px;}td,th{border:1px solid #888;padding:4px 6px;vertical-align:top;}th{background:#123a63;color:#fff;}h1{color:#123a63;font-size:18px;}</style></head><body>'+inner+'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},300);}</scr'+'ipt></body></html>');
+  w.document.close();
+}
+
+</script>
+
+<script id="doclib-v32-script">
+/* ══════════════════════════════════════════════════════════════════════
+   BIBLIOTHÈQUE DOCUMENTAIRE — v3.1+ (module additif, non destructif)
+   • Onglet latéral « Documents PNAPAS & Guides Pédagogiques » (tous niveaux)
+   • Archives « Compositions années antérieures » (onglet Évaluations)
+   • Archives « Corrections années antérieures » (onglet Corrections)
+   • Ajout par : lien Google Drive · sélecteur Google Drive (Picker, optionnel)
+     · autre lien/URL · fichier importé (image compressée / PDF)
+   • Réutilise : espLsGet/Set, espEsc, espUid, espToday, espMyClasse, espCU, espImgCompress, espEmpty, espCard
+   ══════════════════════════════════════════════════════════════════════ */
+var DOCLIB_KEY='pgnep_doclib';
+var DOCLIB_NIVEAUX=['Tous','CP1','CP2','CE1','CE2','CM1','CM2'];
+var docLibPending={};
+
+function docLibGet(){ return espLsGet(DOCLIB_KEY,[]); }
+function docLibSet(a){ return espLsSet(DOCLIB_KEY,a); }
+function docLibV(id){ var e=document.getElementById(id); return e?(e.value||'').trim():''; }
+
+function docLibParseDrive(u){ u=String(u||'').trim(); var m;
+  m=u.match(/\/file\/d\/([-\w]{20,})/); if(m) return m[1];
+  m=u.match(/[?&]id=([-\w]{20,})/);     if(m) return m[1];
+  m=u.match(/\/d\/([-\w]{20,})/);       if(m) return m[1];
+  if(/^[-\w]{25,}$/.test(u)) return u;
+  return null;
+}
+function docLibDriveOpen(id){ return 'https://drive.google.com/file/d/'+id+'/view'; }
+function docLibDrivePreview(id){ return 'https://drive.google.com/file/d/'+id+'/preview'; }
+
+/* ---------- Bloc complet d'une catégorie ---------- */
+function docLibBlock(cat, cfg){
+  cfg=cfg||{};
+  var title=cfg.title||'🗂️ Bibliothèque de documents';
+  var intro=cfg.intro||'Ajoutez vos documents par lien Google Drive (recommandé), autre lien, ou fichier. Ils sont classés par niveau.';
+  var defN=cfg.defaultNiveau||'Tous';
+  var nivOpts=DOCLIB_NIVEAUX.map(function(n){return '<option value="'+n+'"'+(n===defN?' selected':'')+'>'+(n==='Tous'?'Tous niveaux':n)+'</option>';}).join('');
+  var filtOpts='<option value="__all">Tous les niveaux</option>'+DOCLIB_NIVEAUX.filter(function(n){return n!=='Tous';}).map(function(n){return '<option value="'+n+'">'+n+'</option>';}).join('')+'<option value="Tous">Tous niveaux (non spécifié)</option>';
+  var annee=(typeof ANNEE_SCOLAIRE!=='undefined'?ANNEE_SCOLAIRE:'');
+
+  var toolbar='<div class="doclib-toolbar">'+
+    '<button class="btn btn-primary" onclick="docLibToggleForm(\''+cat+'\')">➕ Ajouter un document</button>'+
+    '<button class="btn btn-secondary" onclick="docLibConfigG()">⚙️ Config Google Drive</button>'+
+    '</div>';
+
+  var form='<div class="doclib-form" id="doclib-form-'+cat+'">'+
+    '<div class="grid2">'+
+      '<div class="fld"><label>Titre du document *</label><input id="doclib-t-'+cat+'" placeholder="Ex : Composition 1er trimestre — Mathématiques"></div>'+
+      '<div class="fld"><label>Niveau</label><select id="doclib-n-'+cat+'">'+nivOpts+'</select></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div class="fld"><label>Année scolaire</label><input id="doclib-a-'+cat+'" value="'+espEsc(annee)+'" placeholder="Ex : 2023 - 2024"></div>'+
+      '<div class="fld"></div>'+
+    '</div>'+
+    '<div class="doclib-src">'+
+      '<div class="fld"><label>🟢 Lien Google Drive (partage)</label>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+          '<input id="doclib-drive-'+cat+'" style="flex:1;min-width:220px;" placeholder="https://drive.google.com/file/d/…/view">'+
+          '<button class="btn btn-secondary" onclick="docLibPicker(\''+cat+'\')">📁 Parcourir Google Drive</button>'+
+        '</div></div>'+
+      '<div class="fld"><label>🔗 Ou un autre lien (GitHub, site…)</label><input id="doclib-url-'+cat+'" placeholder="https://…"></div>'+
+      '<div class="fld"><label>📎 Ou importer un fichier (image / PDF)</label>'+
+        '<div><button class="btn btn-secondary" onclick="docLibPickFile(\''+cat+'\')">⬆️ Choisir un fichier</button> <span id="doclib-pending-'+cat+'" style="font-size:12px;color:var(--text3,#94a3b8);"></span></div>'+
+        '<input type="file" id="doclib-file-'+cat+'" accept="image/*,application/pdf" style="display:none;" onchange="docLibOnFile(\''+cat+'\',this)"></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;margin-top:6px;"><button class="btn btn-primary" onclick="docLibSave(\''+cat+'\')">💾 Enregistrer</button><button class="btn btn-secondary" onclick="docLibToggleForm(\''+cat+'\')">Annuler</button></div>'+
+    '<p style="font-size:11px;color:var(--text3,#94a3b8);margin-top:8px;">💡 Pour un document Google Drive : ouvrez-le → « Partager » → « Toute personne disposant du lien » → copiez le lien et collez-le ci-dessus.</p>'+
+  '</div>';
+
+  var filters='<div class="doclib-filters">'+
+    '<span style="font-size:13px;font-weight:700;">Filtrer :</span>'+
+    '<select id="doclib-fn-'+cat+'" onchange="docLibRenderGrid(\''+cat+'\')">'+filtOpts+'</select>'+
+    '<input id="doclib-fy-'+cat+'" placeholder="Année (ex : 2023)" oninput="docLibRenderGrid(\''+cat+'\')" style="width:150px;">'+
+    '<input id="doclib-fs-'+cat+'" placeholder="Rechercher un titre…" oninput="docLibRenderGrid(\''+cat+'\')" style="flex:1;min-width:180px;">'+
+  '</div>';
+
+  var syncnote='<div style="font-size:11.5px;color:#0369A1;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px;padding:7px 11px;margin-bottom:12px;">☁️ Catalogue partagé entre tous les utilisateurs via Firebase. Les documents ajoutés par <strong>lien</strong> (Google Drive / URL) sont visibles par tous ; les fichiers importés restent sur cet appareil.</div>';
+  var body='<p style="font-size:12.5px;color:var(--text2,#475569);margin-bottom:10px;">'+intro+'</p>'+syncnote+toolbar+form+filters+'<div id="doclib-grid-'+cat+'"></div>';
+  return espCard(title,'',body);
+}
+function docLibToggleForm(cat){ var f=document.getElementById('doclib-form-'+cat); if(f) f.classList.toggle('open'); }
+
+/* ---------- Import fichier ---------- */
+function docLibPickFile(cat){ var i=document.getElementById('doclib-file-'+cat); if(i) i.click(); }
+function docLibOnFile(cat, input){ var f=input.files&&input.files[0]; if(!f){ return; }
+  var setPend=function(url,mime,name){ docLibPending[cat]={url:url,mime:mime,name:name}; var s=document.getElementById('doclib-pending-'+cat); if(s) s.textContent='✔ '+name+' prêt à enregistrer'; };
+  if(f.type.indexOf('image')===0 && typeof espImgCompress==='function'){ espImgCompress(f,function(u){ setPend(u,f.type,f.name); }); }
+  else {
+    if(f.size>3*1024*1024){ if(!confirm('Ce fichier fait '+Math.round(f.size/1024/1024)+' Mo. Le stockage local du navigateur est limité — pour les gros PDF, préférez un lien Google Drive. Enregistrer quand même ?')){ input.value=''; return; } }
+    var r=new FileReader(); r.onload=function(ev){ setPend(ev.target.result,f.type,f.name); }; r.readAsDataURL(f);
+  }
+  input.value='';
+}
+
+/* ---------- Enregistrer ---------- */
+function docLibSave(cat){
+  var t=docLibV('doclib-t-'+cat), n=docLibV('doclib-n-'+cat)||'Tous', a=docLibV('doclib-a-'+cat);
+  var drive=docLibV('doclib-drive-'+cat), url=docLibV('doclib-url-'+cat);
+  if(!t){ alert('Donnez un titre au document.'); return; }
+  var item={id:espUid(),cat:cat,titre:t,niveau:n,annee:a,date:espToday()};
+  if(drive){ var did=docLibParseDrive(drive); if(!did){ alert('Lien Google Drive non reconnu. Copiez le lien de partage complet (…/file/d/ID/view).'); return; } item.kind='drive'; item.driveId=did; item.url=docLibDriveOpen(did); }
+  else if(url){ if(!/^https?:\/\//i.test(url)){ alert('Le lien doit commencer par http(s)://'); return; } item.kind='url'; item.url=url; }
+  else if(docLibPending[cat]){ item.kind='file'; item.url=docLibPending[cat].url; item.mime=docLibPending[cat].mime; item.fname=docLibPending[cat].name; }
+  else { alert('Ajoutez une source : lien Google Drive, autre lien, ou fichier importé.'); return; }
+  if(item.kind==='file') item.localOnly=true;
+  var arr=docLibGet(); arr.push(item); if(!docLibSet(arr)) return;
+  docLibPending[cat]=null;
+  if(!item.localOnly) docLibFbPush(item);
+  alert(item.localOnly
+    ? '✅ Document importé (enregistré sur cet appareil).\n\nℹ️ Les fichiers importés ne sont pas partagés (trop volumineux pour le catalogue commun). Pour un partage à tous les utilisateurs, ajoutez-le plutôt via un lien Google Drive.'
+    : '✅ Document ajouté au catalogue partagé (Firebase) — visible par tous les utilisateurs.');
+  docLibRerender(cat);
+}
+function docLibRerender(cat){
+  if(cat==='pnapas' && typeof renderDocsPnapas==='function'){ renderDocsPnapas(); return; }
+  if(cat==='eval' && typeof espRenderEvalLibBlockPanel==='function'){ espRenderEvalLibBlockPanel(); return; }
+  if(cat==='corr' && typeof espRenderCorrLibBlockPanel==='function'){ espRenderCorrLibBlockPanel(); return; }
+  docLibRenderGrid(cat);
+}
+
+/* ---------- Grille (groupée par niveau) ---------- */
+function docLibRenderGrid(cat){
+  var mount=document.getElementById('doclib-grid-'+cat); if(!mount) return;
+  var fn=docLibV('doclib-fn-'+cat), fy=docLibV('doclib-fy-'+cat), fs=(docLibV('doclib-fs-'+cat)||'').toLowerCase();
+  var items=docLibGet().filter(function(x){return x.cat===cat;});
+  /* Cloisonnement : un maître ne voit que sa classe dans Évaluations / Corrections */
+  if((cat==='eval'||cat==='corr') && typeof catScopeNiveau==='function'){
+    var _n=catScopeNiveau();
+    if(_n) items=items.filter(function(x){ var c=x.niveau||'Tous'; return c===_n || c==='Tous'; });
+  }
+  if(fn && fn!=='__all') items=items.filter(function(x){return (x.niveau||'Tous')===fn;});
+  if(fy) items=items.filter(function(x){return (x.annee||'').indexOf(fy)>=0;});
+  if(fs) items=items.filter(function(x){return (x.titre||'').toLowerCase().indexOf(fs)>=0;});
+  if(!items.length){ mount.innerHTML=espEmpty('Aucun document pour le moment. Cliquez « ➕ Ajouter un document » ci-dessus.'); return; }
+  var html='';
+  DOCLIB_NIVEAUX.forEach(function(niv){
+    var grp=items.filter(function(x){return (x.niveau||'Tous')===niv;}); if(!grp.length) return;
+    grp.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    html+='<div class="doclib-group"><div class="doclib-group-h">'+(niv==='Tous'?'📚 Tous niveaux':'🎓 '+niv)+' · '+grp.length+' document(s)</div><div class="fiche-grid">'+grp.map(docLibCard).join('')+'</div></div>';
+  });
+  mount.innerHTML=html;
+}
+function docLibCard(x){
+  var isImg=(x.kind==='file' && x.mime && x.mime.indexOf('image')===0);
+  var srcLabel=x.kind==='drive'?'🟢 Google Drive':(x.kind==='url'?'🔗 Lien':(x.mime&&x.mime.indexOf('pdf')>=0?'📄 PDF':(isImg?'🖼️ Image':'📎 Fichier')));
+  var thumb=isImg?('<img src="'+x.url+'" alt="">'):('<div class="doclib-thumb">'+(x.kind==='drive'?'🟢':(x.mime&&x.mime.indexOf('pdf')>=0?'📄':'🔗'))+'</div>');
+  var open=x.url?('<a class="btn btn-secondary" style="padding:3px 8px;font-size:10px;text-decoration:none;" href="'+espEsc(x.url)+'" target="_blank" rel="noopener">↗ Ouvrir</a>'):'';
+  var canPrev=(x.kind==='drive')||isImg||(x.mime&&x.mime.indexOf('pdf')>=0);
+  var prev=canPrev?('<button class="btn btn-secondary" style="padding:3px 8px;font-size:10px;" onclick="docLibPreview(\''+x.id+'\')">👁 Aperçu</button>'):'';
+  return '<div class="fiche-card">'+thumb+'<div class="fiche-body"><div class="fiche-t">'+espEsc(x.titre)+'</div><div class="fiche-m">'+(x.annee?espEsc(x.annee)+' · ':'')+srcLabel+'</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;">'+open+prev+'<button class="btn btn-secondary" style="padding:3px 8px;font-size:10px;" onclick="docLibDelete(\''+x.id+'\',\''+x.cat+'\')">🗑</button></div></div></div>';
+}
+function docLibDelete(id,cat){ if(!confirm('Retirer ce document de la bibliothèque (pour tous les utilisateurs) ?')) return; var arr=docLibGet().filter(function(x){return x.id!==id;}); docLibSet(arr); docLibFbDel(id); docLibRerender(cat); }
+
+/* ---------- Aperçu (modale) ---------- */
+function docLibPreview(id){
+  var x=docLibGet().find(function(y){return y.id===id;}); if(!x) return;
+  var isImg=(x.kind==='file' && x.mime && x.mime.indexOf('image')===0);
+  var src=x.kind==='drive'?docLibDrivePreview(x.driveId):x.url;
+  var inner=isImg?('<img src="'+x.url+'" style="max-width:100%;max-height:82vh;">'):('<iframe src="'+espEsc(src)+'" allow="autoplay"></iframe>');
+  var ov=document.createElement('div'); ov.className='doclib-overlay';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.innerHTML='<div class="doclib-modal"><div class="doclib-modal-h"><strong>'+espEsc(x.titre)+'</strong><button onclick="this.closest(\'.doclib-overlay\').remove()">✕</button></div><div class="doclib-modal-b">'+inner+'</div></div>';
+  document.body.appendChild(ov);
+}
+
+/* ---------- Google Drive : configuration + sélecteur (Picker) ---------- */
+function docLibGCfg(){ return espLsGet('pgnep_gdrive_cfg',null); }
+function docLibConfigG(){
+  var cur=docLibGCfg()||{};
+  var key=prompt('Google Drive — Clé API (API key). Laissez vide pour utiliser uniquement les liens de partage :', cur.apiKey||''); if(key===null) return;
+  var cid=prompt('Google Drive — ID client OAuth (Client ID) :', cur.clientId||''); if(cid===null) return;
+  espLsSet('pgnep_gdrive_cfg',{apiKey:(key||'').trim(),clientId:(cid||'').trim()});
+  alert('✅ Configuration enregistrée.'+(((key||'').trim()&&(cid||'').trim())?' Le bouton « Parcourir Google Drive » est maintenant actif.':' (Champs incomplets : utilisez le lien de partage.)'));
+}
+function docLibLoadScript(src, cb){ var s=document.createElement('script'); s.src=src; s.onload=function(){cb(true);}; s.onerror=function(){cb(false);}; document.head.appendChild(s); }
+function docLibLoadG(cb){
+  if(window.gapi && window.google && window.google.accounts && window.google.picker){ cb(true); return; }
+  docLibLoadScript('https://apis.google.com/js/api.js', function(ok){
+    if(!ok){ cb(false); return; }
+    window.gapi.load('picker', function(){
+      docLibLoadScript('https://accounts.google.com/gsi/client', function(ok2){ cb(!!ok2 && !!window.google && !!window.google.picker); });
+    });
+  });
+}
+function docLibPicker(cat){
+  var cfg=docLibGCfg();
+  if(!cfg || !cfg.apiKey || !cfg.clientId){
+    alert('Pour parcourir Google Drive directement dans l\'application, configurez d\'abord votre clé API et votre ID client OAuth (bouton ⚙️ Config Google Drive).\n\nSinon, le plus simple : ouvrez le document dans Drive → « Partager » → copiez le lien → collez-le dans le champ « Lien Google Drive ».');
+    return;
+  }
+  docLibLoadG(function(ok){
+    if(!ok){ alert('Impossible de charger l\'API Google (connexion ?). Utilisez le lien de partage en attendant.'); return; }
+    try{
+      var tokenClient=window.google.accounts.oauth2.initTokenClient({
+        client_id:cfg.clientId, scope:'https://www.googleapis.com/auth/drive.readonly',
+        callback:function(resp){
+          if(resp.error){ alert('Autorisation Google refusée : '+resp.error); return; }
+          try{
+            var view=new window.google.picker.DocsView().setIncludeFolders(true).setSelectFolderEnabled(false);
+            var picker=new window.google.picker.PickerBuilder()
+              .setOAuthToken(resp.access_token).setDeveloperKey(cfg.apiKey).addView(view)
+              .setCallback(function(data){
+                if(data.action===window.google.picker.Action.PICKED && data.docs && data.docs[0]){
+                  var doc=data.docs[0];
+                  var df=document.getElementById('doclib-drive-'+cat); if(df) df.value=doc.url||docLibDriveOpen(doc.id);
+                  var tf=document.getElementById('doclib-t-'+cat); if(tf && !tf.value) tf.value=doc.name||'';
+                  var f=document.getElementById('doclib-form-'+cat); if(f && !f.classList.contains('open')) f.classList.add('open');
+                }
+              }).build();
+            picker.setVisible(true);
+          }catch(e){ console.error(e); alert('Le sélecteur Google n\'a pas pu s\'ouvrir. Utilisez le lien de partage.'); }
+        }
+      });
+      tokenClient.requestAccessToken({prompt:''});
+    }catch(e){ console.error(e); alert('Sélecteur Google indisponible. Utilisez le lien de partage.'); }
+  });
+}
+
+/* ---------- Page « Documents PNAPAS & Guides Pédagogiques » ---------- */
+function renderDocsPnapas(){
+  if(typeof docpRender==='function') docpRender();
+  var mount=document.getElementById('docpnapas-body'); if(!mount) return;
+  mount.innerHTML=docLibBlock('pnapas',{
+    title:'📚 Documents PNAPAS & Guides Pédagogiques',
+    intro:'Bibliothèque partagée des documents des maîtres — guides pédagogiques, documents PNAPAS, ressources officielles — classés par niveau (CP1 → CM2). Ajoutez-les de préférence par lien Google Drive : le fichier reste hébergé sur votre Drive et seul le lien est mémorisé ici.'
+  });
+  docLibRenderGrid('pnapas');
+}
+
+
+/* ══════════════ SYNCHRONISATION FIREBASE (catalogue partagé) ══════════════
+   Utilise le helper global window._fb (Firestore v10) déjà présent dans l'app.
+   • Ajout/suppression d'un document par lien -> écrit dans la collection 'doclib'
+   • Écoute temps réel -> le catalogue est identique pour tous les utilisateurs
+   • Les fichiers importés (base64) restent locaux (limite de taille Firestore)
+   • Fonctionne hors-ligne : localStorage sert de cache ; Firestore synchronise au retour du réseau
+   ════════════════════════════════════════════════════════════════════════ */
+function docLibFbReady(){ return (typeof window!=='undefined') && window._fb && typeof window._fb.set==='function' && typeof window._fb.del==='function'; }
+function docLibFbPush(item){
+  if(!docLibFbReady() || !item || item.kind==='file') return;
+  try{ var copy=JSON.parse(JSON.stringify(item)); delete copy.localOnly; window._fb.set('doclib', item.id, copy); }
+  catch(e){ console.error('doclib fb push', e); }
+}
+function docLibFbDel(id){ if(!docLibFbReady()) return; try{ window._fb.del('doclib', id); }catch(e){ console.error('doclib fb del', e); } }
+function docLibRefreshOpenViews(){ ['pnapas','eval','corr'].forEach(function(cat){ if(document.getElementById('doclib-grid-'+cat)) docLibRenderGrid(cat); }); }
+
+var _docLibFbAttached=false, _docLibFbTries=0;
+function docLibFbAttach(){
+  if(_docLibFbAttached) return;
+  if(!docLibFbReady() || typeof window._fb.listen!=='function'){ if(_docLibFbTries++ < 90) setTimeout(docLibFbAttach, 1000); return; }
+  _docLibFbAttached=true;
+  /* Migration : pousser les documents locaux partageables déjà présents */
+  try{ docLibGet().forEach(function(x){ if(x && x.cat && x.kind!=='file' && !x.localOnly){ docLibFbPush(x); } }); }catch(e){}
+  /* Écoute temps réel du catalogue partagé */
+  try{
+    window._fb.listen('doclib', function(remote){
+      try{
+        var local=docLibGet();
+        var localOnly=local.filter(function(x){ return x.localOnly; }); /* fichiers importés : conservés localement */
+        var byId={}; localOnly.forEach(function(x){ byId[x.id]=x; });
+        (remote||[]).forEach(function(x){ if(x && x.id){ byId[x.id]=x; } });         /* Firestore fait autorité */
+        var merged=Object.keys(byId).map(function(k){ return byId[k]; });
+        espLsSet(DOCLIB_KEY, merged);
+        docLibRefreshOpenViews();
+      }catch(e){ console.error('doclib merge', e); }
+    });
+  }catch(e){ console.error('doclib listen', e); }
+}
+if(typeof window!=='undefined'){ setTimeout(docLibFbAttach, 1500); }
+
+</script>
+
+<script id="docp-v33-script">
+/* ══════════════════════════════════════════════════════════════════════
+   CATALOGUE OFFICIEL « Documents PNAPAS & Guides Pédagogiques »
+   Méthode « Fiches Google Drive » (identique à ESP_FICHE_LIB_CATALOG) :
+   ─ le catalogue est défini EN DUR dans index.html  -> données permanentes
+   ─ un tableau Excel de correspondance permet de coller les liens Drive
+   ─ import Excel -> liens appliqués ; export « code à coller » -> gravés dans le fichier
+   ─ synchro Firebase (collection 'docpnapas') -> partagé entre tous les utilisateurs
+   Additif : ne remplace ni ne supprime aucune fonction existante.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ───────── CATALOGUE OFFICIEL (à compléter avec vos liens Drive) ─────────
+   Pour graver un lien définitivement : renseignez le champ drive:'...'
+   (ID Drive ou lien complet). Le bouton « 🧩 Générer le code » le fait pour vous. */
+var DOCP_CATALOG=[
+  {id:'doc_form_dev_comp_1', classe:'CP', nom:'1 — Document de formation : développement des compétences (v. 11/08/2024)', fichier:'1-Document de formation_developpement....pdf', drive:'https://drive.google.com/file/d/1eSU8n9B8BeHdU33fm4k44gX2tgRffEXO/view?usp=drive_link'},
+  {id:'doc_form_dev_comp_2', classe:'CP', nom:'1 — Document de formation : développement des compétences (v. 12/07/2024)', fichier:'1-Document de formation_developpement....pdf', drive:'https://drive.google.com/file/d/1vIZhcbv5tNtUu8M2TlTYylepkzSi84ao/view?usp=drive_link'},
+  {id:'annexe_doc_form_2024', classe:'CP', nom:'Annexe du document de formation (09/08/2024)', fichier:'ANNEXE DU DOCUMENT DE FORMATION....pdf', drive:'https://drive.google.com/file/d/14L1sMpcI1PqlwlTNVYwqHz3SCbArPmlg/view?usp=drive_link'},
+  {id:'doc_form_pnapas_maths', classe:'CP', nom:'Document de formation PNAPAS — Mathématiques', fichier:'Document de formation PNAPAS_Mathematiques.pdf', drive:'https://drive.google.com/file/d/1IPTaES5rmjxjrGYm7v8h7HcP6HwiLTVo/view?usp=drive_link'},
+  {id:'formation_pnapas_ce1', classe:'CE1', nom:'Formation PNAPAS CE1', fichier:'Formation PNAPAS CE1-PNAPAS-1.pdf', drive:'https://drive.google.com/file/d/1gxbw4-Yjh8NoqdxV8T4tKvEBkVRReGUZ/view?usp=drive_link'},
+  {id:'planif_annuelle_rev', classe:'CP2', nom:'Planification annuelle révisée', fichier:'PLANIFICATION ANNUELLE REVISEE DES....pdf', drive:'https://drive.google.com/file/d/1zSu_qHAvl1j7bM0DvsoX7o7dK3tXubnf/view?usp=drive_link'},
+  {id:'sequences_maths', classe:'Tous', nom:'Séquences des séances — Mathématiques', fichier:'SEQUENCES DES SEANCES MATHEMATIQUES.pdf', drive:'https://drive.google.com/file/d/1J7R8yKyf6cqKxOtH1BM2keDJZ1S6qWUI/view?usp=drive_link'},
+  {id:'prog_ps_2014_2015', classe:'PS', nom:'Petite section maternelle — 2014-2015', fichier:'petite section materelle 2014-2015.pdf', drive:'https://drive.google.com/file/d/1sl7jy7kPuoo6FTgWbvHdcjZTqVpDqxMH/view?usp=drive_link'},
+  {id:'prog_ms_2014_2015', classe:'MS', nom:'Moyenne section maternelle — 2014-2015', fichier:'moyenne section maternelle2014-2015.pdf', drive:'https://drive.google.com/file/d/1kdcmSUOvWKswo1PNA3KjzBRqJcTQ4unJ/view?usp=drive_link'},
+  {id:'prog_gs_2014_2015', classe:'GS', nom:'Grande section maternelle — 2014-2015', fichier:'grande section maternelle2014-2015.pdf', drive:'https://drive.google.com/file/d/1sGEtLTKdKwogcV9VWkqNiuMgFs3WGG_8/view?usp=drive_link'},
+  {id:'prog_cp1_2014_2015', classe:'CP1', nom:'CP1 — 2014-2015', fichier:'cp1 2014-2015.pdf', drive:'https://drive.google.com/file/d/1gZV5koatkNxMhBGsV822N7A7TjHruDH8/view?usp=drive_link'},
+  {id:'prog_cp2_2014_2015', classe:'CP2', nom:'CP2 — 2014-2015', fichier:'cp2 2014-2015.pdf', drive:'https://drive.google.com/file/d/12Jk0VkknuS5H9KKkdT0H8Rf4GvlBN1TU/view?usp=drive_link'},
+  {id:'prog_ce1_2014_2015', classe:'CE1', nom:'CE1 — 2014-2015', fichier:'ce1 2014-2015.pdf', drive:'https://drive.google.com/file/d/1gSC1uA-d5pmTE1eR316vKtgr_Lg83sO5/view?usp=drive_link'},
+  {id:'prog_ce2_2014_2015', classe:'CE2', nom:'CE2 — 2014-2015', fichier:'ce2 2014-2015.pdf', drive:'https://drive.google.com/file/d/1eGVa9gkP8gDVImvIy2NesDcUkjwZlR3l/view?usp=drive_link'},
+  {id:'prog_cm1_2014_2015', classe:'CM1', nom:'CM1 — 2014-2015', fichier:'cm1 2014-2015.pdf', drive:'https://drive.google.com/file/d/19zmB9J-sqUj0AeSC4ooO6MAhGnLsgbpl/view?usp=drive_link'},
+  {id:'prog_cm2_2014_2015', classe:'CM2', nom:'CM2 — 2014-2015', fichier:'cm2 2014-2015.pdf', drive:'https://drive.google.com/file/d/1uM6WJfW_tYgPXRdsd9sDvfnLPOA9-8Po/view?usp=drive_link'},
+  {id:'annexe_lect_ecr_cp', classe:'CP', nom:'Annexe du document de formation Lecture-Écriture CP (document final)', fichier:'ANNEXE_DU_DOCUMENT_DE_FORMATION_LECTURE-ECRITURE_CP__DOCUMENT_FINAL_docx.pdf', drive:'https://drive.google.com/file/d/1DKEwEJ8QbSkOrW94YpZZOqG0JpV6S1DI/view?usp=drive_link'},
+  {id:'doc_form_lecture_ce1', classe:'CE1', nom:'Document de formation Lecture CE1 — PNAPAS 2025-2026', fichier:'DOCUMENT_DE_FORMATION_LECTURE_CE1_-_PNAPAS_-__2025-2026.pdf', drive:'https://drive.google.com/file/d/11oL24GhQnGBYdAtsNEFRSHoLAhQzv1aD/view?usp=drive_link'},
+  {id:'doc_form_lect_ecr_cp', classe:'CP', nom:'Document de formation Lecture-Écriture CP', fichier:'DOCUMENT_DE_FORMATION_LECTURE-ECRITURE_CP.pdf', drive:'https://drive.google.com/file/d/1nWVCTYl_VaSZ_vJnoqFxkWtZp5ncrat_/view?usp=drive_link'},
+  {id:'conducteur_lect_ecr_cp', classe:'CP', nom:'Nouveau conducteur de la formation Lecture-Écriture CP (OSSIRI)', fichier:'NOUVEAU_CONDUCTEUR_DE_LA_FORMATION_LECTURE_ECRITURE_CP_FINAL__OSSIRI_.pdf', drive:'https://drive.google.com/file/d/1qfsgAwwdKATdJKuRjl5TprWy-JyvdQJe/view?usp=drive_link'},
+  {id:'annexe_maths_ce1', classe:'CE1', nom:'PNAPAS — Annexe du document de formation CE1 Mathématiques (28 avril 2025)', fichier:'PNAPAS_ANNEXE_DU_DOCUMENT_DE_FORMATION_CE1_MATHS_du_28_avril_2025.pdf', drive:'https://drive.google.com/file/d/1rWuDBJXjdHfpYxAohEu8eqcXX0GSGfhU/view?usp=drive_link'},
+  {id:'guide_suivi_pnapas', classe:'Tous', nom:'T2.5 — Guide de suivi et d\'accompagnement pédagogique PNAPAS', fichier:'T2_5-Guide_de_Suivi_et_d_accompagnement_pedagogique_PNAPAS_20_06_25.pdf', drive:'https://drive.google.com/file/d/1RUjk54wf4cfj1-e59lBZGX-_HxKvjzpP/view?usp=drive_link'},
+  {id:'pnapas_01_doc_formation', classe:'CE2', nom:'01 — PNAPAS : Document de formation', fichier:'01_PNAPAS DOCUMENT DE FORMATION.pdf', drive:'https://drive.google.com/file/d/1hcsExFLF532-ylRUhsQJoWvEryz7PJd3/view?usp=drive_link'},
+  {id:'pnapas_02_annexe_doc', classe:'CE2', nom:'02 — PNAPAS : Annexe au document de formation', fichier:'02_PNAPAS ANNEXE AU DOCUMENT DE FORMATION.pdf', drive:'https://drive.google.com/file/d/1_6sreTMpP8LSlpahpxA0Nhi77p2DyMbI/view?usp=drive_link'},
+  {id:'pnapas_04_doc_formation', classe:'CE2', nom:'04 — PNAPAS : Document de formation', fichier:'04_PNAPAS DOCUMENT DE FORMATION.pdf', drive:'https://drive.google.com/file/d/18KMEXYUbTy1xIJV4jchqA7h0AaNNrThD/view?usp=drive_link'},
+  {id:'pnapas_05_annexe_maths', classe:'CE2', nom:'05 — PNAPAS : Annexe au document Mathématiques', fichier:'05_PNAPAS ANNEXE AU DOCUMENT MATHS.pdf', drive:'https://drive.google.com/file/d/1Y-JSCf-5ByhDfOtfFDkDM75DwLEX3TPO/view?usp=drive_link'}
+];
+var DOCP_NIV=['Tous','PS','MS','GS','CP','CP1','CP2','CE1','CE2','CM1','CM2'];
+var DOCP_KEY='pgnep_docpnapas';   /* surcharges : liens collés + documents ajoutés */
+
+/* ───────── Fusion : catalogue en dur + surcharges enregistrées ───────── */
+function docpOver(){ return espLsGet(DOCP_KEY,{}); }
+function docpSetOver(m){ return espLsSet(DOCP_KEY,m); }
+function docpAll(){
+  var ov=docpOver(), out=[], seen={};
+  DOCP_CATALOG.forEach(function(c){
+    var o=ov[c.id]||{}; seen[c.id]=1;
+    if(o.deleted) return;
+    out.push({id:c.id, classe:o.classe||c.classe, nom:o.nom||c.nom, fichier:c.fichier||'', drive:(o.drive!==undefined&&o.drive!=='')?o.drive:(c.drive||''), builtin:true});
+  });
+  Object.keys(ov).forEach(function(k){
+    if(seen[k]) return; var o=ov[k]; if(!o || o.deleted) return;
+    out.push({id:k, classe:o.classe||'Tous', nom:o.nom||k, fichier:o.fichier||'', drive:o.drive||'', builtin:false});
+  });
+  return out;
+}
+function docpDriveId(v){ return (typeof docLibParseDrive==='function') ? docLibParseDrive(v) : null; }
+function docpOpenUrl(d){ var id=docpDriveId(d); return id?('https://drive.google.com/file/d/'+id+'/view'):(/^https?:\/\//i.test(d||'')?d:''); }
+function docpPrevUrl(d){ var id=docpDriveId(d); return id?('https://drive.google.com/file/d/'+id+'/preview'):(/^https?:\/\//i.test(d||'')?d:''); }
+
+/* ───────── Rendu du catalogue officiel ───────── */
+function docpRender(){
+  var mount=document.getElementById('docp-catalogue'); if(!mount) return;
+  var list=docpAll();
+  var ok=list.filter(function(x){return !!x.drive;}).length;
+  var tools='<button class="btn btn-secondary" onclick="docpExportExcel()">📋 Tableau Excel (coller les liens)</button>'+
+            '<button class="btn btn-secondary" onclick="docpImportExcel()">📥 Importer les liens Google Drive</button>'+
+            '<button class="btn btn-secondary" onclick="docpGenCode()">🧩 Générer le code à graver</button>'+
+            '<button class="btn btn-secondary" onclick="docpAddDoc()">➕ Ajouter un document</button>';
+  var rows=list.map(function(x,i){
+    var lien=x.drive
+      ? '<span class="docp-ok">✅ lié</span>'
+      : '<span class="docp-ko">⛔ lien manquant</span>';
+    var act=x.drive
+      ? '<button class="btn btn-secondary docp-b" onclick="docpPreview(\''+x.id+'\')">👁 Consulter</button>'+
+        '<a class="btn btn-secondary docp-b" style="text-decoration:none;" href="'+espEsc(docpOpenUrl(x.drive))+'" target="_blank" rel="noopener">↗ Drive</a>'
+      : '';
+    return '<tr><td style="text-align:center;">'+(i+1)+'</td>'+
+      '<td><code style="font-size:11px;">'+espEsc(x.id)+'</code></td>'+
+      '<td style="text-align:center;"><span class="badge badge-bleu">'+espEsc(x.classe)+'</span></td>'+
+      '<td><strong>'+espEsc(x.nom)+'</strong></td>'+
+      '<td style="text-align:center;">'+lien+'</td>'+
+      '<td style="white-space:nowrap;">'+act+
+        '<button class="btn btn-secondary docp-b" onclick="docpPasteLink(\''+x.id+'\')">🔗 Coller lien</button>'+
+        '<button class="btn btn-secondary docp-b" onclick="docpDel(\''+x.id+'\')">🗑</button></td></tr>';
+  }).join('');
+  var body='<div class="docp-stat">📊 <strong>'+list.length+'</strong> document(s) au catalogue · <strong style="color:#059669;">'+ok+'</strong> avec lien Drive · <strong style="color:#DC2626;">'+(list.length-ok)+'</strong> en attente de lien</div>'+
+    '<div class="doclib-toolbar">'+tools+'</div>'+
+    '<div class="docp-help">📌 <strong>Méthode :</strong> 1) cliquez « Tableau Excel » → 2) déposez vos PDF sur Google Drive et collez chaque lien de partage dans la colonne <em>« ➡ COLLEZ ICI le lien Google Drive »</em> → 3) cliquez « Importer les liens ». Les liens sont conservés et partagés via Firebase. Pour les graver <strong>définitivement</strong> dans le fichier, utilisez « 🧩 Générer le code ».</div>'+
+    '<div class="table-wrap" id="docp-tab"><table><thead><tr><th style="width:40px;">N°</th><th>ID interne</th><th style="width:80px;">Classe</th><th>Nom du document</th><th style="width:120px;">Lien Drive</th><th style="width:290px;">Actions</th></tr></thead><tbody>'+
+    (rows||'<tr><td colspan="6">'+espEmpty('Catalogue vide.')+'</td></tr>')+'</tbody></table></div>';
+  mount.innerHTML=espCard('📗 Catalogue officiel — Documents PNAPAS & Guides (liens Google Drive)','',body);
+}
+
+/* ───────── Coller / supprimer / ajouter ───────── */
+function docpPasteLink(id){
+  var cur=(docpAll().find(function(x){return x.id===id;})||{}).drive||'';
+  var v=prompt('Collez le lien de partage Google Drive de ce document :\n(Drive → Partager → « Toute personne disposant du lien » → Copier le lien)', cur);
+  if(v===null) return; v=(v||'').trim();
+  if(v && !docpDriveId(v) && !/^https?:\/\//i.test(v)){ alert('Lien non reconnu. Attendu : https://drive.google.com/file/d/…/view'); return; }
+  var ov=docpOver(); ov[id]=Object.assign({},ov[id]||{},{drive:v}); docpSetOver(ov);
+  docpFbPush(id); docpRender();
+}
+function docpDel(id){
+  if(!confirm('Retirer ce document du catalogue (pour tous les utilisateurs) ?')) return;
+  var ov=docpOver(); var isB=DOCP_CATALOG.some(function(c){return c.id===id;});
+  if(isB){ ov[id]=Object.assign({},ov[id]||{},{deleted:true}); } else { delete ov[id]; }
+  docpSetOver(ov); docpFbPush(id); docpRender();
+}
+function docpAddDoc(){
+  var nom=prompt('Nom du document :',''); if(!nom) return;
+  var cl=prompt('Niveau / Classe ('+DOCP_NIV.join(', ')+') :','Tous'); if(cl===null) return;
+  var lien=prompt('Lien Google Drive (facultatif — vous pourrez le coller plus tard) :',''); if(lien===null) lien='';
+  var id=(nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'doc').slice(0,40)+'_'+Math.random().toString(36).slice(2,5);
+  var ov=docpOver(); ov[id]={nom:nom.trim(), classe:(cl||'Tous').trim(), drive:(lien||'').trim(), fichier:''}; docpSetOver(ov);
+  docpFbPush(id); docpRender();
+}
+function docpPreview(id){
+  var x=docpAll().find(function(y){return y.id===id;}); if(!x||!x.drive) return;
+  var ov=document.createElement('div'); ov.className='doclib-overlay';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.innerHTML='<div class="doclib-modal"><div class="doclib-modal-h"><strong>'+espEsc(x.nom)+'</strong><button onclick="this.closest(\'.doclib-overlay\').remove()">✕</button></div>'+
+    '<div class="doclib-modal-b"><iframe src="'+espEsc(docpPrevUrl(x.drive))+'"></iframe></div></div>';
+  document.body.appendChild(ov);
+}
+
+/* ───────── Tableau Excel de correspondance (comme votre capture) ───────── */
+function docpExportExcel(){
+  if(typeof XLSX==='undefined'||!XLSX.utils){ alert('Module Excel indisponible.'); return; }
+  var list=docpAll();
+  var aoa=[['N°','ID interne','Classe','Nom du document','Ancien fichier PDF','➡ COLLEZ ICI le lien Google Drive']];
+  list.forEach(function(x,i){ aoa.push([i+1, x.id, x.classe, x.nom, x.fichier||'', x.drive||'']); });
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:5},{wch:24},{wch:9},{wch:58},{wch:52},{wch:60}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Documents Google Drive');
+  XLSX.writeFile(wb,'Documents_PNAPAS_liens_Google_Drive.xlsx');
+  alert('📋 Tableau exporté.\n\n1) Déposez vos PDF sur Google Drive\n2) Pour chaque ligne, collez le lien de partage dans la dernière colonne\n3) Revenez ici et cliquez « 📥 Importer les liens Google Drive »');
+}
+function docpImportExcel(){
+  espImportExcel(function(rows){
+    if(!rows||!rows.length){ alert('Fichier vide.'); return; }
+    var ov=docpOver(), n=0, ignored=0;
+    rows.forEach(function(r){
+      var id=String(espCol(r,'ID interne','ID','Id interne','id')||'').trim();
+      var nom=String(espCol(r,'Nom du document','Nom de la fiche','Nom')||'').trim();
+      var cl=String(espCol(r,'Classe','Niveau')||'').trim();
+      var lien=String(espCol(r,'➡ COLLEZ ICI le lien Google Drive','COLLEZ ICI le lien Google Drive','Lien Google Drive','Lien','Drive','URL')||'').trim();
+      var fnam=String(espCol(r,'Ancien fichier PDF','Fichier','Nom du fichier','Nom de fichier')||'').trim();
+      /* Correspondance par nom de fichier si l'ID interne est absent (sortie du script Google Drive) */
+      if(!id && fnam){ var hit=docpMatchByFile(fnam); if(hit) id=hit; }
+      if(!id && nom){ var hit2=docpMatchByFile(nom); if(hit2) id=hit2; }
+      if(!id && nom){ id=nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40); }
+      if(!id){ return; }
+      if(lien && !docpDriveId(lien) && !/^https?:\/\//i.test(lien)){ ignored++; return; }
+      var e=Object.assign({},ov[id]||{});
+      if(lien) e.drive=lien;
+      if(nom) e.nom=nom;
+      if(cl) e.classe=cl;
+      var fich=String(espCol(r,'Ancien fichier PDF','Fichier')||'').trim(); if(fich) e.fichier=fich;
+      ov[id]=e; if(lien) n++;
+    });
+    docpSetOver(ov);
+    docpAll().forEach(function(x){ docpFbPush(x.id); });
+    docpRender();
+    alert('✅ Import terminé.\n\n'+n+' lien(s) Google Drive appliqué(s).'+(ignored?('\n⚠️ '+ignored+' lien(s) non reconnu(s), ignoré(s).'):'')+'\n\nLes liens sont enregistrés et partagés via Firebase. Pour les graver définitivement dans index.html, cliquez « 🧩 Générer le code à graver ».');
+  });
+}
+
+/* ───────── Correspondance souple par nom de fichier ───────── */
+function docpNorm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\.pdf$/,'').replace(/[^a-z0-9]+/g,''); }
+function docpMatchByFile(name){
+  var n=docpNorm(name); if(!n) return null;
+  var list=docpAll(), best=null;
+  list.forEach(function(x){
+    var f=docpNorm(x.fichier), t=docpNorm(x.nom);
+    if(f && (f===n || f.indexOf(n)===0 || n.indexOf(f)===0)){ best=best||x.id; }
+    else if(t && (t===n)){ best=best||x.id; }
+  });
+  if(best) return best;
+  /* correspondance partielle (préfixe d'au moins 18 caractères) */
+  list.forEach(function(x){
+    var f=docpNorm(x.fichier); if(!f||best) return;
+    var k=Math.min(18,f.length,n.length);
+    if(k>=18 && f.slice(0,k)===n.slice(0,k)) best=x.id;
+  });
+  return best;
+}
+
+/* ───────── Générer le code à coller dans index.html (permanent) ───────── */
+function docpGenCode(){
+  var list=docpAll();
+  var esc=function(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); };
+  var code='var DOCP_CATALOG=[\n'+list.map(function(x){
+    return "  {id:'"+esc(x.id)+"', classe:'"+esc(x.classe)+"', nom:'"+esc(x.nom)+"', fichier:'"+esc(x.fichier)+"', drive:'"+esc(x.drive)+"'}";
+  }).join(',\n')+'\n];';
+  var ov=document.createElement('div'); ov.className='doclib-overlay';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.innerHTML='<div class="doclib-modal"><div class="doclib-modal-h"><strong>🧩 Code à graver dans index.html</strong><button onclick="this.closest(\'.doclib-overlay\').remove()">✕</button></div>'+
+    '<div class="doclib-modal-b" style="display:block;padding:14px;background:#fff;">'+
+    '<p style="font-size:12.5px;margin-bottom:8px;">Ouvrez <code>index.html</code>, cherchez <code>var DOCP_CATALOG=[</code> et remplacez le bloc entier par le code ci-dessous. Les liens deviennent alors <strong>permanents</strong> (comme les Fiches), indépendants du navigateur.</p>'+
+    '<textarea id="docp-code" readonly style="width:100%;height:52vh;font-family:monospace;font-size:11.5px;border:1px solid #e5e9ef;border-radius:8px;padding:10px;">'+espEsc(code)+'</textarea>'+
+    '<div style="margin-top:10px;"><button class="btn btn-primary" onclick="docpCopyCode()">📋 Copier le code</button></div></div></div>';
+  document.body.appendChild(ov);
+}
+function docpCopyCode(){
+  var t=document.getElementById('docp-code'); if(!t) return;
+  t.select(); t.setSelectionRange(0,999999);
+  try{ document.execCommand('copy'); alert('✅ Code copié. Collez-le dans index.html à la place du bloc DOCP_CATALOG existant.'); }
+  catch(e){ alert('Copie automatique impossible : sélectionnez le texte et copiez-le manuellement (Ctrl+C).'); }
+}
+
+/* ───────── Synchronisation Firebase (collection 'docpnapas') ───────── */
+function docpFbReady(){ return (typeof window!=='undefined') && window._fb && typeof window._fb.set==='function'; }
+function docpFbPush(id){
+  if(!docpFbReady()) return;
+  var ov=docpOver(); var e=ov[id];
+  try{
+    if(!e){ window._fb.del('docpnapas', id); return; }
+    window._fb.set('docpnapas', id, JSON.parse(JSON.stringify(e)));
+  }catch(err){ console.error('docpnapas push', err); }
+}
+var _docpFbAttached=false, _docpFbTries=0;
+function docpFbAttach(){
+  if(_docpFbAttached) return;
+  if(!docpFbReady() || typeof window._fb.listen!=='function'){ if(_docpFbTries++ < 90) setTimeout(docpFbAttach,1000); return; }
+  _docpFbAttached=true;
+  try{ var loc=docpOver(); Object.keys(loc).forEach(function(k){ docpFbPush(k); }); }catch(e){}
+  try{
+    window._fb.listen('docpnapas', function(remote){
+      try{
+        var m={};
+        (remote||[]).forEach(function(x){ if(x&&x.id){ var c=Object.assign({},x); delete c.id; m[x.id]=c; } });
+        espLsSet(DOCP_KEY,m);
+        if(document.getElementById('docp-catalogue')) docpRender();
+      }catch(e){ console.error('docpnapas merge',e); }
+    });
+  }catch(e){ console.error('docpnapas listen',e); }
+}
+if(typeof window!=='undefined'){ setTimeout(docpFbAttach,1800); }
+
+</script>
+
+<script id="evalcat-v34-script">
+/* ══════════════════════════════════════════════════════════════════════
+   CATALOGUES OFFICIELS PAR NIVEAU — Évaluations & Corrections
+   Même méthode que « Documents PNAPAS » (DOCP_CATALOG) :
+   ─ catalogue codé EN DUR -> données permanentes
+   ─ tableau Excel de correspondance -> coller les liens Google Drive
+   ─ import Excel · code à graver · synchro Firebase (partagé)
+   ─ affichage groupé PAR NIVEAU (CP1 → CM2)
+   Additif : ne remplace ni ne supprime aucune fonction existante.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ───────── CATALOGUE ÉVALUATIONS (à compléter avec vos documents) ───────── */
+var EVAL_CATALOG=[
+  {id:'eval_cp1_2019_no1', classe:'CP1', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°1 — CP1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1JGBqzgNv50uk_Cyo_2kxbFHFJr04frd9/view?usp=drive_link'},
+  {id:'eval_cp1_2019_no2', classe:'CP1', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°2 — CP1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1MKzxy5kGEPR60aPdATgAMj2WBtR7A3fE/view?usp=drive_link'},
+  {id:'eval_cp2_2019_no1', classe:'CP2', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°1 — CP2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1dKL1Fmf2OE9P5Am9pGwAzPrs4fzLXqpD/view?usp=drive_link'},
+  {id:'eval_cp2_2019_no2', classe:'CP2', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°2 — CP2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1KwheIsevnSBTFdAMWmalW_e3683PtauY/view?usp=drive_link'},
+  {id:'eval_ce1_2019_no1', classe:'CE1', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°1 — CE1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1tCNeF4w7bbUkJRYaOH_FMoYXgjSxLkjq/view?usp=drive_link'},
+  {id:'eval_ce1_2019_no2', classe:'CE1', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°2 — CE1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/19UiTyRmNI6foW0tFwF86ZauNrp0M2xK7/view?usp=drive_link'},
+  {id:'eval_ce2_2019_no1', classe:'CE2', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°1 — CE2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/17BYw7SU__ierMJCDr4E6-Oo6knMGKltK/view?usp=drive_link'},
+  {id:'eval_ce2_2019_no2', classe:'CE2', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°2 — CE2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1wXAvocfEGqQVUjXNCdskJ4z633QUsBcg/view?usp=drive_link'},
+  {id:'eval_cm1_2019_no1', classe:'CM1', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°1 — CM1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1PiM0AGu8TfngUcJrQwmu4qlN3pKLaxg8/view?usp=drive_link'},
+  {id:'eval_cm1_2019_no2', classe:'CM1', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°2 — CM1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1LBtRrsAKXAmonD8-ZPBx3Cs9IxVRXigk/view?usp=drive_link'},
+  {id:'eval_cm2_2019_no1', classe:'CM2', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°1 — CM2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1RKlzyF55XqAr3QAaMYnUmSrIoVciWcAs/view?usp=drive_link'},
+  {id:'eval_cm2_2019_no2', classe:'CM2', annee:'2018-2019', matiere:'Toutes matières', nom:'Composition N°2 — CM2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1BozsLEFMvRojzoPj_tc8sNOXfYA1f4vv/view?usp=drive_link'}
+];
+
+/* ───────── CATALOGUE CORRECTIONS ───────── */
+var CORR_CATALOG=[
+  {id:'corr_cp1_1', classe:'CP1', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°1— CP1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1xZIjOLHynxQz4-9i4vKhyUfC0SIzcoKx/view?usp=drive_link'},
+  {id:'corr_cp1_2', classe:'CP1', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°2 — CP1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1HFvYJcjZBqw4IMugnE_oxM1NwjJxmQkL/view?usp=sharing'},
+  {id:'corr_cp2_1', classe:'CP2', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°1 — CP2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1xZIjOLHynxQz4-9i4vKhyUfC0SIzcoKx/view?usp=drive_link'},
+  {id:'corr_cp2_2', classe:'CP2', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°2 — CP2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1HFvYJcjZBqw4IMugnE_oxM1NwjJxmQkL/view?usp=sharing'},
+  {id:'corr_ce1_1', classe:'CE1', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°1 — CE1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1HxqAcMHxhC_wgq3SP5LZwY6gcKWFzICc/view?usp=drive_link'},
+  {id:'corr_ce1_2', classe:'CE1', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°2 — CE1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1EhZWAjSoILBlbAytdobRbaJKG6B59Fv1/view?usp=drive_link'},
+  {id:'corr_ce2_1', classe:'CE2', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°1 — CE2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1EhZWAjSoILBlbAytdobRbaJKG6B59Fv1/view?usp=drive_link'},
+  {id:'corr_ce2_2', classe:'CE2', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°2 — CE2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1QYoiXWPfl7S-xQqFzPp761M8HL2GSI0e/view?usp=drive_link'},
+  {id:'corr_cm1_1', classe:'CM1', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°1 — CM1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1F9uZ3O_knZRRQodUvvOCeh45ieeJMY-x/view?usp=drive_link'},
+  {id:'corr_cm1_2', classe:'CM1', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°2 — CM1 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1naewB41rCk8zXZpz0n-KYl0W-FLIEuKy/view?usp=drive_link'},
+  {id:'corr_cm2_1', classe:'CM2', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°1 — CM2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1KoT45RaufTDTRZKM-FMzvDeoWEu5d7lZ/view?usp=drive_link'},
+  {id:'corr_cm2_2', classe:'CM2', annee:'2018-2019', matiere:'Toutes matières', nom:'Bareme N°2 — CM2 (2019)', fichier:'', drive:'https://drive.google.com/file/d/1OU3tL0JC-QanGnxM6FU9nWxzu-H9IUzj/view?usp=drive_link'}
+];
+
+var CAT_NIV=['Tous','CP1','CP2','CE1','CE2','CM1','CM2'];
+var CAT_DEFS={
+  eval:{ key:'pgnep_evalcat', coll:'evalcat', ref:function(){return EVAL_CATALOG;},
+         title:'📗 Catalogue officiel — Évaluations par niveau (liens Google Drive)',
+         file:'Evaluations_liens_Google_Drive.xlsx', codevar:'EVAL_CATALOG',
+         intro:'Sujets de composition et devoirs, classés par niveau. Déposez les PDF sur Google Drive et collez les liens : ils deviennent consultables par tous les utilisateurs.' },
+  corr:{ key:'pgnep_corrcat', coll:'corrcat', ref:function(){return CORR_CATALOG;},
+         title:'📕 Catalogue officiel — Corrections par niveau (liens Google Drive)',
+         file:'Corrections_liens_Google_Drive.xlsx', codevar:'CORR_CATALOG',
+         intro:'Corrigés des évaluations, classés par niveau. Même méthode : lien Google Drive collé dans le tableau Excel.' }
+};
+
+/* ───────── Cloisonnement par niveau (maître de classe) ─────────
+   Un instituteur / bénévole ne voit QUE les documents de sa classe
+   (plus ceux marqués « Tous »). Directeur, IEPP, admin voient tout. */
+function catScopeNiveau(){
+  var u=(typeof espCU==='function')?espCU():null;
+  if(!u) return null;
+  if(u.role==='instituteur' || u.role==='benevole'){
+    var cl=u.structure_val || ((typeof espMyClasse==='function')?espMyClasse():'');
+    return cl || null;
+  }
+  return null;                     /* pas de restriction */
+}
+function catEstMaitre(){ return !!catScopeNiveau(); }
+function catVisible(c){
+  var niv=catScopeNiveau(); var l=catAll(c);
+  if(!niv) return l;
+  return l.filter(function(x){ return (x.classe===niv) || (x.classe==='Tous'); });
+}
+
+/* ───────── Fusion catalogue en dur + surcharges ───────── */
+function catOver(c){ return espLsGet(CAT_DEFS[c].key,{}); }
+function catSetOver(c,m){ return espLsSet(CAT_DEFS[c].key,m); }
+function catAll(c){
+  var ov=catOver(c), base=CAT_DEFS[c].ref(), out=[], seen={};
+  base.forEach(function(x){
+    var o=ov[x.id]||{}; seen[x.id]=1; if(o.deleted) return;
+    out.push({id:x.id, classe:o.classe||x.classe||'Tous', annee:(o.annee!==undefined?o.annee:x.annee)||'',
+              matiere:(o.matiere!==undefined?o.matiere:x.matiere)||'', nom:o.nom||x.nom||x.id,
+              fichier:x.fichier||'', drive:(o.drive!==undefined&&o.drive!=='')?o.drive:(x.drive||'')});
+  });
+  Object.keys(ov).forEach(function(k){
+    if(seen[k]) return; var o=ov[k]; if(!o||o.deleted) return;
+    out.push({id:k, classe:o.classe||'Tous', annee:o.annee||'', matiere:o.matiere||'', nom:o.nom||k, fichier:o.fichier||'', drive:o.drive||''});
+  });
+  return out;
+}
+function catDrive(v){ return (typeof docLibParseDrive==='function')?docLibParseDrive(v):null; }
+function catOpen(d){ var i=catDrive(d); return i?('https://drive.google.com/file/d/'+i+'/view'):(/^https?:\/\//i.test(d||'')?d:''); }
+function catPrev(d){ var i=catDrive(d); return i?('https://drive.google.com/file/d/'+i+'/preview'):(/^https?:\/\//i.test(d||'')?d:''); }
+
+/* ───────── Rendu : groupé PAR NIVEAU ───────── */
+function catBlock(c){
+  var D=CAT_DEFS[c], list=catVisible(c), ok=list.filter(function(x){return !!x.drive;}).length;
+  var _niv=catScopeNiveau();
+  var tools=_niv?'':('<button class="btn btn-secondary" onclick="catExportExcel(\''+c+'\')">📋 Tableau Excel (coller les liens)</button>'+
+    '<button class="btn btn-secondary" onclick="catImportExcel(\''+c+'\')">📥 Importer les liens Google Drive</button>'+
+    '<button class="btn btn-secondary" onclick="catGenCode(\''+c+'\')">🧩 Générer le code à graver</button>'+
+    '<button class="btn btn-primary" onclick="catAdd(\''+c+'\')">➕ Ajouter</button>');
+  var _bandeau=_niv?('<div class="cat-scope">🔒 Vous consultez les documents de votre classe : <strong>'+espEsc(_niv)+'</strong> (ainsi que ceux destinés à tous les niveaux). Les documents des autres classes ne vous sont pas accessibles.</div>'):'';
+  var _aide=_niv?'':('<div class="docp-help">📌 <strong>Méthode :</strong> 1) « ➕ Ajouter » ou « 📋 Tableau Excel » pour lister vos documents → 2) déposez les PDF sur Google Drive et collez chaque lien de partage → 3) « 📥 Importer les liens ». Pour rendre les liens définitifs, « 🧩 Générer le code à graver ».</div>');
+  var body='<div class="docp-stat">📊 <strong>'+list.length+'</strong> document(s) · <strong style="color:#059669;">'+ok+'</strong> avec lien Drive'+(_niv?'':(' · <strong style="color:#DC2626;">'+(list.length-ok)+'</strong> en attente'))+'</div>'+
+    _bandeau+
+    (_niv?'':('<p style="font-size:12.5px;color:var(--text2,#475569);margin-bottom:10px;">'+D.intro+'</p>'))+
+    (tools?('<div class="doclib-toolbar">'+tools+'</div>'):'')+
+    _aide+
+    '<div id="cat-grid-'+c+'"></div>';
+  return espCard(D.title,'',body);
+}
+function catRender(c){
+  var host=document.getElementById('cat-'+c); if(!host) return;
+  host.innerHTML=catBlock(c);
+  catGrid(c);
+}
+function catGrid(c){
+  var mount=document.getElementById('cat-grid-'+c); if(!mount) return;
+  var list=catVisible(c); var _m=catEstMaitre();
+  if(!list.length){ mount.innerHTML=espEmpty(_m?('Aucun document disponible pour votre classe pour le moment.'):'Aucun document au catalogue. Cliquez « ➕ Ajouter » ou utilisez le tableau Excel.'); return; }
+  var html='';
+  CAT_NIV.slice(1).concat(['Tous']).forEach(function(niv){
+    var grp=list.filter(function(x){return (x.classe||'Tous')===niv;});
+    if(!grp.length) return;
+    grp.sort(function(a,b){ return (b.annee||'').localeCompare(a.annee||'') || (a.nom||'').localeCompare(b.nom||''); });
+    var rows=grp.map(function(x,i){
+      var st=x.drive?'<span class="docp-ok">✅ lié</span>':'<span class="docp-ko">⛔ manquant</span>';
+      var act=x.drive?('<button class="btn btn-secondary docp-b" onclick="catPreview(\''+c+'\',\''+x.id+'\')">👁 Consulter</button>'+
+        '<a class="btn btn-secondary docp-b" style="text-decoration:none;" href="'+espEsc(catOpen(x.drive))+'" target="_blank" rel="noopener">↗ Drive</a>'):'';
+      var ges=_m?'':('<button class="btn btn-secondary docp-b" onclick="catPaste(\''+c+'\',\''+x.id+'\')">🔗 Coller lien</button>'+
+        '<button class="btn btn-secondary docp-b" onclick="catDel(\''+c+'\',\''+x.id+'\')">🗑</button>');
+      return '<tr><td style="text-align:center;">'+(i+1)+'</td><td><strong>'+espEsc(x.nom)+'</strong></td>'+
+        '<td style="text-align:center;">'+espEsc(x.matiere||'—')+'</td><td style="text-align:center;">'+espEsc(x.annee||'—')+'</td>'+
+        '<td style="text-align:center;">'+st+'</td><td style="white-space:nowrap;">'+act+ges+'</td></tr>';
+    }).join('');
+    html+='<div class="doclib-group"><div class="doclib-group-h">'+(niv==='Tous'?'📚 Tous niveaux':'🎓 '+niv)+' · '+grp.length+' document(s)</div>'+
+      '<div class="table-wrap"><table><thead><tr><th style="width:40px;">N°</th><th>Nom du document</th><th style="width:120px;">Matière</th><th style="width:100px;">Année</th><th style="width:100px;">Lien</th><th style="width:'+(_m?180:280)+'px;">Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+  });
+  mount.innerHTML=html;
+}
+
+/* ───────── Ajouter / coller / supprimer / consulter ───────── */
+function catAdd(c){
+  var nom=prompt('Nom du document (ex : Composition 1er trimestre — Mathématiques) :',''); if(!nom) return;
+  var cl=prompt('Niveau ('+CAT_NIV.join(', ')+') :', (typeof espMyClasse==='function'?espMyClasse():'')||'Tous'); if(cl===null) return;
+  var an=prompt('Année scolaire (ex : 2023-2024) :', (typeof ANNEE_SCOLAIRE!=='undefined'?ANNEE_SCOLAIRE:'')); if(an===null) an='';
+  var mat=prompt('Matière (facultatif) :',''); if(mat===null) mat='';
+  var lien=prompt('Lien Google Drive (facultatif — à coller plus tard) :',''); if(lien===null) lien='';
+  if(lien && !catDrive(lien) && !/^https?:\/\//i.test(lien)){ alert('Lien non reconnu. Attendu : https://drive.google.com/file/d/…/view'); return; }
+  var id=(c+'_'+(cl||'x')+'_'+nom).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,44)+'_'+Math.random().toString(36).slice(2,5);
+  var ov=catOver(c); ov[id]={nom:nom.trim(), classe:(cl||'Tous').trim(), annee:(an||'').trim(), matiere:(mat||'').trim(), drive:(lien||'').trim()};
+  catSetOver(c,ov); catFbPush(c,id); catRender(c);
+}
+function catPaste(c,id){
+  var cur=(catAll(c).find(function(x){return x.id===id;})||{}).drive||'';
+  var v=prompt('Collez le lien de partage Google Drive :\n(Drive → Partager → « Toute personne disposant du lien » → Copier le lien)', cur);
+  if(v===null) return; v=(v||'').trim();
+  if(v && !catDrive(v) && !/^https?:\/\//i.test(v)){ alert('Lien non reconnu.'); return; }
+  var ov=catOver(c); ov[id]=Object.assign({},ov[id]||{},{drive:v}); catSetOver(c,ov); catFbPush(c,id); catRender(c);
+}
+function catDel(c,id){
+  if(!confirm('Retirer ce document du catalogue (pour tous les utilisateurs) ?')) return;
+  var ov=catOver(c), isB=CAT_DEFS[c].ref().some(function(x){return x.id===id;});
+  if(isB){ ov[id]=Object.assign({},ov[id]||{},{deleted:true}); } else { delete ov[id]; }
+  catSetOver(c,ov); catFbPush(c,id); catRender(c);
+}
+function catPreview(c,id){
+  var x=catAll(c).find(function(y){return y.id===id;}); if(!x||!x.drive) return;
+  var ov=document.createElement('div'); ov.className='doclib-overlay';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.innerHTML='<div class="doclib-modal"><div class="doclib-modal-h"><strong>'+espEsc(x.nom)+' — '+espEsc(x.classe)+'</strong><button onclick="this.closest(\'.doclib-overlay\').remove()">✕</button></div>'+
+    '<div class="doclib-modal-b"><iframe src="'+espEsc(catPrev(x.drive))+'"></iframe></div></div>';
+  document.body.appendChild(ov);
+}
+
+/* ───────── Tableau Excel (même format que PNAPAS) ───────── */
+function catExportExcel(c){
+  if(typeof XLSX==='undefined'||!XLSX.utils){ alert('Module Excel indisponible.'); return; }
+  var list=catAll(c);
+  var aoa=[['N°','ID interne','Classe','Année','Matière','Nom du document','➡ COLLEZ ICI le lien Google Drive']];
+  if(!list.length){
+    CAT_NIV.slice(1).forEach(function(n,i){ aoa.push([i+1, c+'_'+n.toLowerCase()+'_exemple', n, '', '', 'À renseigner — '+n, '']); });
+  } else {
+    list.forEach(function(x,i){ aoa.push([i+1, x.id, x.classe, x.annee||'', x.matiere||'', x.nom, x.drive||'']); });
+  }
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:5},{wch:30},{wch:9},{wch:12},{wch:16},{wch:56},{wch:62}];
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Liens Google Drive');
+  XLSX.writeFile(wb, CAT_DEFS[c].file);
+  alert('📋 Tableau exporté.\n\n1) Complétez / ajoutez vos documents (ID interne, Classe, Nom)\n2) Déposez les PDF sur Google Drive et collez les liens dans la dernière colonne\n3) Revenez ici → « 📥 Importer les liens Google Drive »');
+}
+function catImportExcel(c){
+  espImportExcel(function(rows){
+    if(!rows||!rows.length){ alert('Fichier vide.'); return; }
+    var ov=catOver(c), n=0, add=0, bad=0;
+    rows.forEach(function(r){
+      var id=String(espCol(r,'ID interne','ID','id')||'').trim();
+      var nom=String(espCol(r,'Nom du document','Nom')||'').trim();
+      var cl=String(espCol(r,'Classe','Niveau')||'').trim();
+      var an=String(espCol(r,'Année','Annee','Année scolaire')||'').trim();
+      var mat=String(espCol(r,'Matière','Matiere')||'').trim();
+      var lien=String(espCol(r,'➡ COLLEZ ICI le lien Google Drive','COLLEZ ICI le lien Google Drive','Lien Google Drive','Lien','Drive','URL')||'').trim();
+      if(!id && nom){ id=(c+'_'+(cl||'x')+'_'+nom).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,48); }
+      if(!id) return;
+      if(lien && !catDrive(lien) && !/^https?:\/\//i.test(lien)){ bad++; lien=''; }
+      var exists=!!ov[id] || CAT_DEFS[c].ref().some(function(x){return x.id===id;});
+      var e=Object.assign({},ov[id]||{});
+      if(nom) e.nom=nom; if(cl) e.classe=cl; if(an) e.annee=an; if(mat) e.matiere=mat;
+      if(lien){ e.drive=lien; n++; }
+      ov[id]=e; if(!exists) add++;
+    });
+    catSetOver(c,ov);
+    catAll(c).forEach(function(x){ catFbPush(c,x.id); });
+    catRender(c);
+    alert('✅ Import terminé.\n\n'+add+' document(s) ajouté(s)\n'+n+' lien(s) Google Drive appliqué(s)'+(bad?('\n⚠️ '+bad+' lien(s) non reconnu(s)'):'')+'\n\nPour graver définitivement : « 🧩 Générer le code à graver ».');
+  });
+}
+function catGenCode(c){
+  var list=catAll(c), D=CAT_DEFS[c];
+  var esc=function(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); };
+  var code='var '+D.codevar+'=[\n'+list.map(function(x){
+    return "  {id:'"+esc(x.id)+"', classe:'"+esc(x.classe)+"', annee:'"+esc(x.annee)+"', matiere:'"+esc(x.matiere)+"', nom:'"+esc(x.nom)+"', fichier:'"+esc(x.fichier)+"', drive:'"+esc(x.drive)+"'}";
+  }).join(',\n')+'\n];';
+  var ov=document.createElement('div'); ov.className='doclib-overlay';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.innerHTML='<div class="doclib-modal"><div class="doclib-modal-h"><strong>🧩 Code à graver dans index.html</strong><button onclick="this.closest(\'.doclib-overlay\').remove()">✕</button></div>'+
+    '<div class="doclib-modal-b" style="display:block;padding:14px;background:#fff;">'+
+    '<p style="font-size:12.5px;margin-bottom:8px;">Dans <code>index.html</code>, cherchez <code>var '+D.codevar+'=[</code> et remplacez le bloc entier par ce code. Les liens deviennent <strong>permanents</strong>.</p>'+
+    '<textarea id="cat-code" readonly style="width:100%;height:52vh;font-family:monospace;font-size:11.5px;border:1px solid #e5e9ef;border-radius:8px;padding:10px;">'+espEsc(code)+'</textarea>'+
+    '<div style="margin-top:10px;"><button class="btn btn-primary" onclick="catCopyCode()">📋 Copier le code</button></div></div></div>';
+  document.body.appendChild(ov);
+}
+function catCopyCode(){
+  var t=document.getElementById('cat-code'); if(!t) return;
+  t.select(); t.setSelectionRange(0,999999);
+  try{ document.execCommand('copy'); alert('✅ Code copié.'); }catch(e){ alert('Sélectionnez le texte et copiez-le (Ctrl+C).'); }
+}
+
+/* ───────── Synchronisation Firebase ───────── */
+function catFbReady(){ return (typeof window!=='undefined') && window._fb && typeof window._fb.set==='function'; }
+function catFbPush(c,id){
+  if(!catFbReady()) return;
+  var ov=catOver(c), e=ov[id];
+  try{ if(!e){ window._fb.del(CAT_DEFS[c].coll,id); return; } window._fb.set(CAT_DEFS[c].coll,id,JSON.parse(JSON.stringify(e))); }
+  catch(err){ console.error('cat push',err); }
+}
+var _catFbAttached={}, _catFbTries=0;
+function catFbAttach(){
+  if(!catFbReady()||typeof window._fb.listen!=='function'){ if(_catFbTries++<90) setTimeout(catFbAttach,1000); return; }
+  ['eval','corr'].forEach(function(c){
+    if(_catFbAttached[c]) return; _catFbAttached[c]=true;
+    try{ var loc=catOver(c); Object.keys(loc).forEach(function(k){ catFbPush(c,k); }); }catch(e){}
+    try{
+      window._fb.listen(CAT_DEFS[c].coll, function(remote){
+        try{
+          var m={};
+          (remote||[]).forEach(function(x){ if(x&&x.id){ var o=Object.assign({},x); delete o.id; m[x.id]=o; } });
+          espLsSet(CAT_DEFS[c].key,m);
+          if(document.getElementById('cat-'+c)) catRender(c);
+        }catch(e){ console.error('cat merge',e); }
+      });
+    }catch(e){ console.error('cat listen',e); }
+  });
+}
+if(typeof window!=='undefined'){ setTimeout(catFbAttach,2000); }
+
+</script>
+
+<script id="dens-v35-script">
+/* ══════════════════════════════════════════════════════════════════════
+   ESPACE DIRECTEUR — Gestion des enseignants + Pointage
+   • « Enseignants & effectifs » : ajouter / modifier / supprimer un enseignant,
+     réinitialiser son mot de passe  (les boutons existaient sans code : ils fonctionnent désormais)
+   • « Présence enseignants » : système de POINTAGE (arrivée / départ),
+     retards, heures travaillées, historique et récapitulatif mensuel
+   Additif — aucune fonction existante n'est supprimée.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────── 1) GESTION DES ENSEIGNANTS ─────────────────── */
+function densUsers(){ return (typeof DB!=='undefined' && DB.users) ? DB.users : []; }
+function densFind(login){ return densUsers().find(function(u){ return u.login===login; }); }
+function densSaveUsers(){
+  try{ if(typeof save==='function'){ save('users'); return; } }catch(e){}
+  try{ localStorage.setItem('pgnep_users', JSON.stringify(densUsers())); }catch(e){}
+}
+function densFbSet(u){
+  try{ if(window._firebaseReady && window._fb && u) window._fb.set('users', u.login, u).catch(function(){}); }catch(e){}
+}
+function densNotif(msg,type){ if(typeof showNotif==='function') showNotif(msg,type||'success'); else alert(msg); }
+
+function densShowForm(login, classePre){
+  var host=document.getElementById('dens-form-host'); if(!host) return;
+  var u=login?densFind(login):null;
+  var cls=(typeof ESP_ORD!=='undefined')?ESP_ORD:['CP1','CP2','CE1','CE2','CM1','CM2'];
+  var sel=u?u.structure_val:(classePre||'');
+  var opts=cls.map(function(c){ return '<option value="'+c+'"'+((sel===c)?' selected':'')+'>'+c+'</option>'; }).join('');
+  host.innerHTML=
+   '<div class="dens-form open">'+
+    '<div class="dens-form-t">'+(u?('✏️ Modifier — '+espEsc(u.nom)):('➕ Nouvel enseignant'+(classePre?(' — classe '+espEsc(classePre)):'')))+'</div>'+
+    '<div class="dens-grid">'+
+      '<label class="fld"><span>Nom et prénoms *</span><input id="dens-nom" value="'+espEsc(u?u.nom:'')+'" placeholder="Ex : KOUAME Yao Jean"></label>'+
+      '<label class="fld"><span>Identifiant de connexion *</span><input id="dens-login" value="'+espEsc(u?u.login:'')+'"'+(u?' readonly':'')+' placeholder="Ex : kouame.yao"></label>'+
+      '<label class="fld"><span>Classe tenue</span><select id="dens-classe">'+opts+'</select></label>'+
+      '<label class="fld"><span>Fonction</span><select id="dens-role">'+
+        '<option value="instituteur"'+((!u||u.role==='instituteur')?' selected':'')+'>Instituteur</option>'+
+        '<option value="benevole"'+((u&&u.role==='benevole')?' selected':'')+'>Bénévole / Vacataire</option></select></label>'+
+      '<label class="fld"><span>Matricule</span><input id="dens-mat" value="'+espEsc(u?(u.matricule||''):'')+'" placeholder="Facultatif"></label>'+
+      '<label class="fld"><span>Téléphone</span><input id="dens-tel" value="'+espEsc(u?(u.tel||u.telephone||''):'')+'" placeholder="Ex : 07 00 00 00 00"></label>'+
+      '<label class="fld"><span>Mot de passe '+(u?'(laisser vide = inchangé)':'*')+'</span><input id="dens-pass" type="text" placeholder="'+(u?'Inchangé':'Ex : Ecole@2026')+'"></label>'+
+    '</div>'+
+    '<div class="dens-act">'+
+      '<button class="btn btn-primary" onclick="densSave(\''+(u?u.login:'')+'\')">💾 Enregistrer</button>'+
+      '<button class="btn btn-secondary" onclick="densCancel()">Annuler</button>'+
+    '</div></div>';
+  try{ if(host.scrollIntoView) host.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){}
+}
+function densCancel(){ var h=document.getElementById('dens-form-host'); if(h) h.innerHTML=''; }
+function densV(id){ var e=document.getElementById(id); return e?(e.value||'').trim():''; }
+
+function densSave(orig){
+  var nom=densV('dens-nom'), login=densV('dens-login'), classe=densV('dens-classe'),
+      role=densV('dens-role'), mat=densV('dens-mat'), tel=densV('dens-tel'), pass=densV('dens-pass');
+  if(!nom){ alert('Le nom est obligatoire.'); return; }
+  if(!login){ alert('L\'identifiant de connexion est obligatoire.'); return; }
+  if(!/^[a-zA-Z0-9._-]+$/.test(login)){ alert('L\'identifiant ne doit contenir ni espace ni accent (lettres, chiffres, . _ - uniquement).'); return; }
+  var eid=espMyEcoleId();
+  var users=densUsers();
+
+  if(orig){
+    var u=densFind(orig); if(!u){ alert('Enseignant introuvable.'); return; }
+    u.nom=nom; u.role=role; u.structure_type='classe'; u.structure_val=classe;
+    u.ecole_val=u.ecole_val||eid; u.matricule=mat; u.tel=tel; u.telephone=tel;
+    if(pass){ u.pass=(typeof hashPass==='function')?hashPass(pass):pass; u.passPlain=pass; }
+    densSaveUsers(); densFbSet(u);
+    densNotif('✅ Enseignant modifié');
+  } else {
+    if(users.find(function(x){ return x.login===login; })){ alert('Cet identifiant est déjà utilisé. Choisissez-en un autre.'); return; }
+    if(!pass){ alert('Le mot de passe est obligatoire pour un nouvel enseignant.'); return; }
+    var nu={ login:login, nom:nom, pass:(typeof hashPass==='function')?hashPass(pass):pass, passPlain:pass,
+             role:role, structure_type:'classe', structure_val:classe, ecole_val:eid,
+             matricule:mat, tel:tel, telephone:tel, email:login+'@pgnep-menaet.ci' };
+    users.push(nu);
+    densSaveUsers(); densFbSet(nu);
+    try{ if(window._firebaseReady && window._fb && window._fb.createUser) window._fb.createUser(nu.email, pass).catch(function(){}); }catch(e){}
+    densNotif('✅ Enseignant ajouté');
+  }
+  densCancel();
+  if(typeof espRenderDirEns==='function') espRenderDirEns();
+}
+
+function densDelete(login){
+  var u=densFind(login); if(!u) return;
+  if(!confirm('Supprimer définitivement l\'enseignant « '+u.nom+' » ?\n\nSon compte de connexion sera retiré. Les notes déjà saisies ne sont pas effacées.')) return;
+  var users=densUsers(); var i=users.findIndex(function(x){ return x.login===login; });
+  if(i<0) return; users.splice(i,1);
+  densSaveUsers();
+  try{ if(window._firebaseReady && window._fb) window._fb.del('users', login).catch(function(){}); }catch(e){}
+  densNotif('🗑 Enseignant supprimé');
+  if(typeof espRenderDirEns==='function') espRenderDirEns();
+}
+
+function densResetPass(login){
+  var u=densFind(login); if(!u) return;
+  var p=prompt('Nouveau mot de passe pour « '+u.nom+' » :', '');
+  if(p===null) return; p=p.trim();
+  if(p.length<4){ alert('Le mot de passe doit comporter au moins 4 caractères.'); return; }
+  u.pass=(typeof hashPass==='function')?hashPass(p):p; u.passPlain=p;
+  densSaveUsers(); densFbSet(u);
+  alert('🔑 Mot de passe mis à jour.\n\nIdentifiant : '+u.login+'\nNouveau mot de passe : '+p+'\n\nCommuniquez-le à l\'enseignant.');
+}
+
+/* Carte « Gestion des enseignants » : ajouter / modifier / supprimer, toutes classes */
+function densGestCard(ens){
+  ens = ens || espSchoolEnseignants();
+  var ord=(typeof ESP_ORD!=='undefined')?ESP_ORD:['CP1','CP2','CE1','CE2','CM1','CM2'];
+  var list=ens.slice().sort(function(a,b){
+    var d=ord.indexOf(a.structure_val)-ord.indexOf(b.structure_val);
+    return d!==0?d:String(a.nom||'').localeCompare(String(b.nom||''),'fr');
+  });
+  var rows=list.map(function(u){
+    var fn=(u.role==='benevole')?'Bénévole / Vacataire':'Instituteur';
+    return '<tr>'+
+      '<td><strong>'+espEsc(u.nom)+'</strong><div class="ptg-sub">'+espEsc(u.login)+'</div></td>'+
+      '<td style="text-align:center;"><span class="badge badge-bleu">'+espEsc(u.structure_val||'—')+'</span></td>'+
+      '<td style="text-align:center;">'+fn+'</td>'+
+      '<td style="text-align:center;">'+espEsc(u.tel||u.telephone||'—')+'</td>'+
+      '<td style="text-align:center;">'+espEsc(u.matricule||'—')+'</td>'+
+      '<td style="white-space:nowrap;">'+
+        '<button class="btn btn-secondary ptg-x" onclick="densShowForm(\''+u.login+'\')">✏️ Modifier</button>'+
+        '<button class="btn btn-secondary ptg-x" onclick="densResetPass(\''+u.login+'\')">🔑 Mot de passe</button>'+
+        '<button class="btn btn-secondary ptg-x" onclick="densDelete(\''+u.login+'\')">🗑 Supprimer</button>'+
+      '</td></tr>';
+  }).join('');
+  var vide='<tr><td colspan="6">'+espEmpty('Aucun enseignant enregistré. Cliquez « ➕ Ajouter un enseignant ».')+'</td></tr>';
+  return espCard('👨‍🏫 Gestion des enseignants ('+list.length+')',
+    '<button class="btn btn-primary" onclick="densShowForm()">➕ Ajouter un enseignant</button>'+espTools('dens-tab','Liste des enseignants'),
+    '<div id="dens-form-host"></div>'+
+    '<div class="table-wrap" id="dens-tab"><table><thead><tr><th>Nom et prénoms</th><th>Classe</th><th>Fonction</th><th>Téléphone</th><th>Matricule</th><th style="width:340px;">Actions</th></tr></thead><tbody>'+
+    (rows||vide)+'</tbody></table></div>');
+}
+
+/* ─────────────────── 2) POINTAGE DES ENSEIGNANTS ─────────────────── */
+var PTG_KEY='pgnep_pointage_ens';
+var PTG_H_ARR='07:30';   /* heure officielle d'arrivée */
+var PTG_H_DEP='17:30';   /* heure officielle de départ  */
+
+function ptgAll(){ return espLsGet(PTG_KEY,{}); }
+function ptgSet(m){ return espLsSet(PTG_KEY,m); }
+function ptgKey(d,login){ return d+'__'+login; }
+function ptgGet(d,login){ return ptgAll()[ptgKey(d,login)]||null; }
+function ptgNow(){ var n=new Date(); return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); }
+function ptgMin(h){ if(!h) return null; var p=String(h).split(':'); return (+p[0])*60+(+p[1]||0); }
+function ptgDur(a,b){ var x=ptgMin(a), y=ptgMin(b); if(x==null||y==null||y<x) return null; var t=y-x; return Math.floor(t/60)+'h'+String(t%60).padStart(2,'0'); }
+function ptgRetard(a){ var x=ptgMin(a), r=ptgMin(PTG_H_ARR); return (x!=null && r!=null && x>r) ? (x-r) : 0; }
+
+function ptgDate(){ var e=document.getElementById('ptg-date'); return (e&&e.value)||espToday(); }
+function ptgSave(login, champ, val){
+  var d=ptgDate(); var m=ptgAll(); var k=ptgKey(d,login);
+  var e=m[k]||{login:login, date:d, ecole_id:espMyEcoleId()};
+  e[champ]=val; m[k]=e; ptgSet(m);
+  try{ if(window._firebaseReady && window._fb) window._fb.set('pointage_ens', k, e).catch(function(){}); }catch(err){}
+  espRenderPresEns();
+}
+function ptgArrivee(login){ ptgSave(login,'arrivee',ptgNow()); }
+function ptgDepart(login){
+  var e=ptgGet(ptgDate(),login);
+  if(!e||!e.arrivee){ if(!confirm('Aucune arrivée pointée pour cet enseignant. Enregistrer quand même le départ ?')) return; }
+  ptgSave(login,'depart',ptgNow());
+}
+function ptgManuel(login,champ){
+  var e=ptgGet(ptgDate(),login)||{};
+  var lbl=(champ==='arrivee')?'arrivée':'départ';
+  var v=prompt('Heure d\'' + lbl + ' (format HH:MM) :', e[champ]||ptgNow());
+  if(v===null) return; v=v.trim();
+  if(v && !/^([01]?\d|2[0-3]):[0-5]\d$/.test(v)){ alert('Format invalide. Exemple : 07:45'); return; }
+  ptgSave(login,champ,v);
+}
+function ptgAbsent(login){
+  var d=ptgDate(); var m=ptgAll(); var k=ptgKey(d,login);
+  var e=m[k]||{login:login,date:d,ecole_id:espMyEcoleId()};
+  e.absent=!e.absent; if(e.absent){ e.arrivee=''; e.depart=''; }
+  m[k]=e; ptgSet(m);
+  try{ if(window._firebaseReady && window._fb) window._fb.set('pointage_ens', k, e).catch(function(){}); }catch(err){}
+  espRenderPresEns();
+}
+function ptgEffacer(login){
+  if(!confirm('Effacer le pointage de cet enseignant pour la journée ?')) return;
+  var d=ptgDate(); var m=ptgAll(); var k=ptgKey(d,login);
+  delete m[k]; ptgSet(m);
+  try{ if(window._firebaseReady && window._fb) window._fb.del('pointage_ens', k).catch(function(){}); }catch(err){}
+  espRenderPresEns();
+}
+
+/* Bloc « Pointage » injecté dans la page Présence enseignants */
+function ptgBlock(){
+  var d=ptgDate(); var ens=espSchoolEnseignants();
+  var nP=0,nR=0,nA=0;
+  var rows=ens.map(function(u){
+    var e=ptgGet(d,u.login)||{};
+    var ret=e.arrivee?ptgRetard(e.arrivee):0;
+    if(e.absent) nA++; else if(e.arrivee){ nP++; if(ret>0) nR++; }
+    var statut = e.absent ? '<span class="ptg-b ptg-abs">Absent</span>'
+               : (e.arrivee ? (ret>0 ? '<span class="ptg-b ptg-ret">Retard '+ret+' min</span>' : '<span class="ptg-b ptg-ok">À l\'heure</span>')
+                            : '<span class="ptg-b ptg-non">Non pointé</span>');
+    var dur=(e.arrivee&&e.depart)?ptgDur(e.arrivee,e.depart):'—';
+    return '<tr'+(e.absent?' class="ptg-row-abs"':'')+'>'+
+      '<td><strong>'+espEsc(u.nom)+'</strong><div class="ptg-sub">'+espEsc(u.login)+'</div></td>'+
+      '<td style="text-align:center;"><span class="badge badge-bleu">'+espEsc(u.structure_val||'—')+'</span></td>'+
+      '<td style="text-align:center;"><span class="ptg-h">'+(e.arrivee||'—')+'</span>'+
+        '<button class="ptg-mini" title="Saisir l\'heure" onclick="ptgManuel(\''+u.login+'\',\'arrivee\')">✏️</button></td>'+
+      '<td style="text-align:center;"><span class="ptg-h">'+(e.depart||'—')+'</span>'+
+        '<button class="ptg-mini" title="Saisir l\'heure" onclick="ptgManuel(\''+u.login+'\',\'depart\')">✏️</button></td>'+
+      '<td style="text-align:center;font-weight:700;">'+dur+'</td>'+
+      '<td style="text-align:center;">'+statut+'</td>'+
+      '<td style="white-space:nowrap;">'+
+        '<button class="btn btn-secondary ptg-x" onclick="ptgArrivee(\''+u.login+'\')">🟢 Arrivée</button>'+
+        '<button class="btn btn-secondary ptg-x" onclick="ptgDepart(\''+u.login+'\')">🔴 Départ</button>'+
+        '<button class="btn btn-secondary ptg-x" onclick="ptgAbsent(\''+u.login+'\')">'+(e.absent?'↩︎ Annuler abs.':'🚫 Absent')+'</button>'+
+        '<button class="btn btn-secondary ptg-x" onclick="ptgEffacer(\''+u.login+'\')">🗑</button>'+
+      '</td></tr>';
+  }).join('');
+  var nNon=Math.max(0, ens.length-nP-nA);
+  var stat='<div class="eff-grid"><div class="eff-box p"><div class="eff-lbl">Pointés présents</div><div class="eff-val">'+nP+'</div></div>'+
+    '<div class="eff-box ab"><div class="eff-lbl">Retards</div><div class="eff-val">'+nR+'</div></div>'+
+    '<div class="eff-box a"><div class="eff-lbl">Absents</div><div class="eff-val">'+nA+'</div></div>'+
+    '<div class="eff-box t"><div class="eff-lbl">Non pointés</div><div class="eff-val">'+nNon+'</div></div></div>';
+  var bar='<div class="ptg-bar"><label>Date :</label><input type="date" id="ptg-date" class="filter-select" value="'+d+'" onchange="espRenderPresEns()">'+
+    '<span class="ptg-ref">Horaires officiels : arrivée '+PTG_H_ARR+' · départ '+PTG_H_DEP+'</span>'+
+    '<button class="btn btn-primary" onclick="ptgTousArrives()">🟢 Pointer tout le monde (arrivée)</button>'+
+    '<button class="btn btn-secondary" onclick="ptgRecap()">📊 Récapitulatif mensuel</button></div>';
+  var tools=espTools('ptg-tab','Pointage enseignants');
+  return espCard('🕒 Pointage des enseignants — journée du '+d, tools,
+    bar+stat+'<div class="table-wrap" id="ptg-tab"><table><thead><tr><th>Enseignant</th><th>Classe</th><th>Arrivée</th><th>Départ</th><th>Durée</th><th>Statut</th><th style="width:300px;">Pointer</th></tr></thead><tbody>'+
+    (rows||'<tr><td colspan="7">'+espEmpty('Aucun enseignant. Ajoutez-les dans « Enseignants & effectifs ».')+'</td></tr>')+'</tbody></table></div>');
+}
+function ptgTousArrives(){
+  if(!confirm('Enregistrer l\'heure d\'arrivée actuelle ('+ptgNow()+') pour tous les enseignants non encore pointés ?')) return;
+  var d=ptgDate(), m=ptgAll(), h=ptgNow(), n=0;
+  espSchoolEnseignants().forEach(function(u){
+    var k=ptgKey(d,u.login), e=m[k];
+    if(e && (e.arrivee || e.absent)) return;
+    m[k]=Object.assign({login:u.login,date:d,ecole_id:espMyEcoleId()}, e||{}, {arrivee:h});
+    n++;
+    try{ if(window._firebaseReady && window._fb) window._fb.set('pointage_ens', k, m[k]).catch(function(){}); }catch(err){}
+  });
+  ptgSet(m); espRenderPresEns();
+  alert('✅ '+n+' enseignant(s) pointé(s) à '+h+'.');
+}
+
+/* Récapitulatif mensuel */
+function ptgRecap(){
+  var d=ptgDate(); var mois=d.slice(0,7);
+  var all=ptgAll(), ens=espSchoolEnseignants();
+  var rows=ens.map(function(u){
+    var j=0, ret=0, abs=0, tot=0;
+    Object.keys(all).forEach(function(k){
+      var e=all[k]; if(!e || e.login!==u.login || String(e.date||'').slice(0,7)!==mois) return;
+      if(e.absent){ abs++; return; }
+      if(e.arrivee){ j++; var r=ptgRetard(e.arrivee); if(r>0) ret+=r;
+        if(e.depart){ var t=ptgMin(e.depart)-ptgMin(e.arrivee); if(t>0) tot+=t; } }
+    });
+    return '<tr><td><strong>'+espEsc(u.nom)+'</strong></td><td style="text-align:center;">'+espEsc(u.structure_val||'—')+'</td>'+
+      '<td style="text-align:center;font-weight:700;">'+j+'</td>'+
+      '<td style="text-align:center;color:'+(abs?'#DC2626':'inherit')+';">'+abs+'</td>'+
+      '<td style="text-align:center;color:'+(ret?'#F77F00':'inherit')+';">'+(ret?ret+' min':'0')+'</td>'+
+      '<td style="text-align:center;">'+(tot?Math.floor(tot/60)+'h'+String(tot%60).padStart(2,'0'):'—')+'</td></tr>';
+  }).join('');
+  var ov=document.createElement('div'); ov.className='doclib-overlay';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.innerHTML='<div class="doclib-modal"><div class="doclib-modal-h"><strong>📊 Récapitulatif du mois '+mois+'</strong>'+
+    '<button onclick="this.closest(\'.doclib-overlay\').remove()">✕</button></div>'+
+    '<div class="doclib-modal-b" style="display:block;padding:14px;background:#fff;">'+
+    '<div class="table-wrap" id="ptg-recap-tab"><table><thead><tr><th>Enseignant</th><th>Classe</th><th>Jours pointés</th><th>Absences</th><th>Cumul retards</th><th>Heures travaillées</th></tr></thead><tbody>'+
+    (rows||'<tr><td colspan="6">Aucune donnée.</td></tr>')+'</tbody></table></div>'+
+    '<div style="margin-top:10px;">'+espTools('ptg-recap-tab','Recapitulatif pointage '+mois)+'</div></div></div>';
+  document.body.appendChild(ov);
+}
 
 </script>
 </body>
