@@ -1177,6 +1177,118 @@ tr:hover td{background:#F9FAFB;}
 <style id="cat-scope-style">
 .cat-scope{background:#EEF6FF;border:1px solid #BFDBFE;border-left:4px solid #2563EB;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#1E3A8A;margin-bottom:12px;line-height:1.5;}
 </style>
+
+<style id="pw-eye-style">
+.pw-wrap{position:relative;display:block;}
+.pw-wrap input{width:100%;padding-right:44px !important;}
+.pw-eye{position:absolute;top:50%;right:8px;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;padding:6px;line-height:1;
+  font-size:17px;opacity:.55;border-radius:8px;transition:opacity .15s,background .15s;}
+.pw-eye:hover{opacity:1;background:rgba(0,0,0,.05);}
+.pw-eye:focus-visible{outline:2px solid #F77F00;outline-offset:1px;opacity:1;}
+.pw-eye.on{opacity:1;}
+</style>
+
+<style id="cj-v36-style">
+.cj-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#F1F5F9;border:1px solid var(--border,#e5e9ef);border-radius:10px;padding:10px 12px;margin-bottom:12px;}
+.cj-bar label{font-weight:700;font-size:13px;}
+.cj-note{font-size:11.5px;color:var(--text3,#94a3b8);flex:1;min-width:190px;}
+.cj-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.cj-tab{border:1px solid var(--border,#e5e9ef);background:#fff;border-radius:9px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2,#475569);}
+.cj-tab:hover{background:#f1f5f9;}
+.cj-tab.active{background:#123a63;color:#fff;border-color:#123a63;}
+.cj-entete{display:grid;grid-template-columns:1fr 1fr;gap:7px 18px;background:#F8FAFC;border:1px solid var(--border,#e5e9ef);border-radius:10px;padding:12px 14px;margin-bottom:12px;}
+.cj-ent-f{display:flex;align-items:center;gap:6px;font-size:12.5px;}
+.cj-ent-f.cj-full{grid-column:1/-1;}
+.cj-ent-f label{font-weight:700;white-space:nowrap;}
+.cj-ent-f .cj-cell{flex:1;border:1px solid #e5e9ef;border-radius:6px;background:#fff;padding:5px 7px;min-height:18px;}
+@media(max-width:640px){.cj-entete{grid-template-columns:1fr;}}
+.cj-scroll{overflow-x:auto;}
+.cj-table{width:max-content;min-width:100%;border-collapse:collapse;font-size:11.5px;}
+.cj-table th{background:#123a63;color:#fff;padding:5px 6px;border:1px solid #0e2e50;position:relative;vertical-align:top;font-size:10.5px;}
+.cj-table td{border:1px solid #e6eaf0;vertical-align:top;padding:0;min-width:110px;max-width:240px;}
+.cj-table .cj-th-j{background:#EAF0F7;color:#123a63;min-width:100px;text-align:left;}
+.cj-table .cj-th-j .cj-cell{color:#123a63;font-weight:800;}
+.cj-cell{padding:5px 7px;min-height:20px;outline:none;}
+.cj-cell:focus{background:#FFFDEB;box-shadow:inset 0 0 0 2px #FCD34D;}
+.cj-disc{color:#fff;font-weight:700;}
+.cj-del{position:absolute;top:2px;right:2px;background:none;border:none;color:#fff;cursor:pointer;font-size:10px;opacity:.6;padding:1px 3px;border-radius:4px;}
+.cj-del:hover{opacity:1;background:rgba(255,255,255,.2);}
+.cj-th-j .cj-del{color:#DC2626;}
+.cj-th-j .cj-del:hover{background:#FEE2E2;}
+.cj-x{width:34px;text-align:center;}
+.cj-x button{background:none;border:none;cursor:pointer;color:#DC2626;font-size:12px;}
+.cj-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.cj-info{background:#EEF6FF;border:1px solid #BFDBFE;border-left:4px solid #2563EB;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#1E3A8A;margin-bottom:12px;line-height:1.55;}
+.cj-fiche-haut{display:flex;gap:18px;flex-wrap:wrap;align-items:center;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:10px 14px;margin-bottom:10px;}
+.cj-fiche-haut>div{display:flex;align-items:center;gap:6px;font-size:12.5px;flex:1;min-width:170px;}
+.cj-fiche-haut label{font-weight:700;white-space:nowrap;}
+.cj-fiche-haut .cj-cell{flex:1;border-bottom:1px dotted #94a3b8;min-width:90px;}
+.cj-ro{color:#64748b;font-weight:700;}
+.cj-ftable th{background:#E8792B;color:#fff;border-color:#c9631d;}
+.cj-ftable td{min-width:90px;}
+.cj-recre td{background:#E8792B;color:#fff;font-weight:800;text-align:center;letter-spacing:1px;}
+.cj-recre .cj-cell{color:#fff;}
+.cj-remarques{margin-top:12px;font-size:12.5px;}
+.cj-remarques label{font-weight:700;}
+.cj-rem{border:1px solid var(--border,#e5e9ef);border-radius:8px;background:#fff;min-height:42px;margin-top:4px;padding:7px 9px;}
+.cj-visas{display:flex;justify-content:space-around;gap:16px;margin-top:26px;flex-wrap:wrap;text-align:center;font-size:12.5px;font-weight:700;color:#334155;}
+.cj-visas>div{border-top:1px dotted #94a3b8;padding-top:6px;min-width:170px;flex:1;}
+
+</style>
+
+<style id="cj-scroll-style">
+/* ════════ DÉFILEMENT HORIZONTAL DU CAHIER JOURNAL ════════
+   1) Les conteneurs parents (flex) doivent pouvoir rétrécir : min-width:0.
+      Sans cela, .main s'élargit pour contenir la table → la PAGE déborde
+      et le conteneur interne ne défile jamais.
+   2) #cj-tab (ciblé par ID pour la priorité) porte le défilement.
+   3) La table interne prend sa largeur naturelle (max-content) pour déborder. */
+.app, .layout, .shell{max-width:100%;}
+.main, .content, .page, .esp-body, .tab-content{min-width:0 !important;}
+.card, .card > div{min-width:0; max-width:100%;}
+
+#cj-tab{
+  display:block !important;
+  width:100% !important;
+  max-width:100% !important;
+  overflow-x:scroll !important;
+  overflow-y:visible !important;
+  padding-bottom:6px;
+  scrollbar-width:auto;
+  scrollbar-color:#123a63 #E2E8F0;
+  -webkit-overflow-scrolling:touch;
+  scroll-behavior:smooth;
+  border-radius:10px;
+}
+#cj-tab > table.cj-table{
+  width:max-content !important;
+  min-width:100%;
+}
+#cj-tab::-webkit-scrollbar{height:15px;}
+#cj-tab::-webkit-scrollbar-track{background:#E2E8F0;border-radius:10px;margin:0 2px;}
+#cj-tab::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg,#2E75B6,#123a63);
+  border-radius:10px;border:3px solid #E2E8F0;min-width:60px;}
+#cj-tab::-webkit-scrollbar-thumb:hover{background:#0e2e50;}
+
+/* Colonne JOURS figée à gauche pendant le défilement */
+.cj-table thead th:first-child,
+.cj-table tbody th.cj-th-j{position:sticky;left:0;z-index:3;}
+.cj-table thead th:first-child{z-index:4;background:#123a63;}
+.cj-table tbody th.cj-th-j{background:#EAF0F7;box-shadow:2px 0 0 #dbe3ec;}
+
+/* Barre d'outils de défilement */
+.cj-scrollbar{display:flex;align-items:center;gap:8px;margin:8px 0 4px;flex-wrap:wrap;}
+.cj-sc-btn{border:1px solid var(--border,#e5e9ef);background:#fff;border-radius:8px;
+  padding:6px 14px;font-size:15px;font-weight:700;cursor:pointer;color:#123a63;line-height:1;}
+.cj-sc-btn:hover{background:#EAF0F7;}
+.cj-sc-btn:active{transform:translateY(1px);}
+.cj-sc-range{flex:1;min-width:150px;accent-color:#123a63;height:8px;cursor:grab;}
+.cj-sc-range:active{cursor:grabbing;}
+.cj-sc-hint{font-size:11.5px;color:var(--text3,#94a3b8);white-space:nowrap;}
+@media(max-width:640px){.cj-sc-hint{display:none;}}
+</style>
 </head>
 <body>
 
@@ -1210,8 +1322,11 @@ tr:hover td{background:#F9FAFB;}
       </div>
       <div class="form-field">
         <label>Mot de passe</label>
-        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
-          onkeydown="if(event.key==='Enter')doLogin()">
+        <div class="pw-wrap">
+          <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')doLogin()">
+          <button type="button" class="pw-eye" id="pw-eye-login-pass" aria-label="Afficher le mot de passe" title="Afficher le mot de passe" onclick="togglePw('login-pass')">👁️</button>
+        </div>
       </div>
       <button class="login-btn" onclick="doLogin()">Se connecter →</button>
     <button onclick="resetComptes()" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:10px;cursor:pointer;margin-top:8px;text-decoration:underline;display:block;width:100%;">Problème de connexion ? Réinitialiser les comptes</button>
@@ -2442,10 +2557,10 @@ tr:hover td{background:#F9FAFB;}
               <input type="hidden" id="edit-login-orig">
               <div class="form-field"><label>Identifiant</label><input type="text" id="new-login" placeholder="prenom.nom"></div>
               <div class="form-field"><label>Nom complet</label><input type="text" id="new-nom-user" placeholder="NOM PRÉNOMS"></div>
-              <div class="form-field"><label>Mot de passe</label><input type="password" id="new-pass" placeholder="Min. 8 caractères" oninput="checkPassStrength(this.value)">
+              <div class="form-field"><label>Mot de passe</label><div class="pw-wrap"><input type="password" id="new-pass" placeholder="Min. 8 caractères" oninput="checkPassStrength(this.value)"><button type="button" class="pw-eye" id="pw-eye-new-pass" aria-label="Afficher le mot de passe" title="Afficher le mot de passe" onclick="togglePw('new-pass')">👁️</button></div>
               <div id="pass-strength-bar" style="height:4px;border-radius:2px;margin-top:4px;background:#E5E9EF;"><div id="pass-strength-fill" style="height:100%;border-radius:2px;width:0%;transition:all 0.3s;"></div></div>
               <div id="pass-strength-label" style="font-size:10px;margin-top:2px;color:var(--text3);"></div></div>
-              <div class="form-field"><label>Confirmer</label><input type="password" id="new-pass2" placeholder="••••••••"></div>
+              <div class="form-field"><label>Confirmer</label><div class="pw-wrap"><input type="password" id="new-pass2" placeholder="••••••••"><button type="button" class="pw-eye" id="pw-eye-new-pass2" aria-label="Afficher le mot de passe" title="Afficher le mot de passe" onclick="togglePw('new-pass2')">👁️</button></div></div>
               <div class="form-field">
                 <label>Rôle</label>
                 <select class="filter-select" id="new-role" style="width:100%;padding:10px;" onchange="updateStructureFields()">
@@ -2907,6 +3022,7 @@ function forceLogout() {
   }
   var u=document.getElementById('login-user'); if(u) u.value='';
   var pw=document.getElementById('login-pass'); if(pw) pw.value='';
+  if(typeof pwEyeReset==='function') pwEyeReset();
   var err=document.getElementById('login-error'); if(err) err.style.display='none';
 }
 
@@ -8553,7 +8669,9 @@ function espRenderJournal(){
     '<div style="font-weight:700;margin-top:6px;">'+espEsc(x.titre)+'</div>'+(x.activites?'<div style="font-size:13px;color:var(--text2);margin-top:4px;white-space:pre-wrap;">'+espEsc(x.activites)+'</div>':'')+'</div>').join('');
   const importBtns='<button class="btn btn-secondary" onclick="espModeleJournal()">📋 Modèle Excel</button><button class="btn btn-primary" onclick="espImportJournal()">📥 Importer Excel</button> ';
   const list=espCard('📓 Journal de la classe '+(cl?('· '+cl):''), importBtns+espTools('jr-list','Cahier journal'), '<div id="jr-list">'+(items||espEmpty('Aucune entrée pour le moment.'))+'</div>');
-  box.innerHTML=form+'<div style="height:16px;"></div>'+list;
+  var _cj=(typeof cjBlock==='function')?(cjBlock()+'<div style="height:18px;"></div>'):'';
+  box.innerHTML=_cj+form+'<div style="height:16px;"></div>'+list;
+  if(typeof cjMount==='function') cjMount();
 }
 /* -- Tableau d'affichage (maître) -- */
 function espEdtKey(){ return (espMyEcoleId()||'x')+'__'+(espMyClasse()||'x'); }
@@ -10999,6 +11117,423 @@ function ptgRecap(){
     (rows||'<tr><td colspan="6">Aucune donnée.</td></tr>')+'</tbody></table></div>'+
     '<div style="margin-top:10px;">'+espTools('ptg-recap-tab','Recapitulatif pointage '+mois)+'</div></div></div>';
   document.body.appendChild(ov);
+}
+
+</script>
+
+<script id="pw-eye-script">
+/* Afficher / masquer le mot de passe (additif) */
+function togglePw(id){
+  var inp=document.getElementById(id); if(!inp) return;
+  var btn=document.getElementById('pw-eye-'+id);
+  var show=(inp.type==='password');
+  inp.type=show?'text':'password';
+  if(btn){
+    btn.textContent=show?'🙈':'👁️';
+    btn.classList.toggle('on',show);
+    var lbl=show?'Masquer le mot de passe':'Afficher le mot de passe';
+    btn.setAttribute('aria-label',lbl); btn.setAttribute('title',lbl);
+  }
+  try{ inp.focus({preventScroll:true}); var v=inp.value; inp.value=''; inp.value=v; }catch(e){}
+}
+/* Par sécurité : remasquer les champs à chaque affichage de l'écran de connexion */
+function pwEyeReset(){
+  ['login-pass','new-pass','new-pass2'].forEach(function(id){
+    var i=document.getElementById(id); if(i && i.type==='text'){ i.type='password'; }
+    var b=document.getElementById('pw-eye-'+id);
+    if(b){ b.textContent='👁️'; b.classList.remove('on');
+      b.setAttribute('aria-label','Afficher le mot de passe'); b.setAttribute('title','Afficher le mot de passe'); }
+  });
+}
+</script>
+
+<script id="cj-v36-script">
+/* ══════════════════════════════════════════════════════════════════════
+   CAHIER JOURNAL — MODÈLE OFFICIEL PRÉCONÇU ET PRÉ-REMPLI (CP1 → CM2)
+   • Vue 1 : Grille hebdomadaire (JOURS × DISCIPLINES) — exemple modifiable
+   • Vue 2 : Fiche journalière (Niveau · Horaire · Matière · Titre ·
+             Objectifs et compétences visés · N° séance · N° fiche)
+             avec bandes RÉCRÉATION, Remarques et visas — exemple modifiable
+   Modifiable, importable, exportable (Word/Excel/PDF), imprimable.
+   Additif : la saisie journalière existante est conservée intacte.
+   ══════════════════════════════════════════════════════════════════════ */
+
+var CJ_JOURS=['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI'];
+
+var CJ_DISC={
+  CP:['EDHC','LECTURE','ÉCRITURE','EXPRESSION ORALE','EXPRESSION ÉCRITE','POÉSIE / CHANT','ANIMATION LECTURE','MATHÉMATIQUES','AEC','EPS'],
+  CE:['EDHC','LECTURE','EXPLOITATION DE TEXTE','EXPRESSION ÉCRITE','EXPRESSION ORALE','POÉSIE / CHANT','MATHÉMATIQUES','SCIENCES ET TECHNOLOGIE','HISTOIRE - GÉOGRAPHIE','AEC','EPS']
+};
+function cjCycle(cl){ return (cl==='CP1'||cl==='CP2')?'CP':'CE'; }
+
+/* Colonnes de la fiche journalière (modèle officiel fourni) */
+var CJ_FICHE_COLS=['NIVEAU','HORAIRE — De','HORAIRE — à','MATIÈRE','TITRE','OBJECTIFS ET COMPÉTENCES VISÉS','N° s','N° f'];
+var CJ_RECRE='@RECRE';
+
+/* ═══════ EXEMPLES PRÉ-REMPLIS (modifiables) ═══════ */
+/* Grille hebdomadaire — d'après le spécimen officiel CP1 */
+var CJ_EX_GRILLE={
+  CP:{
+    '0_1':'La lettre-son « i » — L.E p. 18',    '0_2':'Écriture de la lettre « i » — L.E p. 18',
+    '0_3':'Au marché — G.P / G.E',              '0_6':'Animation lecture',
+    '0_7':'En allant à l\'école — L.E p. 25',
+    '1_1':'La lettre-son « i » (révision) — L.E p. 18', '1_3':'Au marché — G.P / G.E',
+    '1_4':'Correspondance — L.E p. 52',         '1_5':'Chant 1',
+    '1_7':'Manipulations d\'objets — G.P / G.E','1_8':'Chant en français — P.E / G.E',
+    '2_0':'Le droit à la protection — L.E p. 30','2_2':'Écriture de la lettre « i » — L.E p. 18',
+    '2_3':'Au marché — G.P / G.E',              '2_6':'Animation lecture',
+    '2_7':'Autant de / Pas autant de — L.E p. 54',
+    '3_1':'La lettre-son « u » — L.E p. 20',    '3_2':'Écriture de la lettre « u » — L.E p. 20',
+    '3_3':'Au marché — G.P / G.E',              '3_5':'Chant 2',
+    '3_7':'A plus de / A moins de — L.E p. 56', '3_9':'Jeux d\'adresse',
+    '4_1':'La lettre-son « u » (révision) — L.E p. 20','4_2':'La lettre-son « u » — L.E p. 20',
+    '4_3':'Au marché — G.P / G.E',              '4_6':'Évaluation',
+    '4_7':'A un de plus / A un de moins — L.E p. 58'
+  },
+  CE:{
+    '0_1':'Lecture 1 — Texte : « Le marché de mon village »','0_2':'Vocabulaire — Les mots du marché',
+    '0_4':'Expression orale — Se présenter',    '0_6':'Les nombres de 0 à 10 000',
+    '0_8':'Histoire — Mon village autrefois',
+    '1_1':'Lecture 2 — Compréhension du texte', '1_2':'Orthographe — Le pluriel des noms',
+    '1_3':'Expression écrite — Écrire une liste','1_6':'Situation de proportionnalité',
+    '1_7':'Sciences — Les parties de la plante',
+    '2_0':'Le droit à la protection de l\'enfant','2_1':'Lecture 3 — Lecture expressive',
+    '2_2':'Grammaire — La phrase',              '2_5':'Poésie — Récitation',
+    '2_6':'Découverte des fractions',
+    '3_1':'Lecture 4 — Fluidité',               '3_2':'Conjugaison — Le présent',
+    '3_3':'Expression écrite — Le récit',       '3_6':'Géométrie — Les diagonales du rectangle',
+    '3_8':'Géographie — Le relief de ma région','3_10':'Jeux collectifs',
+    '4_1':'Lecture 5 — Animation lecture',      '4_3':'Dictée (administration)',
+    '4_6':'Exercices de révision',              '4_9':'Dessin — Le marché'
+  }
+};
+/* Fiche journalière — exemple d'une journée type */
+var CJ_EX_FICHE={
+  CP:[
+    ['CP1','07h45','08h00','Salut aux couleurs','Salut aux couleurs','Développer le sens civique et le respect des symboles','—','—'],
+    ['CP1','08h05','08h35','Lecture','La lettre-son « i »','Reconnaître, isoler et lire la lettre-son « i » — L.E p. 18','1','1'],
+    ['CP1','08h38','09h18','Mathématiques','En allant à l\'école','Dénombrer et comparer des collections d\'objets — L.E p. 25','1','2'],
+    ['CP1','09h18','09h58','Expression orale','Au marché','S\'exprimer oralement sur le thème du marché — G.P / G.E','1','3'],
+    [CJ_RECRE,'RÉCRÉATION'],
+    ['CP1','10h15','10h55','Écriture','Écriture de la lettre « i »','Tracer correctement la lettre « i » — L.E p. 18','2','4'],
+    ['CP1','10h55','11h20','EDHC','Le droit à la protection','Identifier les situations de protection de l\'enfant — L.E p. 30','1','5'],
+    ['CP1','11h20','11h55','Animation lecture','Animation lecture','Développer le goût et le plaisir de lire','1','6']
+  ],
+  CE:[
+    ['CE1','07h45','08h00','Salut aux couleurs','Salut aux couleurs','Développer le sens civique et le respect des symboles','—','—'],
+    ['CE1','08h05','08h35','Lecture','Le marché de mon village','Lire couramment et comprendre un texte narratif','1','1'],
+    ['CE1','08h40','09h25','Mathématiques','Les nombres de 0 à 10 000','Lire, écrire et décomposer les nombres jusqu\'à 10 000','1','2'],
+    ['CE1','09h25','10h00','Expression orale','Se présenter','Produire un énoncé oral cohérent pour se présenter','1','3'],
+    [CJ_RECRE,'RÉCRÉATION'],
+    ['CE1','10h15','11h00','Remédiation français','Groupes de niveau (ASER)','Renforcer le déchiffrage et la fluidité selon les groupes','1','4'],
+    ['CE1','11h00','11h30','Exploitation de texte','Vocabulaire — Les mots du marché','Employer à bon escient le lexique du marché','1','5'],
+    ['CE1','11h30','12h15','Sciences et technologie','Les parties de la plante','Identifier et nommer les parties d\'une plante','1','6']
+  ]
+};
+
+var CJ_KEY='pgnep_cahier_journal';
+var CJ_VUE='grille';
+
+function cjClasse(){ return espMyClasse()||'CP1'; }
+function cjKey(){ return (espMyEcoleId()||'x')+'__'+cjClasse()+'__'+cjSemaine(); }
+function cjSemaine(){
+  var e=document.getElementById('cj-sem');
+  if(e && e.value) return e.value;
+  var d=new Date(); var day=(d.getDay()+6)%7; d.setDate(d.getDate()-day);
+  return d.toISOString().slice(0,10);
+}
+function cjAll(){ return espLsGet(CJ_KEY,{}); }
+function cjSetAll(m){ return espLsSet(CJ_KEY,m); }
+
+function cjDefault(){
+  var cl=cjClasse(), cy=cjCycle(cl);
+  var u=espCU()||{};
+  var fiche=JSON.parse(JSON.stringify(CJ_EX_FICHE[cy]));
+  fiche.forEach(function(r){ if(r[0]!==CJ_RECRE) r[0]=cl; });   /* le niveau suit la classe */
+  return {
+    entete:{ prefecture:'', souspref:'', epp:espEcoleNom(espMyEcoleId()), directeur:'',
+             maitre:(u.nom||''), classe:cl,
+             annee:(typeof ANNEE_SCOLAIRE!=='undefined'?ANNEE_SCOLAIRE:'2025-2026'),
+             manuels:'FRANÇAIS : École, Nation et Développement (NEI-CEDA) · MATHS : École, Nation et Développement (NEI-CEDA) · EDHC : Citoyen de demain (Les Classiques Ivoiriens)',
+             date:'', sequence:'', remarques:'' },
+    disciplines:CJ_DISC[cy].slice(),
+    jours:CJ_JOURS.slice(),
+    cells:JSON.parse(JSON.stringify(CJ_EX_GRILLE[cy])),
+    fiche:fiche,
+    exemple:true
+  };
+}
+function cjGet(){ var m=cjAll(); var k=cjKey(); return m[k]?m[k]:cjDefault(); }
+function cjSave(d){ var m=cjAll(); var x=d||cjRead(); x.exemple=false; m[cjKey()]=x; cjSetAll(m); }
+
+/* ───────────────── Rendu ───────────────── */
+function cjBlock(){
+  var cl=cjClasse();
+  var onglets='<div class="cj-tabs">'+
+    '<button class="cj-tab'+(CJ_VUE==='grille'?' active':'')+'" onclick="cjVue(\'grille\')">📅 Grille hebdomadaire</button>'+
+    '<button class="cj-tab'+(CJ_VUE==='fiche'?' active':'')+'" onclick="cjVue(\'fiche\')">📝 Fiche journalière détaillée</button></div>';
+  var bar='<div class="cj-bar"><label>Semaine du :</label>'+
+    '<input type="date" id="cj-sem" class="filter-select" value="'+cjSemaine()+'" onchange="cjMount()">'+
+    '<button class="btn btn-secondary" onclick="cjChargerModele()">↺ Recharger l\'exemple '+cl+'</button>'+
+    '<button class="btn btn-secondary" onclick="cjVider()">🧹 Vider (page blanche)</button></div>';
+  var tools='<button class="btn btn-secondary" onclick="cjExportWord()">📄 Word</button>'+
+    '<button class="btn btn-secondary" onclick="cjExportExcel()">📊 Excel</button>'+
+    '<button class="btn btn-secondary" onclick="cjPrint()">📕 PDF / 🖨️ Imprimer</button>'+
+    '<button class="btn btn-secondary" onclick="cjModeleExcel()">📋 Modèle Excel</button>'+
+    '<button class="btn btn-secondary" onclick="cjImportExcel()">📥 Importer Excel</button>';
+  var actions='<div class="cj-actions">'+
+      '<button class="btn btn-secondary" onclick="cjAddLigne()">＋ Ligne</button>'+
+      (CJ_VUE==='grille'
+        ? '<button class="btn btn-secondary" onclick="cjAddCol()">＋ Discipline</button>'
+        : '<button class="btn btn-secondary" onclick="cjAddRecre()">＋ Récréation</button>')+
+      '<button class="btn btn-primary" onclick="cjEnregistrer()">💾 Enregistrer le cahier journal</button>'+
+    '</div>';
+  return espCard('📓 Cahier journal — modèle officiel · '+cl, tools,
+    '<div class="cj-info">💡 Le cahier est <strong>pré-rempli avec un exemple conforme au modèle officiel</strong>. Modifiez librement chaque case, ajoutez ou supprimez des lignes et des disciplines, puis enregistrez. Le bouton « 🧹 Vider » efface l\'exemple pour repartir d\'une page blanche.</div>'+
+    bar+onglets+'<div id="cj-mount"></div>'+actions);
+}
+function cjVue(v){ cjSave(cjRead()); CJ_VUE=v; if(typeof espRenderJournal==='function') espRenderJournal(); }
+
+function cjMount(){
+  var mount=document.getElementById('cj-mount'); if(!mount) return;
+  var d=cjGet(), e=d.entete;
+  var ent='<div class="cj-entete">'+
+    cjF('Préfecture','prefecture',e.prefecture)+cjF('Sous-préfecture / Commune','souspref',e.souspref)+
+    cjF('EPP','epp',e.epp)+cjF('Dirigée par','directeur',e.directeur)+
+    cjF('Tenu par M./Mme/Mlle','maitre',e.maitre)+cjF('Classe','classe',e.classe)+
+    cjF('Année scolaire','annee',e.annee)+cjF('Séquence','sequence',e.sequence)+
+    '<div class="cj-ent-f cj-full"><label>Manuels utilisés :</label><span contenteditable="true" class="cj-cell" data-ent="manuels">'+espEsc(e.manuels||'')+'</span></div>'+
+    '</div>';
+  mount.innerHTML=ent+(CJ_VUE==='grille'?cjGrille(d):cjFiche(d));
+  if(typeof cjBindScroll==='function') setTimeout(cjBindScroll,0);
+}
+function cjF(lbl,key,val){ return '<div class="cj-ent-f"><label>'+lbl+' :</label><span contenteditable="true" class="cj-cell" data-ent="'+key+'">'+espEsc(val||'')+'</span></div>'; }
+
+function cjGrille(d){
+  var head='<tr><th class="cj-th-j">JOURS</th>'+d.disciplines.map(function(m,ci){
+    return '<th><div contenteditable="true" class="cj-cell cj-disc" data-col="'+ci+'">'+espEsc(m)+'</div>'+
+      '<button class="cj-del" title="Supprimer la discipline" onclick="cjDelCol('+ci+')">✕</button></th>';
+  }).join('')+'</tr>';
+  var body=d.jours.map(function(j,ri){
+    var tds=d.disciplines.map(function(m,ci){
+      return '<td contenteditable="true" class="cj-cell cj-c" data-row="'+ri+'" data-col="'+ci+'">'+espEsc(d.cells[ri+'_'+ci]||'')+'</td>';
+    }).join('');
+    return '<tr><th class="cj-th-j"><div contenteditable="true" class="cj-cell" data-row="'+ri+'">'+espEsc(j)+'</div>'+
+      '<button class="cj-del" title="Supprimer le jour" onclick="cjDelLigne('+ri+')">✕</button></th>'+tds+'</tr>';
+  }).join('');
+  return '<div class="table-wrap cj-scroll" id="cj-tab"><table class="cj-table"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'+cjScrollBar();
+}
+function cjFiche(d){
+  var e=d.entete;
+  var haut='<div class="cj-fiche-haut">'+
+    '<div><label>Date :</label><span contenteditable="true" class="cj-cell" data-ent="date">'+espEsc(e.date||'')+'</span></div>'+
+    '<div><label>Séquence :</label><span contenteditable="true" class="cj-cell" data-ent="sequence">'+espEsc(e.sequence||'')+'</span></div>'+
+    '<div><label>Semaine :</label><span class="cj-cell cj-ro">'+espEsc(cjSemaine())+'</span></div></div>';
+  var nc=CJ_FICHE_COLS.length;
+  var rows=(d.fiche||[]).map(function(r,ri){
+    if(r[0]===CJ_RECRE){
+      return '<tr class="cj-recre"><td colspan="'+nc+'" contenteditable="true" class="cj-cell" data-rrow="'+ri+'">'+espEsc(r[1]||'RÉCRÉATION')+'</td>'+
+        '<td class="cj-x"><button onclick="cjDelFRow('+ri+')" title="Supprimer">🗑</button></td></tr>';
+    }
+    return '<tr>'+CJ_FICHE_COLS.map(function(c,ci){
+      return '<td contenteditable="true" class="cj-cell cj-f" data-frow="'+ri+'" data-fcol="'+ci+'">'+espEsc(r[ci]||'')+'</td>';
+    }).join('')+'<td class="cj-x"><button onclick="cjDelFRow('+ri+')" title="Supprimer">🗑</button></td></tr>';
+  }).join('');
+  var bas='<div class="cj-remarques"><label>Remarques :</label>'+
+    '<div contenteditable="true" class="cj-cell cj-rem" data-ent="remarques">'+espEsc(e.remarques||'')+'</div></div>'+
+    '<div class="cj-visas"><div>L\'enseignant(e)</div><div>Le Directeur / La Directrice</div><div>L\'Inspecteur / L\'Inspectrice</div></div>';
+  return haut+'<div class="table-wrap cj-scroll" id="cj-tab"><table class="cj-table cj-ftable"><thead><tr>'+
+    CJ_FICHE_COLS.map(function(c){return '<th>'+c+'</th>';}).join('')+'<th style="width:34px;"></th></tr></thead>'+
+    '<tbody id="cj-fbody">'+rows+'</tbody></table></div>'+cjScrollBar()+bas;
+}
+
+/* ───────────────── Défilement horizontal ───────────────── */
+function cjScrollBar(){
+  return '<div class="cj-scrollbar">'+
+    '<button type="button" class="cj-sc-btn" title="Défiler vers la gauche" onclick="cjScroll(-300)">◀</button>'+
+    '<input type="range" class="cj-sc-range" id="cj-sc-range" min="0" max="100" value="0" step="1" '+
+      'aria-label="Faire défiler le tableau horizontalement" oninput="cjScrollTo(this.value)">'+
+    '<button type="button" class="cj-sc-btn" title="Défiler vers la droite" onclick="cjScroll(300)">▶</button>'+
+    '<span class="cj-sc-hint">↔ Glissez le curseur pour voir toutes les colonnes</span></div>';
+}
+function cjScrollEl(){ return document.getElementById('cj-tab'); }
+function cjScroll(px){ var el=cjScrollEl(); if(!el) return; el.scrollLeft+=px; cjSyncRange(); }
+function cjScrollTo(pct){
+  var el=cjScrollEl(); if(!el) return;
+  /* forcer la lecture des dimensions à jour */
+  var max=el.scrollWidth-el.clientWidth;
+  if(max<=0){ el.scrollLeft=0; return; }
+  el.scrollLeft = max*(Math.max(0,Math.min(100,Number(pct)))/100);
+}
+function cjSyncRange(){
+  var el=cjScrollEl(), r=document.getElementById('cj-sc-range');
+  if(!el||!r) return;
+  var max=el.scrollWidth-el.clientWidth;
+  r.value = max>0 ? Math.round((el.scrollLeft/max)*100) : 0;
+}
+function cjBindScroll(){
+  var el=cjScrollEl(); if(!el) return;
+  if(!el.__cjBound){ el.__cjBound=true; el.addEventListener('scroll', cjSyncRange); }
+  cjSyncRange();
+  /* seconde synchro après stabilisation de la mise en page */
+  setTimeout(cjSyncRange, 200);
+}
+
+/* ───────────────── Lecture du DOM ───────────────── */
+function cjRead(){
+  var d=cjGet(); var mount=document.getElementById('cj-mount'); if(!mount) return d;
+  mount.querySelectorAll('[data-ent]').forEach(function(el){ d.entete[el.getAttribute('data-ent')]=(el.textContent||'').trim(); });
+  if(CJ_VUE==='grille'){
+    var disc=[]; mount.querySelectorAll('.cj-disc').forEach(function(el){ disc.push((el.textContent||'').trim()); });
+    if(disc.length) d.disciplines=disc;
+    var jours=[]; mount.querySelectorAll('.cj-th-j > [data-row]').forEach(function(el){ jours.push((el.textContent||'').trim()); });
+    if(jours.length) d.jours=jours;
+    var cells={};
+    mount.querySelectorAll('.cj-c').forEach(function(td){
+      var v=(td.textContent||'').trim();
+      if(v) cells[td.getAttribute('data-row')+'_'+td.getAttribute('data-col')]=v;
+    });
+    d.cells=cells;
+  } else {
+    var f=[];
+    mount.querySelectorAll('#cj-fbody tr').forEach(function(tr){
+      var rec=tr.querySelector('[data-rrow]');
+      if(rec){ f.push([CJ_RECRE, (rec.textContent||'RÉCRÉATION').trim()]); return; }
+      var r=[], any=false;
+      tr.querySelectorAll('.cj-f').forEach(function(td){ var v=(td.textContent||'').trim(); if(v) any=true; r.push(v); });
+      if(any) f.push(r);
+    });
+    d.fiche=f;
+  }
+  return d;
+}
+function cjEnregistrer(){ cjSave(cjRead()); alert('✅ Cahier journal enregistré (semaine du '+cjSemaine()+').'); }
+
+/* ───────────────── Structure ───────────────── */
+function cjAddLigne(){
+  var d=cjRead();
+  if(CJ_VUE==='grille'){ d.jours.push('NOUVEAU JOUR'); }
+  else { d.fiche=d.fiche||[]; d.fiche.push([cjClasse(),'','','','','','','']); }
+  cjSave(d); cjMount();
+}
+function cjAddRecre(){ var d=cjRead(); d.fiche=d.fiche||[]; d.fiche.push([CJ_RECRE,'RÉCRÉATION']); cjSave(d); cjMount(); }
+function cjDelFRow(ri){ var d=cjRead(); d.fiche.splice(ri,1); cjSave(d); cjMount(); }
+function cjDelLigne(ri){
+  var d=cjRead(); if(d.jours.length<=1){ alert('Au moins un jour est requis.'); return; }
+  d.jours.splice(ri,1);
+  var nc={}; Object.keys(d.cells).forEach(function(k){ var p=k.split('_'),r=+p[0],c=+p[1];
+    if(r===ri) return; nc[(r>ri?r-1:r)+'_'+c]=d.cells[k]; });
+  d.cells=nc; cjSave(d); cjMount();
+}
+function cjAddCol(){
+  if(CJ_VUE!=='grille') return;
+  var d=cjRead(); d.disciplines.push('NOUVELLE DISCIPLINE'); cjSave(d); cjMount();
+}
+function cjDelCol(ci){
+  var d=cjRead(); if(d.disciplines.length<=1){ alert('Au moins une discipline est requise.'); return; }
+  d.disciplines.splice(ci,1);
+  var nc={}; Object.keys(d.cells).forEach(function(k){ var p=k.split('_'),r=+p[0],c=+p[1];
+    if(c===ci) return; nc[r+'_'+(c>ci?c-1:c)]=d.cells[k]; });
+  d.cells=nc; cjSave(d); cjMount();
+}
+function cjChargerModele(){
+  if(!confirm('Recharger l\'exemple officiel '+cjClasse()+' ?\n\nLe contenu actuellement saisi pour cette semaine sera remplacé.')) return;
+  var m=cjAll(); delete m[cjKey()]; cjSetAll(m); cjMount();
+}
+function cjVider(){
+  if(!confirm('Vider le cahier journal de cette semaine (page blanche) ?')) return;
+  var d=cjRead(); d.cells={}; d.fiche=[[cjClasse(),'','','','','','','']];
+  d.entete.remarques=''; cjSave(d); cjMount();
+}
+
+/* ───────────────── Import / Export ───────────────── */
+function cjModeleExcel(){
+  if(CJ_VUE==='grille'){
+    var disc=CJ_DISC[cjCycle(cjClasse())];
+    espDownloadModele(['JOURS'].concat(disc), ['LUNDI'].concat(disc.map(function(){return '';})), 'modele_cahier_journal_'+cjClasse());
+  } else {
+    espDownloadModele(CJ_FICHE_COLS, [cjClasse(),'08h05','08h35','Lecture','La lettre-son « i »','Reconnaître et lire la lettre-son « i » — L.E p. 18','1','1'], 'modele_fiche_journaliere_'+cjClasse());
+  }
+}
+function cjImportExcel(){
+  espImportExcel(function(rows){
+    if(!rows||!rows.length){ alert('Fichier vide.'); return; }
+    var d=cjRead();
+    if(CJ_VUE==='grille'){
+      var keys=Object.keys(rows[0]); var jk=keys[0]; var disc=keys.slice(1);
+      var jours=[], cells={};
+      rows.forEach(function(r){
+        var j=String(r[jk]||'').trim(); if(!j) return; jours.push(j);
+        disc.forEach(function(dk,ci){ var v=String(r[dk]||'').trim(); if(v) cells[(jours.length-1)+'_'+ci]=v; });
+      });
+      if(!jours.length){ alert('Aucun jour détecté (1re colonne).'); return; }
+      d.disciplines=disc.map(function(s){return String(s).trim();}); d.jours=jours; d.cells=cells;
+      cjSave(d); cjMount(); alert('✅ Grille importée ('+jours.length+' jours).');
+    } else {
+      var f=[];
+      rows.forEach(function(r){
+        var line=CJ_FICHE_COLS.map(function(c){ return String(espCol(r,c)||'').trim(); });
+        if(/^r[ée]cr[ée]ation$/i.test(line[3]||'') || /^r[ée]cr[ée]ation$/i.test(line[0]||'')){ f.push([CJ_RECRE,'RÉCRÉATION']); return; }
+        if(line.some(function(x){return x;})) f.push(line);
+      });
+      if(!f.length){ alert('Aucune ligne exploitable.'); return; }
+      d.fiche=f; cjSave(d); cjMount(); alert('✅ Fiche journalière importée ('+f.length+' lignes).');
+    }
+  });
+}
+function cjEnteteHTML(d){
+  var e=d.entete;
+  return '<div style="text-align:center;margin-bottom:8px;">'+
+    '<div style="font-size:11px;font-weight:700;">MINISTÈRE DE L\'ÉDUCATION NATIONALE, DE L\'ALPHABÉTISATION ET DE L\'ENSEIGNEMENT TECHNIQUE</div>'+
+    '<div style="font-size:10px;font-style:italic;">RÉPUBLIQUE DE CÔTE D\'IVOIRE — Union · Discipline · Travail</div>'+
+    '<h1 style="margin:8px 0 2px;color:#123a63;font-size:20px;">CAHIER JOURNAL — '+espEsc(e.classe||'')+'</h1>'+
+    '<div style="font-size:12px;">Année scolaire : '+espEsc(e.annee||'')+' — Semaine du '+espEsc(cjSemaine())+
+      (e.sequence?(' — Séquence : '+espEsc(e.sequence)):'')+(e.date?(' — Date : '+espEsc(e.date)):'')+'</div></div>'+
+    '<table style="width:100%;border:none;font-size:11px;margin-bottom:8px;"><tr>'+
+    '<td style="border:none;"><b>Préfecture :</b> '+espEsc(e.prefecture)+'</td><td style="border:none;"><b>Sous-préfecture / Commune :</b> '+espEsc(e.souspref)+'</td></tr><tr>'+
+    '<td style="border:none;"><b>EPP :</b> '+espEsc(e.epp)+'</td><td style="border:none;"><b>Dirigée par :</b> '+espEsc(e.directeur)+'</td></tr><tr>'+
+    '<td style="border:none;"><b>Tenu par :</b> '+espEsc(e.maitre)+'</td><td style="border:none;"><b>Classe :</b> '+espEsc(e.classe)+'</td></tr><tr>'+
+    '<td colspan="2" style="border:none;"><b>Manuels utilisés :</b> '+espEsc(e.manuels)+'</td></tr></table>';
+}
+function cjExportHTML(){
+  var d=cjRead(); var h=cjEnteteHTML(d);
+  if(CJ_VUE==='grille'){
+    h+='<table><thead><tr><th>JOURS</th>'+d.disciplines.map(function(m){return '<th>'+espEsc(m)+'</th>';}).join('')+'</tr></thead><tbody>'+
+      d.jours.map(function(j,ri){ return '<tr><th style="background:#EAF0F7;color:#123a63;">'+espEsc(j)+'</th>'+
+        d.disciplines.map(function(m,ci){ return '<td>'+espEsc(d.cells[ri+'_'+ci]||'')+'</td>'; }).join('')+'</tr>'; }).join('')+
+      '</tbody></table>';
+  } else {
+    var nc=CJ_FICHE_COLS.length;
+    h+='<table><thead><tr>'+CJ_FICHE_COLS.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>'+
+      (d.fiche||[]).map(function(r){
+        if(r[0]===CJ_RECRE) return '<tr><td colspan="'+nc+'" style="background:#E8792B;color:#fff;font-weight:700;text-align:center;">'+espEsc(r[1]||'RÉCRÉATION')+'</td></tr>';
+        return '<tr>'+CJ_FICHE_COLS.map(function(c,ci){return '<td>'+espEsc(r[ci]||'')+'</td>';}).join('')+'</tr>';
+      }).join('')+'</tbody></table>'+
+      '<p style="font-size:11px;margin-top:10px;"><b>Remarques :</b> '+espEsc(d.entete.remarques||'')+'</p>';
+  }
+  h+='<table style="width:100%;border:none;margin-top:22px;font-size:11px;text-align:center;"><tr>'+
+     '<td style="border:none;">L\'enseignant(e)</td><td style="border:none;">Le Directeur / La Directrice</td><td style="border:none;">L\'Inspecteur / L\'Inspectrice</td></tr></table>';
+  return h;
+}
+function cjExportWord(){ affExportWordHTML(cjExportHTML(), 'Cahier_journal_'+cjClasse()+'_'+cjSemaine()); }
+function cjPrint(){ affPrintHTML(cjExportHTML(), 'Cahier journal — '+cjClasse()); }
+function cjExportExcel(){
+  if(typeof XLSX==='undefined'||!XLSX.utils){ alert('Module Excel indisponible.'); return; }
+  var d=cjRead(); var aoa;
+  if(CJ_VUE==='grille'){
+    aoa=[['JOURS'].concat(d.disciplines)];
+    d.jours.forEach(function(j,ri){ aoa.push([j].concat(d.disciplines.map(function(m,ci){ return d.cells[ri+'_'+ci]||''; }))); });
+  } else {
+    aoa=[CJ_FICHE_COLS.slice()];
+    (d.fiche||[]).forEach(function(r){
+      if(r[0]===CJ_RECRE){ aoa.push(['','','','RÉCRÉATION','','','','']); return; }
+      aoa.push(CJ_FICHE_COLS.map(function(c,ci){ return r[ci]||''; }));
+    });
+  }
+  var ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=aoa[0].map(function(_,i){ return {wch:i===0?12:(i===5?38:16)}; });
+  var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Cahier journal');
+  XLSX.writeFile(wb,'Cahier_journal_'+cjClasse()+'_'+cjSemaine()+'.xlsx');
 }
 
 </script>
