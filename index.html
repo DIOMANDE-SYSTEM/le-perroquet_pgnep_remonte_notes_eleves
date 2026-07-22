@@ -333,6 +333,7 @@ console.log('🔥 Firebase PGNEP initialisé');
 #conn-dot { width:7px;height:7px;border-radius:50%;background:#22C55E;flex-shrink:0;transition:background 0.3s; }
 
 :root {
+  --ci-vert:    #009E60;
   --ci-vert2:   #00843D;
   --ci-orange:  #F77F00;
   --ci-blanc:   #FFFFFF;
@@ -405,7 +406,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--surface);color:
 .flag{height:5px;border-radius:2px;flex:1;max-width:40px;}
 .flag.orange{background:var(--ci-orange);}
 .flag.white{background:rgba(255,255,255,0.8);}
-.flag.green{background:rgba(255,255,255,0.3);}
+.flag.green{background:var(--ci-vert);}
 .login-header h1{font-size:15px;font-weight:800;color:#fff;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;}
 .login-header p{font-size:12px;color:rgba(255,255,255,0.7);}
 .login-badge{
@@ -1352,7 +1353,7 @@ tr:hover td{background:#F9FAFB;}
           <div class="brand-badge">v3.1</div>
         </div>
       </div>
-      <div class="ci-stripe"><div class="stripe g"></div><div class="stripe w"></div><div class="stripe o"></div></div>
+      <div class="ci-stripe"><div class="stripe o"></div><div class="stripe w"></div><div class="stripe g"></div></div>
     </div>
 
     <!-- ══ MES ESPACES (V3.1) ══ -->
@@ -11536,6 +11537,419 @@ function cjExportExcel(){
   XLSX.writeFile(wb,'Cahier_journal_'+cjClasse()+'_'+cjSemaine()+'.xlsx');
 }
 
+</script>
+
+<script id="pgnep-store">
+/* ═══════════════════════════════════════════════════════════════════════
+   PGNEP_STORE — Externalisation des fichiers lourds vers IndexedDB
+   Bloc ADDITIF v1.0 — aucune fonction existante supprimée.
+   Principe : localStorage ne garde que les métadonnées ; les images et
+   PDF importés (data:…) sont déplacés dans IndexedDB (quota ~ Go au lieu
+   de 5 Mo) et remplacés par un pointeur "idb:<uid>".
+   Réutilise : espLsGet, espLsSet (interceptés, pas remplacés)
+   ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (window.PGNEP_STORE) return;
+
+  var DB_NAME = 'PGNEP_FILES', DB_VER = 1, STORE = 'blobs';
+  var PTR = 'idb:';                 /* pointeur écrit dans localStorage   */
+  var MARK = '#idb=';               /* marqueur porté par le DOM          */
+  var SEUIL = 16 * 1024;            /* on externalise au-delà de 16 Ko    */
+  var PH = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  /* clés à ne pas parcourir (grosses tables de scalaires, aucun fichier) */
+  var IGNORE = { 'pgnep_presences': 1, 'pgnep_presence_ens': 1, 'pgnep_abandons': 1 };
+  /* clés migrées automatiquement au premier chargement */
+  var LOURDES = ['pgnep_fiches', 'pgnep_aff_scans', 'pgnep_doclib',
+                 'pgnep_docpnapas', 'pgnep_cahier_journal'];
+
+  var cacheURL = {};   /* uid       -> blob: URL */
+  var revURL = {};     /* blob: URL -> uid       */
+  var enCours = {};    /* uid       -> Promise   */
+
+  /* ─────────────── IndexedDB ─────────────── */
+  var _db = null;
+  function openDB() {
+    if (_db) return Promise.resolve(_db);
+    return new Promise(function (res, rej) {
+      if (!window.indexedDB) { rej(new Error('IndexedDB indisponible')); return; }
+      var rq = indexedDB.open(DB_NAME, DB_VER);
+      rq.onupgradeneeded = function (e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'uid' });
+      };
+      rq.onsuccess = function (e) { _db = e.target.result; res(_db); };
+      rq.onerror = function () { rej(rq.error); };
+    });
+  }
+  function tx(mode, fn) {
+    return openDB().then(function (db) {
+      return new Promise(function (res, rej) {
+        var t = db.transaction(STORE, mode), r = fn(t.objectStore(STORE));
+        t.oncomplete = function () { res(r && r.result !== undefined ? r.result : r); };
+        t.onerror = function () { rej(t.error); };
+        t.onabort = function () { rej(t.error); };
+      });
+    });
+  }
+
+  /* ─────────────── utilitaires ─────────────── */
+  function uid() { return 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+  function dataURLToBlob(d) {
+    var p = String(d).split(','), m = (p[0].match(/:(.*?);/) || [0, 'application/octet-stream'])[1];
+    var bin = atob(p[1] || ''), u8 = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Blob([u8], { type: m });
+  }
+
+  function put(id, blob) {
+    return tx('readwrite', function (s) { s.put({ uid: id, blob: blob, taille: blob.size, type: blob.type, date: Date.now() }); })
+      .then(function () { return id; });
+  }
+
+  function charger(id) {
+    if (cacheURL[id]) return Promise.resolve(cacheURL[id]);
+    if (enCours[id]) return enCours[id];
+    enCours[id] = tx('readonly', function (s) { return s.get(id); }).then(function (rec) {
+      delete enCours[id];
+      if (!rec || !rec.blob) return null;
+      var u = URL.createObjectURL(rec.blob);
+      cacheURL[id] = u; revURL[u] = id;
+      planifierSwap();
+      return u;
+    }).catch(function (e) { delete enCours[id]; console.warn('[PGNEP_STORE] lecture', id, e); return null; });
+    return enCours[id];
+  }
+
+  /* ─────────────── encodage / décodage des valeurs ─────────────── */
+  function encoder(v) {
+    if (typeof v !== 'string') return v;
+    if (v.indexOf(PTR) === 0) return v;                       /* déjà externalisé */
+    if (v.indexOf(MARK) > 0) return PTR + v.split(MARK)[1];   /* placeholder DOM  */
+    if (v.indexOf('blob:') === 0) return revURL[v] ? PTR + revURL[v] : v;
+    if (v.indexOf('data:') === 0 && v.length > SEUIL) {
+      var id = uid(), blob;
+      try { blob = dataURLToBlob(v); } catch (e) { return v; }
+      cacheURL[id] = URL.createObjectURL(blob); revURL[cacheURL[id]] = id;
+      _ecritures.push(put(id, blob).catch(function (e) { console.warn('[PGNEP_STORE] écriture', e); }));
+      return PTR + id;
+    }
+    return v;
+  }
+  var _ecritures = [];
+
+  function decoder(v) {
+    if (typeof v !== 'string' || v.indexOf(PTR) !== 0) return v;
+    var id = v.slice(PTR.length);
+    if (cacheURL[id]) return cacheURL[id];
+    charger(id);
+    return PH + MARK + id;               /* pixel transparent + marqueur */
+  }
+
+  function parcourir(val, fn, prof) {
+    prof = prof || 0;
+    if (prof > 6 || val == null) return val;
+    if (typeof val === 'string') return fn(val);
+    if (Array.isArray(val)) { for (var i = 0; i < val.length; i++) val[i] = parcourir(val[i], fn, prof + 1); return val; }
+    if (typeof val === 'object') { for (var k in val) if (Object.prototype.hasOwnProperty.call(val, k)) val[k] = parcourir(val[k], fn, prof + 1); return val; }
+    return val;
+  }
+
+  /* ─────────────── résolution dans le DOM ─────────────── */
+  var _t = null;
+  function planifierSwap() { if (_t) return; _t = setTimeout(function () { _t = null; swapDOM(); }, 40); }
+  function swapDOM() {
+    var els;
+    try { els = document.querySelectorAll('[src*="' + MARK + '"],[href*="' + MARK + '"]'); }
+    catch (e) { return; }
+    for (var i = 0; i < els.length; i++) {
+      (function (el) {
+        var attr = el.hasAttribute('src') && (el.getAttribute('src') || '').indexOf(MARK) > 0 ? 'src' : 'href';
+        var raw = el.getAttribute(attr) || '';
+        var id = raw.split(MARK)[1];
+        if (!id) return;
+        if (cacheURL[id]) { el.setAttribute(attr, cacheURL[id]); return; }
+        charger(id).then(function (u) { if (u) el.setAttribute(attr, u); });
+      })(els[i]);
+    }
+  }
+
+  /* ─────────────── interception espLsGet / espLsSet ─────────────── */
+  function brancher() {
+    if (typeof window.espLsGet !== 'function' || typeof window.espLsSet !== 'function') return false;
+    if (window.espLsGet.__pgnep) return true;
+    var _get = window.espLsGet, _set = window.espLsSet;
+
+    window.espLsGet = function (k, d) {
+      var v = _get(k, d);
+      if (IGNORE[k]) return v;
+      try { v = parcourir(v, decoder, 0); } catch (e) {}
+      planifierSwap();
+      return v;
+    };
+    window.espLsGet.__pgnep = 1;
+
+    window.espLsSet = function (k, v) {
+      if (!IGNORE[k]) { try { v = parcourir(v, encoder, 0); } catch (e) {} }
+      var ok;
+      try { ok = _set(k, v); }
+      catch (e) { ok = false; }
+      _ecritures.length = 0;
+      if (ok === false) console.warn('[PGNEP_STORE] écriture localStorage refusée pour ' + k
+        + ' — utilisez PGNEP_STORE.info() pour le détail du stockage.');
+      return ok;
+    };
+    window.espLsSet.__pgnep = 1;
+    return true;
+  }
+
+  /* ─────────────── ouverture des fichiers (window.open) ─────────────── */
+  var _open = window.open;
+  window.open = function (url) {
+    if (typeof url === 'string' && url.indexOf(MARK) > 0) {
+      var id = url.split(MARK)[1], args = [].slice.call(arguments, 1);
+      charger(id).then(function (u) { if (u) _open.apply(window, [u].concat(args)); });
+      return null;
+    }
+    return _open.apply(window, arguments);
+  };
+
+  /* ─────────────── migration des données déjà en localStorage ─────────────── */
+  function migrer() {
+    var total = 0, n = 0;
+    LOURDES.forEach(function (k) {
+      var brut;
+      try { brut = localStorage.getItem(k); } catch (e) { return; }
+      if (!brut || brut.indexOf('data:') < 0) return;
+      var avant = brut.length, obj;
+      try { obj = JSON.parse(brut); } catch (e) { return; }
+      _ecritures = [];
+      var maj = parcourir(obj, encoder, 0);
+      var attentes = _ecritures.slice(); _ecritures = [];
+      Promise.all(attentes).then(function () {
+        try {
+          localStorage.setItem(k, JSON.stringify(maj));
+          total += avant - (localStorage.getItem(k) || '').length; n++;
+          console.info('[PGNEP_STORE] ' + k + ' allégé (' + Math.round((avant / 1048576) * 100) / 100 + ' Mo traités)');
+        } catch (e) { console.warn('[PGNEP_STORE] réécriture ' + k, e); }
+      });
+    });
+    return { cles: n, octets: total };
+  }
+
+  /* ─────────────── API publique ─────────────── */
+  var API = {
+    estimation: function () {
+      if (!navigator.storage || !navigator.storage.estimate)
+        return Promise.resolve({ supporte: false, usageMo: 0, quotaMo: 0, pct: 0 });
+      return navigator.storage.estimate().then(function (e) {
+        var u = e.usage || 0, q = e.quota || 0;
+        return { supporte: true, usageMo: +(u / 1048576).toFixed(1), quotaMo: +(q / 1048576).toFixed(1), pct: q ? Math.round(u / q * 100) : 0 };
+      });
+    },
+    persister: function () {
+      if (!navigator.storage || !navigator.storage.persist) return Promise.resolve(false);
+      return navigator.storage.persist();
+    },
+    lsUtiliseMo: function () {
+      var n = 0;
+      try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); n += k.length + (localStorage.getItem(k) || '').length; } } catch (e) {}
+      return +(n * 2 / 1048576).toFixed(2);
+    },
+    fichiers: function () { return tx('readonly', function (s) { return s.getAll(); }).then(function (a) { return (a || []).map(function (r) { return { uid: r.uid, taille: r.taille, type: r.type, date: r.date }; }); }); },
+    supprimer: function (id) { if (cacheURL[id]) { URL.revokeObjectURL(cacheURL[id]); delete revURL[cacheURL[id]]; delete cacheURL[id]; } return tx('readwrite', function (s) { s.delete(id); }); },
+    viderFichiers: function () {
+      return tx('readwrite', function (s) { s.clear(); }).then(function () {
+        for (var id in cacheURL) { URL.revokeObjectURL(cacheURL[id]); }
+        cacheURL = {}; revURL = {}; return true;
+      });
+    },
+    migrer: migrer,
+    resoudre: charger,
+    info: infoQuota
+  };
+
+  function infoQuota() {
+    return API.estimation().then(function (e) {
+      var msg = '📦 Stockage de l\'application\n\n'
+        + '• localStorage (données) : ' + API.lsUtiliseMo() + ' Mo / ~5 Mo\n'
+        + (e.supporte ? '• IndexedDB (fichiers) : ' + e.usageMo + ' Mo utilisés sur ' + e.quotaMo + ' Mo (' + e.pct + ' %)\n' : '')
+        + '\nLes images et PDF importés sont stockés hors du localStorage : la limite de 5 Mo ne s\'applique plus à eux.';
+      alert(msg);
+      return e;
+    });
+  }
+
+  window.PGNEP_STORE = API;
+
+  /* ─────────────── démarrage ─────────────── */
+  function demarrer() {
+    if (!brancher()) { setTimeout(demarrer, 200); return; }
+    try {
+      if (!localStorage.getItem('pgnep_store_migre_v1')) {
+        migrer();
+        localStorage.setItem('pgnep_store_migre_v1', new Date().toISOString());
+      }
+    } catch (e) { console.warn('[PGNEP_STORE] migration', e); }
+    if (window.MutationObserver && document.body) {
+      new MutationObserver(planifierSwap).observe(document.body, { childList: true, subtree: true });
+    }
+    if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(function () {}); }
+    planifierSwap();
+    console.info('[PGNEP_STORE] actif — fichiers lourds stockés dans IndexedDB');
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer);
+  else demarrer();
+})();
+</script>
+
+<script id="pgnep-store-ui">
+/* ═══════════════════════════════════════════════════════════════════════
+   PGNEP_STORE — Panneau « 📦 Stockage » (interface de gestion)
+   Bloc ADDITIF v1.0 — s'insère dans la page Export / Synchro et ajoute
+   une entrée de menu. Aucune modification du balisage existant.
+   Dépend de : PGNEP_STORE (bloc pgnep-store), showPage()
+   ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (window.pgnepStockagePanneau) return;
+
+  var CARD_ID = 'pgnep-store-card';
+
+  function mo(n) { return (Math.round(n * 100) / 100) + ' Mo'; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function barre(pct, couleur) {
+    pct = Math.max(0, Math.min(100, pct || 0));
+    return '<div style="height:9px;background:#E5E7EB;border-radius:5px;overflow:hidden;margin:5px 0 3px;">'
+      + '<div style="height:100%;width:' + pct + '%;background:' + couleur + ';border-radius:5px;transition:width .3s;"></div></div>';
+  }
+
+  /* ---------- construction du contenu ---------- */
+  function contenu() {
+    var lsMo = window.PGNEP_STORE ? window.PGNEP_STORE.lsUtiliseMo() : 0;
+    var lsPct = Math.round(lsMo / 5 * 100);
+    var lsCoul = lsPct >= 85 ? '#DC2626' : (lsPct >= 60 ? '#F59E0B' : '#059669');
+
+    var html = '<div style="font-size:12.5px;color:#475569;margin-bottom:12px;">'
+      + 'Les données (élèves, notes, présences) tiennent dans le stockage local du navigateur, limité à environ 5 Mo. '
+      + 'Les images et PDF importés sont, eux, placés dans une base de fichiers séparée, beaucoup plus vaste.</div>';
+
+    html += '<div style="margin-bottom:14px;">'
+      + '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;">'
+      + '<span>🗃️ Données (localStorage)</span><span style="color:' + lsCoul + ';">' + mo(lsMo) + ' / ~5 Mo</span></div>'
+      + barre(lsPct, lsCoul)
+      + '<div style="font-size:11px;color:#64748B;">' + (lsPct >= 85
+        ? '⚠️ Proche de la limite — faites un export JSON et videz la corbeille.'
+        : 'Niveau normal.') + '</div></div>';
+
+    html += '<div id="pgnep-store-idb" style="margin-bottom:14px;">'
+      + '<div style="font-size:12px;color:#64748B;">📁 Fichiers importés — lecture en cours…</div></div>';
+
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">'
+      + '<button class="btn btn-secondary" onclick="pgnepStockageRefresh()">🔄 Actualiser</button>'
+      + '<button class="btn btn-secondary" onclick="pgnepStockageOptimiser()">🧹 Optimiser maintenant</button>'
+      + '<button class="btn btn-secondary" onclick="pgnepStockageVider()">🗑 Vider les fichiers importés</button>'
+      + '</div>'
+      + '<div style="font-size:11px;color:#64748B;margin-top:10px;">'
+      + '« Optimiser » déplace vers la base de fichiers les images encore stockées avec les données. '
+      + '« Vider » supprime uniquement les images et PDF importés : élèves, notes et bulletins ne sont pas touchés.</div>';
+
+    return html;
+  }
+
+  /* ---------- section IndexedDB (asynchrone) ---------- */
+  function majIdb() {
+    var box = document.getElementById('pgnep-store-idb');
+    if (!box || !window.PGNEP_STORE) return;
+    Promise.all([window.PGNEP_STORE.estimation(), window.PGNEP_STORE.fichiers()])
+      .then(function (r) {
+        var e = r[0], f = r[1] || [];
+        var octets = f.reduce(function (a, x) { return a + (x.taille || 0); }, 0);
+        var pct = e.supporte ? e.pct : 0;
+        var coul = pct >= 85 ? '#DC2626' : (pct >= 60 ? '#F59E0B' : '#2563EB');
+        box.innerHTML = '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;">'
+          + '<span>📁 Fichiers importés (IndexedDB)</span>'
+          + '<span style="color:' + coul + ';">' + (e.supporte ? mo(e.usageMo) + ' / ' + mo(e.quotaMo) : 'non mesurable') + '</span></div>'
+          + (e.supporte ? barre(pct, coul) : '')
+          + '<div style="font-size:11px;color:#64748B;">' + f.length + ' fichier(s) · ' + mo(octets / 1048576) + ' au total</div>';
+      })
+      .catch(function () { box.innerHTML = '<div style="font-size:11px;color:#64748B;">📁 Fichiers importés : lecture impossible sur cet appareil.</div>'; });
+  }
+
+  /* ---------- actions ---------- */
+  window.pgnepStockageRefresh = function () {
+    var c = document.getElementById(CARD_ID);
+    if (c) { var b = c.querySelector('.pgnep-store-body'); if (b) b.innerHTML = contenu(); majIdb(); }
+  };
+
+  window.pgnepStockageOptimiser = function () {
+    if (!window.PGNEP_STORE) return;
+    window.PGNEP_STORE.migrer();
+    setTimeout(function () {
+      window.pgnepStockageRefresh();
+      alert('✅ Optimisation terminée.\n\nLes images encore stockées avec les données ont été déplacées vers la base de fichiers.');
+    }, 800);
+  };
+
+  window.pgnepStockageVider = function () {
+    if (!window.PGNEP_STORE) return;
+    if (!confirm('Supprimer TOUS les fichiers importés (photos de fiches, scans d\'affichage, documents locaux) ?\n\nLes élèves, les notes et les bulletins ne sont pas concernés.\nCette action est définitive.')) return;
+    if (!confirm('Confirmation : êtes-vous sûr ?')) return;
+    window.PGNEP_STORE.viderFichiers().then(function () {
+      window.pgnepStockageRefresh();
+      alert('✅ Fichiers importés supprimés.');
+    }).catch(function () { alert('⚠️ Suppression impossible.'); });
+  };
+
+  window.pgnepStockagePanneau = function () {
+    if (typeof showPage === 'function') { try { showPage('export'); } catch (e) {} }
+    inserer();
+    window.pgnepStockageRefresh();
+    var c = document.getElementById(CARD_ID);
+    if (c && c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  /* ---------- insertion de la carte dans la page Export ---------- */
+  function inserer() {
+    if (document.getElementById(CARD_ID)) return true;
+    var page = document.getElementById('page-export');
+    if (!page) return false;
+    var card = document.createElement('div');
+    card.id = CARD_ID;
+    card.className = 'card';
+    card.style.marginTop = '20px';
+    card.innerHTML = '<div class="section-title" style="margin-bottom:14px;">📦 Stockage de l\'application</div>'
+      + '<div class="pgnep-store-body">' + contenu() + '</div>';
+    page.appendChild(card);
+    majIdb();
+    return true;
+  }
+
+  /* ---------- entrée de menu ---------- */
+  function menu() {
+    if (document.getElementById('pgnep-store-nav')) return;
+    var ref = null, items = document.querySelectorAll('.nav-item');
+    for (var i = 0; i < items.length; i++) {
+      var oc = items[i].getAttribute('onclick') || '';
+      if (oc.indexOf("showPage('export')") >= 0) { ref = items[i]; break; }
+    }
+    if (!ref || !ref.parentNode) return;
+    var el = document.createElement('div');
+    el.className = ref.className;
+    el.id = 'pgnep-store-nav';
+    el.setAttribute('onclick', 'pgnepStockagePanneau()');
+    el.innerHTML = '<span class="nav-icon">📦</span> Stockage';
+    ref.parentNode.insertBefore(el, ref.nextSibling);
+  }
+
+  function demarrer() { inserer(); menu(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer);
+  else demarrer();
+  setTimeout(demarrer, 1200);   /* filet de sécurité si le menu est rendu après coup */
+})();
 </script>
 </body>
 </html>
