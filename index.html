@@ -961,7 +961,11 @@ tr:hover td{background:#F9FAFB;}
 </style>
 
   <!-- PWA Manifest -->
-  <link rel="manifest" href="data:application/manifest+json;base64,ewogICJuYW1lIjogIkxlIFBlcnJvcXVldCBQR05FUCIsCiAgInNob3J0X25hbWUiOiAiTGUgUGVycm9xdWV0IiwKICAiZGVzY3JpcHRpb24iOiAiUGxhdGVmb3JtZSBkZSBHZXN0aW9uIGRlcyBOb3RlcyBkdSBQcmltYWlyZSAtIEPDtHRlIGQnSXZvaXJlIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJvcmllbnRhdGlvbiI6ICJwb3J0cmFpdCIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzAwNkIzRiIsCiAgInRoZW1lX2NvbG9yIjogIiMwMDZCM0YiLAogICJsYW5nIjogImZyIiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sLCUzQ3N2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCA1MTIgNTEyJyUzRSUzQ3JlY3Qgd2lkdGg9JzUxMicgaGVpZ2h0PSc1MTInIHJ4PSc4MCcgZmlsbD0nJTIzMDA2QjNGJy8lM0UlM0N0ZXh0IHg9JzI1NicgeT0nMzQwJyBmb250LXNpemU9JzI4MCcgdGV4dC1hbmNob3I9J21pZGRsZSclM0UlRjAlOUYlQTYlOUMlM0MvdGV4dCUzRSUzQy9zdmclM0UiLAogICAgICAic2l6ZXMiOiAiMTkyeDE5MiIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiLAogICAgICAicHVycG9zZSI6ICJhbnkgbWFza2FibGUiCiAgICB9LAogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbCwlM0NzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgNTEyIDUxMiclM0UlM0NyZWN0IHdpZHRoPSc1MTInIGhlaWdodD0nNTEyJyByeD0nODAnIGZpbGw9JyUyMzAwNkIzRicvJTNFJTNDdGV4dCB4PScyNTYnIHk9JzM0MCcgZm9udC1zaXplPScyODAnIHRleHQtYW5jaG9yPSdtaWRkbGUnJTNFJUYwJTlGJUE2JTlDJTNDL3RleHQlM0UlM0Mvc3ZnJTNFIiwKICAgICAgInNpemVzIjogIjUxMng1MTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9zdmcreG1sIiwKICAgICAgInB1cnBvc2UiOiAiYW55IG1hc2thYmxlIgogICAgfQogIF0sCiAgImNhdGVnb3JpZXMiOiBbImVkdWNhdGlvbiIsICJwcm9kdWN0aXZpdHkiXSwKICAic2hvcnRjdXRzIjogWwogICAgewogICAgICAibmFtZSI6ICJUYWJsZWF1IGRlIGJvcmQiLAogICAgICAidXJsIjogIi4iLAogICAgICAiZGVzY3JpcHRpb24iOiAiQWNjw6lkZXIgYXUgdGFibGVhdSBkZSBib3JkIgogICAgfQogIF0KfQ==">
+  <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#006B3F">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-192.png">
   <meta name="theme-color" content="#006B3F">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11950,6 +11954,13 @@ function cjExportExcel(){
   else demarrer();
   setTimeout(demarrer, 1200);   /* filet de sécurité si le menu est rendu après coup */
 })();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('SW', e); });
+  });
+}
 </script>
 </body>
 </html>
