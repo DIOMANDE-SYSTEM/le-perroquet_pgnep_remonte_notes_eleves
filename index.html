@@ -11962,5 +11962,33 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+<script id="login-install-btn-script">
+/* Ajout : bouton "Installer l'application" visible sur l'ecran de connexion */
+(function(){
+  function isInstalled(){
+    try { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; } catch(e){ return false; }
+  }
+  function addBtn(){
+    if(isInstalled()) return;
+    var card = document.querySelector('#login-screen .login-card') || document.querySelector('.login-card');
+    if(!card || document.getElementById('login-install-btn')) return;
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-top:16px;text-align:center';
+    var btn = document.createElement('button');
+    btn.id = 'login-install-btn'; btn.type = 'button';
+    btn.textContent = "\uD83D\uDCF2 Installer l'application";
+    btn.style.cssText = 'width:100%;background:#006B3F;color:#fff;border:none;border-radius:10px;padding:12px 16px;font:600 15px system-ui,-apple-system,sans-serif;cursor:pointer;box-shadow:0 4px 12px rgba(0,107,63,.25)';
+    var hint = document.createElement('div');
+    hint.style.cssText = 'font-size:12px;color:#6b7280;margin-top:6px';
+    hint.textContent = "Installez Le Perroquet sur votre telephone ou votre ordinateur";
+    btn.addEventListener('click', function(){ if (typeof installPWA === 'function') installPWA(); });
+    wrap.appendChild(btn); wrap.appendChild(hint); card.appendChild(wrap);
+  }
+  if (document.readyState !== 'loading') addBtn();
+  else document.addEventListener('DOMContentLoaded', addBtn);
+  setTimeout(addBtn, 800); setTimeout(addBtn, 1600);
+  window.addEventListener('appinstalled', function(){ var b=document.getElementById('login-install-btn'); if(b&&b.parentNode) b.parentNode.style.display='none'; });
+})();
+</script>
 </body>
 </html>
