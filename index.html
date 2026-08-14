@@ -1319,7 +1319,7 @@ tr:hover td{background:#F9FAFB;}
     </div>
     <div class="login-body">
       <h2>Connexion</h2>
-      <p class="sub">Accès réservé au personnel autorisé — Année scolaire 2025–2026</p>
+      <p class="sub">Accès réservé au personnel autorisé — Année scolaire 2026–2027</p>
       <div class="form-field">
         <label>Identifiant</label>
         <input type="text" id="login-user" placeholder="Votre identifiant" autocomplete="username"
@@ -1496,7 +1496,7 @@ tr:hover td{background:#F9FAFB;}
   <main class="main">
     <div class="topbar">
       <div class="topbar-title" id="topbar-title">Tableau de bord</div>
-      <span class="topbar-year">2025–2026</span>
+      <span class="topbar-year">2026–2027</span>
       <div class="clock-widget">
         <div class="clock-dot"></div>
         <div>
@@ -3572,7 +3572,7 @@ function iaGetContexte() {
     + "- Ecoles: "+ecoles.length+"\n"
     + "- Classes: "+classes+"\n"
     + "- Date: "+new Date().toLocaleDateString('fr-FR')+"\n"
-    + "- Annee scolaire: 2025-2026";
+    + "- Annee scolaire: 2026-2027";
 }
 // Appuyer sur Entrée pour envoyer (Shift+Entrée pour nouvelle ligne)
 document.addEventListener('DOMContentLoaded', function() {
@@ -4716,7 +4716,7 @@ function genBulletin() {
         </div>
         <div class="bulletin-title">
           <h2>BULLETIN DE NOTES</h2>
-          <p>Cycle Primaire — Année scolaire 2025–2026</p>
+          <p>Cycle Primaire — Année scolaire 2026–2027</p>
           <p style="margin-top:4px;font-weight:600;color:var(--ci-orange);">${EVAL_LABELS[n.eval_type]||n.eval_type}</p>
         </div>
         <div class="bulletin-ci" style="display:flex;align-items:flex-start;gap:8px;">
@@ -6458,7 +6458,7 @@ function iaGenRapportInline() {
     intro = "CONTEXTE ET OBJET DU RAPPORT\n"
       + "Dans le cadre de la mise en œuvre de la politique éducative nationale, "
       + "le présent rapport " + ctx.typeLabel + " porte sur la gestion des notes et des résultats "
-      + "des élèves du primaire pour l'année scolaire 2025-2026. "
+      + "des élèves du primaire pour l'année scolaire 2026-2027. "
       + "Il a été élaboré à partir des données collectées et traitées via la plateforme numérique "
       + "Le Perroquet — PGNEP (Plateforme de Gestion des Notes du Primaire), "
       + "développée au sein du Ministère de l'Éducation Nationale et de l'Alphabétisation (MENAET).\n\n"
@@ -6565,7 +6565,7 @@ async function iaExportRapportWord() {
       alignment: AlignmentType.CENTER,
     }),
     new Paragraph({
-      children: [new TextRun({ text: 'Année scolaire 2025-2026 · ' + ctx.dateAujourdhui, size: 20, color: '555555' })],
+      children: [new TextRun({ text: 'Année scolaire 2026-2027 · ' + ctx.dateAujourdhui, size: 20, color: '555555' })],
       alignment: AlignmentType.CENTER,
       spacing: { after: 400 },
     }),
@@ -6621,7 +6621,7 @@ function genRapport() {
   // ── En-tête du rapport ──
   html += '<div style="background:var(--vert);padding:16px 24px;color:#fff;display:flex;justify-content:space-between;align-items:center;">'
     + '<div style="font-size:20px;font-weight:900;">📑 Rapport — ' + TRIM_LABELS[type] + '</div>'
-    + '<div style="font-size:12px;opacity:0.8;">Année scolaire 2025–2026 · Généré le ' + dateGen + '</div>'
+    + '<div style="font-size:12px;opacity:0.8;">Année scolaire 2026–2027 · Généré le ' + dateGen + '</div>'
     + '</div>';
 
   // ── Bandeau contexte ──
@@ -6796,7 +6796,7 @@ function printRapport() {
   <div class="entete-titre">
     <h1>RAPPORT D'ACTIVITÉ</h1>
     <p style="margin:2px 0;font-size:11px;color:#6B7280;">${TRIM_LABELS[type]} — Cycle Primaire</p>
-    <p style="margin:2px 0;font-size:11px;color:#6B7280;">Année scolaire 2025–2026</p>
+    <p style="margin:2px 0;font-size:11px;color:#6B7280;">Année scolaire 2026–2027</p>
     <span class="badge">${evalLabel}</span>
   </div>
   <div class="entete-ecole">
@@ -6903,7 +6903,7 @@ async function exportRapportWord() {
 
   // ── Titre ─────────────────────────────────────────────
   children.push(para([bold(titre.toUpperCase(),28,VERT)], AlignmentType.CENTER, 80));
-  children.push(para([normal('Année scolaire 2025-2026',20,'555555')], AlignmentType.CENTER, 60));
+  children.push(para([normal('Année scolaire 2026-2027',20,'555555')], AlignmentType.CENTER, 60));
 
   // ── Infos contexte ────────────────────────────────────
   const infoLines = [
@@ -7195,7 +7195,7 @@ function printBulletinDFA() {
   <div class="entete-titre">
     <h1>BULLETIN DE COMPOSITION DE PASSAGE</h1>
     <p>Décision de Fin d'Année (DFA) — Cycle Primaire</p>
-    <p>Année scolaire 2025–2026</p>
+    <p>Année scolaire 2026–2027</p>
     <span class="eval-badge">Classe : ${el.classe}</span>
   </div>
   <div class="entete-ecole">
@@ -7347,7 +7347,7 @@ async function exportBulletinWord() {
       rows:[new TableRow({ children:[
         mkCell(["République de Côte d'Ivoire","Union – Discipline – Travail","MENAET"],
           {w:3066, bg:'E8F5EF', size:18, color:'006B3F'}),
-        mkCell(["BULLETIN DE NOTES","Cycle Primaire — 2025-2026", EVAL_LABELS[n.eval_type]||n.eval_type],
+        mkCell(["BULLETIN DE NOTES","Cycle Primaire — 2026-2027", EVAL_LABELS[n.eval_type]||n.eval_type],
           {w:3068, bg:VERT, bold:true, size:20, color:BLANC, align:AlignmentType.CENTER}),
         mkCell([ec?ec.nom:'', ec?ec.iepp:'', ec?ec.drena:'', 'Code : '+(ec?ec.code:'')],
           {w:3066, bg:'E8F5EF', size:16, color:'374151', align:AlignmentType.RIGHT}),
@@ -7716,7 +7716,7 @@ function printDashListe(mode) {
     @media print{body{padding:8px;}}
   </style></head><body>
   <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px;"><img src="data:image/jpeg;base64,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" alt="Armoirie" style="height:48px;width:auto;"><h2 style="margin:0;color:#006B3F;">Liste de classe — ${titreMode}</h2></div>
-  <div class="sub">${ec?ec.nom+' — ':''} Évaluation : ${evalLabel} · Année scolaire 2025–2026 · ${new Date().toLocaleDateString('fr-FR')}</div>
+  <div class="sub">${ec?ec.nom+' — ':''} Évaluation : ${evalLabel} · Année scolaire 2026–2027 · ${new Date().toLocaleDateString('fr-FR')}</div>
   ${rows}
   <div class="footer">
     <div>Total : ${eleves.length} élève(s)</div>
@@ -8101,7 +8101,7 @@ function printListeClasse(mode) {
     @media print{body{padding:10px;}}
   </style></head><body>
   <h2>${titre}${classe}</h2>
-  <div class="sub">${ec?ec.nom+' — ':''} ${ec?ec.iepp+' — ':''} Année scolaire 2025–2026 · Généré le ${new Date().toLocaleDateString('fr-FR')}</div>
+  <div class="sub">${ec?ec.nom+' — ':''} ${ec?ec.iepp+' — ':''} Année scolaire 2026–2027 · Généré le ${new Date().toLocaleDateString('fr-FR')}</div>
   <table>
     <thead><tr><th>#</th><th>Nom & Prénoms</th><th>Sexe</th><th>Classe</th><th>Date naiss.</th><th>Moyenne</th><th>Rang</th><th>Mention</th></tr></thead>
     <tbody>${rows}</tbody>
@@ -11258,7 +11258,7 @@ function cjDefault(){
   return {
     entete:{ prefecture:'', souspref:'', epp:espEcoleNom(espMyEcoleId()), directeur:'',
              maitre:(u.nom||''), classe:cl,
-             annee:(typeof ANNEE_SCOLAIRE!=='undefined'?ANNEE_SCOLAIRE:'2025-2026'),
+             annee:(typeof ANNEE_SCOLAIRE!=='undefined'?ANNEE_SCOLAIRE:'2026-2027'),
              manuels:'FRANÇAIS : École, Nation et Développement (NEI-CEDA) · MATHS : École, Nation et Développement (NEI-CEDA) · EDHC : Citoyen de demain (Les Classiques Ivoiriens)',
              date:'', sequence:'', remarques:'' },
     disciplines:CJ_DISC[cy].slice(),
@@ -11962,32 +11962,658 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script id="login-install-btn-script">
-/* Ajout : bouton "Installer l'application" visible sur l'ecran de connexion */
+
+<!-- ════════════════════════════════════════════════════════════════
+     MODULE RESPONSIVE MOBILE (ajout purement additif — v3.1)
+     Replie la barre latérale en tiroir sur écrans ≤ 1024px et libère
+     toute la largeur pour le contenu. Ne modifie aucune fonction ni
+     aucun style existant : tout est encapsulé dans .lp-* et #lp-*.
+     ════════════════════════════════════════════════════════════════ -->
+<style id="pgnep-responsive">
+  /* Bouton hamburger : masqué sur grand écran, injecté dans la topbar */
+  .lp-burger{
+    display:none;
+    align-items:center;justify-content:center;
+    width:40px;height:40px;flex-shrink:0;
+    background:var(--navy);color:#fff;
+    border:none;border-radius:9px;
+    font-size:19px;line-height:1;cursor:pointer;
+    transition:filter .15s,transform .1s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .lp-burger:hover{filter:brightness(1.25);}
+  .lp-burger:active{transform:scale(0.9);}
+
+  /* Voile sombre derrière le tiroir ouvert */
+  .lp-overlay{
+    position:fixed;inset:0;z-index:90;
+    background:rgba(0,0,0,0.45);
+    opacity:0;visibility:hidden;
+    transition:opacity .3s ease;
+  }
+  .lp-overlay.lp-active{opacity:1;visibility:visible;}
+
+  /* ── ≤ 1024px : tiroir latéral + contenu pleine largeur ── */
+  @media(max-width:1024px){
+    .lp-burger{display:inline-flex !important;}
+
+    .sidebar{
+      width:min(84vw, var(--sidebar-w));
+      transform:translateX(-100%);
+      box-shadow:none;
+    }
+    .sidebar.lp-open{
+      transform:translateX(0);
+      box-shadow:0 0 50px rgba(0,0,0,0.55);
+    }
+
+    .main{margin-left:0 !important;}
+
+    /* Topbar compacte : la recherche passe sur sa propre ligne */
+    .topbar{
+      flex-wrap:wrap;height:auto;min-height:58px;
+      padding:8px 12px;gap:10px;
+    }
+    .topbar-title{font-size:15px;}
+    .search-wrap{min-width:0;order:5;flex:1 1 100%;}
+    .content{padding:16px 12px;}
+  }
+
+  /* ── ≤ 640px : on masque l'horloge (place réduite) ── */
+  @media(max-width:640px){
+    .clock-widget{display:none;}
+  }
+</style>
+
+<script id="pgnep-responsive-js">
 (function(){
-  function isInstalled(){
-    try { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; } catch(e){ return false; }
+  function initResponsive(){
+    var topbar  = document.querySelector('.topbar');
+    var sidebar = document.querySelector('.sidebar');
+    if(!topbar || !sidebar) return;
+    if(document.getElementById('lp-burger')) return; /* déjà initialisé */
+
+    /* Bouton hamburger en tête de la topbar */
+    var burger = document.createElement('button');
+    burger.id = 'lp-burger';
+    burger.className = 'lp-burger';
+    burger.type = 'button';
+    burger.setAttribute('aria-label', 'Ouvrir le menu');
+    burger.innerHTML = '&#9776;';
+    topbar.insertBefore(burger, topbar.firstChild);
+
+    /* Voile */
+    var overlay = document.createElement('div');
+    overlay.id = 'lp-overlay';
+    overlay.className = 'lp-overlay';
+    document.body.appendChild(overlay);
+
+    function openNav(){ sidebar.classList.add('lp-open'); overlay.classList.add('lp-active'); }
+    function closeNav(){ sidebar.classList.remove('lp-open'); overlay.classList.remove('lp-active'); }
+    function toggleNav(){ sidebar.classList.contains('lp-open') ? closeNav() : openNav(); }
+
+    burger.addEventListener('click', toggleNav);
+    overlay.addEventListener('click', closeNav);
+
+    /* Sur mobile, refermer le tiroir dès qu'on choisit une rubrique */
+    sidebar.addEventListener('click', function(e){
+      if(e.target.closest && e.target.closest('.nav-item')
+         && window.matchMedia('(max-width:1024px)').matches){
+        closeNav();
+      }
+    });
+
+    /* Repasser en desktop referme proprement le tiroir */
+    window.addEventListener('resize', function(){
+      if(!window.matchMedia('(max-width:1024px)').matches) closeNav();
+    });
   }
-  function addBtn(){
-    if(isInstalled()) return;
-    var card = document.querySelector('#login-screen .login-card') || document.querySelector('.login-card');
-    if(!card || document.getElementById('login-install-btn')) return;
-    var wrap = document.createElement('div');
-    wrap.style.cssText = 'margin-top:16px;text-align:center';
-    var btn = document.createElement('button');
-    btn.id = 'login-install-btn'; btn.type = 'button';
-    btn.textContent = "\uD83D\uDCF2 Installer l'application";
-    btn.style.cssText = 'width:100%;background:#006B3F;color:#fff;border:none;border-radius:10px;padding:12px 16px;font:600 15px system-ui,-apple-system,sans-serif;cursor:pointer;box-shadow:0 4px 12px rgba(0,107,63,.25)';
-    var hint = document.createElement('div');
-    hint.style.cssText = 'font-size:12px;color:#6b7280;margin-top:6px';
-    hint.textContent = "Installez Le Perroquet sur votre telephone ou votre ordinateur";
-    btn.addEventListener('click', function(){ if (typeof installPWA === 'function') installPWA(); });
-    wrap.appendChild(btn); wrap.appendChild(hint); card.appendChild(wrap);
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initResponsive);
+  } else {
+    initResponsive();
   }
-  if (document.readyState !== 'loading') addBtn();
-  else document.addEventListener('DOMContentLoaded', addBtn);
-  setTimeout(addBtn, 800); setTimeout(addBtn, 1600);
-  window.addEventListener('appinstalled', function(){ var b=document.getElementById('login-install-btn'); if(b&&b.parentNode) b.parentNode.style.display='none'; });
+  setTimeout(initResponsive, 800); /* filet de sécurité */
+})();
+</script>
+
+<!-- ════════════════════════════════════════════════════════════════
+     MODULE GESTION DES COMPTES & DROITS (ajout purement additif — v3.1)
+     Redéfinit APRÈS coup les fonctions concernées (elles gagnent car
+     évaluées en dernier dans le même scope global). Aucune ligne de
+     l'existant n'est supprimée. Couvre :
+       1) Directeur : crée jusqu'à 6 adjoints (CP1→CM2) de son école
+       3) Directeur : ne voit que les comptes de son école (déjà en place)
+       4) Super-admin : active / désactive n'importe quel compte
+       5) Correspondant IEPP : modifie mais ne supprime pas (suppr = admin)
+       6) Directeur : lecture seule sur élèves / notes / bulletins
+       7) Garde-fou : un compte "d'usine" supprimé ne réapparaît plus (tombstone)
+       8) Rattachement enseignant → Directeur / École / IEPP / DRENAET
+       2) (partie sûre) Directeur : renomme son école
+     ════════════════════════════════════════════════════════════════ -->
+<script id="pgnep-rbac">
+(function(){
+  "use strict";
+
+  /* ── Helpers de portée / rattachement ─────────────────────────── */
+  function _me(){ try{ return getCurrentUserData(); }catch(e){ return null; } }
+  function _isSuperAdmin(){ return currentUser && (currentUser.role==='admin' || currentUser.login==='diomande'); }
+
+  // École (objet) rattachée à un utilisateur, quel que soit son rôle
+  function _ecoleOf(u){
+    if(!u) return null;
+    var id = u.ecole_val || u.structure_val;
+    try{ if(typeof resolveEcoleId==='function') id = resolveEcoleId(id); }catch(e){}
+    return DB.ecoles.find(function(e){ return e.id===id; }) || null;
+  }
+
+  // Point 8 : inscrire École / IEPP / DRENAET / Directeur sur le compte
+  function _appliquerRattachement(u){
+    if(!u) return u;
+    if(['instituteur','benevole','directeur'].indexOf(u.role)===-1) return u;
+    var ec = _ecoleOf(u);
+    if(ec){
+      u.ecole_id   = ec.id;
+      u.ecole_nom  = ec.nom;
+      u.iepp       = ec.iepp  || u.iepp  || '';
+      u.drena      = ec.drena || u.drena || '';
+      if(['instituteur','benevole'].indexOf(u.role)!==-1){
+        var dir = DB.users.find(function(x){
+          return x.role==='directeur'
+              && (x.structure_val===ec.id
+                  || (typeof resolveEcoleId==='function' && resolveEcoleId(x.structure_val)===ec.id));
+        });
+        if(dir){ u.directeur_login = dir.login; u.directeur_nom = dir.nom; }
+      }
+    }
+    return u;
+  }
+
+  /* ── Point 7 : liste des comptes supprimés (tombstones) ────────── */
+  function _deadGet(){
+    try{ return JSON.parse(localStorage.getItem('pgnep_deleted_users')||'[]'); }catch(e){ return []; }
+  }
+  function _deadAdd(login){
+    var d=_deadGet(); if(d.indexOf(login)===-1){ d.push(login); localStorage.setItem('pgnep_deleted_users',JSON.stringify(d)); }
+    if(window._firebaseReady && window._fb){ window._fb.set('deleted_users', login, {login:login, ts:Date.now()}).catch(function(){}); }
+  }
+  function _deadRemove(login){
+    var d=_deadGet().filter(function(x){ return x!==login; });
+    localStorage.setItem('pgnep_deleted_users',JSON.stringify(d));
+    if(window._firebaseReady && window._fb){ window._fb.del('deleted_users', login).catch(function(){}); }
+  }
+  // Empêche la ré-injection des comptes d'usine supprimés
+  function _purgerDefautsSupprimes(deadList){
+    if(typeof DEFAUT_USERS==='undefined') return;
+    for(var i=DEFAUT_USERS.length-1;i>=0;i--){
+      if(deadList.indexOf(DEFAUT_USERS[i].login)!==-1) DEFAUT_USERS.splice(i,1);
+    }
+  }
+  // Enveloppe _loadFirebaseDB dès qu'il existe (défini plus tard par le module Firebase)
+  (function wrapLoad(){
+    var tries=0;
+    var it=setInterval(function(){
+      tries++;
+      if(window._loadFirebaseDB && !window._loadFirebaseDB.__lpWrapped){
+        var orig=window._loadFirebaseDB;
+        window._loadFirebaseDB=function(){
+          var self=this, args=arguments;
+          return Promise.resolve()
+            .then(function(){
+              return (window._firebaseReady && window._fb)
+                ? window._fb.getAll('deleted_users').catch(function(){return [];})
+                : [];
+            })
+            .then(function(rows){
+              var cloud=(rows||[]).map(function(r){ return r.login||r.id; }).filter(Boolean);
+              var dead=Array.from(new Set(_deadGet().concat(cloud)));
+              localStorage.setItem('pgnep_deleted_users',JSON.stringify(dead));
+              _purgerDefautsSupprimes(dead);
+              return orig.apply(self,args);
+            });
+        };
+        window._loadFirebaseDB.__lpWrapped=true;
+        clearInterval(it);
+      }
+      if(tries>200) clearInterval(it); /* abandon après ~10s */
+    },50);
+    // Purge locale immédiate (mode hors-ligne)
+    _purgerDefautsSupprimes(_deadGet());
+  })();
+
+  /* ── Droits sur la page COMPTES ───────────────────────────────── */
+  // Qui peut agir sur des comptes (créer / modifier)
+  canManageComptes = function(){
+    return currentUser && ['admin','directeur','correspondant'].indexOf(currentUser.role)!==-1;
+  };
+  // Lecture seule stricte : seul le coordinateur DRENAET
+  isReadonlyComptes = function(){
+    return currentUser && currentUser.role==='coordinateur' && currentUser.login!=='diomande';
+  };
+
+  /* ── Point 6 : Directeur en lecture seule sur élèves / notes ──── */
+  canEdit    = function(){ return currentUser && ['lecteur','cabinet','cppp','directeur'].indexOf(currentUser.role)===-1; };
+  canDelete  = function(){ return currentUser && ['admin','instituteur','benevole'].indexOf(currentUser.role)!==-1; };
+  canPassage = function(){ return currentUser && ['instituteur','benevole','admin'].indexOf(currentUser.role)!==-1; };
+
+  /* ── Droits par ligne ─────────────────────────────────────────── */
+  function _canEditRow(u){
+    if(!currentUser) return false;
+    if(_isSuperAdmin()) return true;
+    if(currentUser.role==='correspondant'){
+      if(['admin','coordinateur'].indexOf(u.role)!==-1) return false;
+      var scope=getScopeUsers().some(function(x){ return x.login===u.login; });
+      return scope; /* point 5 : peut corriger/modifier */
+    }
+    if(currentUser.role==='directeur'){
+      var mine=_me(); var ecId=mine?((typeof resolveEcoleId==='function')?resolveEcoleId(mine.structure_val):mine.structure_val):null;
+      return ['instituteur','benevole'].indexOf(u.role)!==-1 && (u.ecole_val===mine.structure_val || _ecoleOf(u)&&_ecoleOf(u).id===ecId);
+    }
+    return false;
+  }
+  function _canDeleteRow(u){ return _isSuperAdmin() && u.login!==currentUser.login; } /* point 5 : suppr = admin seul */
+  function _canToggleRow(u){ return _isSuperAdmin() && u.login!==currentUser.login; } /* point 4 : admin seul */
+
+  /* ── Point 4 : activer / désactiver un compte ─────────────────── */
+  window.toggleActifCompte = function(login){
+    if(!_isSuperAdmin()){ showNotif('🔒 Réservé au super-administrateur','error'); return; }
+    if(login===currentUser.login){ showNotif('Impossible de désactiver votre propre compte','error'); return; }
+    var idx=DB.users.findIndex(function(u){ return u.login===login; });
+    if(idx<0) return;
+    var actuel = DB.users[idx].actif!==false; /* undefined => actif */
+    DB.users[idx].actif = !actuel;
+    if(window._firebaseReady && window._fb) window._fb.set('users', login, DB.users[idx]).catch(function(){});
+    save('users');
+    renderUsersList();
+    showNotif(DB.users[idx].actif ? '✅ Compte activé' : '⛔ Compte désactivé', DB.users[idx].actif?'success':'info');
+  };
+
+  /* ── Point 4 : bloquer la connexion d'un compte désactivé ─────── */
+  function _blocInactif(login){
+    var u=DB.users.find(function(x){ return x.login===(login||'').toLowerCase().trim(); });
+    if(u && u.actif===false){
+      var errEl=document.getElementById('login-error');
+      if(errEl){ errEl.textContent='⛔ Ce compte a été désactivé. Contactez l\u2019administrateur.'; errEl.style.display='block'; }
+      var pw=document.getElementById('login-pass'); if(pw) pw.value='';
+      return true;
+    }
+    return false;
+  }
+  if(typeof doLogin==='function'){
+    var _origDoLogin=doLogin;
+    doLogin=function(){
+      var login=(document.getElementById('login-user')||{}).value||'';
+      if(_blocInactif(login)) return;
+      return _origDoLogin.apply(this,arguments);
+    };
+  }
+  if(window._doLoginFirebase){
+    var _origFbLogin=window._doLoginFirebase;
+    window._doLoginFirebase=function(loginId,pass){
+      if(_blocInactif(loginId)) return Promise.resolve();
+      return _origFbLogin.apply(this,arguments);
+    };
+  }
+
+  /* ── Point 6 bis : cacher le bouton "Ajouter un élève" au directeur ── */
+  if(typeof applyRoleUI==='function'){
+    var _origApplyRoleUI=applyRoleUI;
+    applyRoleUI=function(){
+      _origApplyRoleUI.apply(this,arguments);
+      try{
+        if(currentUser && currentUser.role==='directeur'){
+          var b=document.getElementById('btn-add'); if(b) b.style.display='none';
+        }
+      }catch(e){}
+    };
+  }
+
+  /* ── Point 1 : verrouiller le formulaire pour le directeur ────── */
+  if(typeof updateStructureFields==='function'){
+    var _origUSF=updateStructureFields;
+    updateStructureFields=function(){
+      _origUSF.apply(this,arguments);
+      if(!currentUser || currentUser.role!=='directeur') return;
+      var mine=_me(); if(!mine) return;
+      var roleSel=document.getElementById('new-role');
+      if(roleSel){ roleSel.value='instituteur'; roleSel.disabled=true; }
+      var ecoleSel=document.getElementById('new-ecole-user');
+      if(ecoleSel){
+        var ecId=(typeof resolveEcoleId==='function')?resolveEcoleId(mine.structure_val):mine.structure_val;
+        ecoleSel.innerHTML='';
+        var ec=DB.ecoles.find(function(e){ return e.id===ecId; });
+        var o=document.createElement('option'); o.value=ecId; o.textContent=ec?ec.nom:'Mon école'; ecoleSel.appendChild(o);
+        ecoleSel.value=ecId; ecoleSel.disabled=true;
+      }
+      var classeF=document.getElementById('field-classe'); if(classeF) classeF.style.opacity='1';
+      var classeSel=document.getElementById('new-classe-user'); if(classeSel) classeSel.disabled=false;
+      ['field-drena','field-iepp'].forEach(function(id){ var f=document.getElementById(id); if(f) f.style.display='none'; });
+    };
+  }
+
+  /* ── enregistrement d'un compte (override complet, sûr) ────────── */
+  saveCompte = function(){
+    if(!canManageComptes()){ showNotif('🔒 Action non autorisée','error'); return; }
+    var errEl=document.getElementById('compte-error'); errEl.style.display='none';
+    var err=function(m){ errEl.textContent=m; errEl.style.display='block'; };
+    var orig=editingLoginOrig;
+    var login=(document.getElementById('new-login').value||'').trim().toLowerCase();
+    var nom=(document.getElementById('new-nom-user').value||'').trim();
+    var pass=document.getElementById('new-pass').value;
+    var pass2=document.getElementById('new-pass2').value;
+    var role=document.getElementById('new-role').value;
+    var valDrena=(document.getElementById('new-drena')||{}).value||''; valDrena=(valDrena||'').trim();
+    var valIepp =(document.getElementById('new-iepp')||{}).value||'';  valIepp=(valIepp||'').trim();
+    var valEcole=(document.getElementById('new-ecole-user')||{}).value||''; valEcole=(valEcole||'').trim();
+    var valClasse=(document.getElementById('new-classe-user')||{}).value||'';
+    var valTel=(document.getElementById('new-telephone')||{}).value||''; valTel=(valTel||'').trim();
+    var me=_me();
+
+    /* ── Restrictions selon le rôle du créateur ── */
+    if(currentUser.role==='directeur'){
+      // Point 1 : uniquement des adjoints de SON école, classes CP1→CM2, max 6
+      role='instituteur';
+      var monEcole=(typeof resolveEcoleId==='function')?resolveEcoleId(me.structure_val):me.structure_val;
+      valEcole=monEcole;
+      var CLASSES_OK=['CP1','CP2','CE1','CE2','CM1','CM2'];
+      if(CLASSES_OK.indexOf(valClasse)===-1){ err('Choisissez une classe entre CP1 et CM2.'); return; }
+      if(!orig){
+        var nbAdj=DB.users.filter(function(u){
+          return ['instituteur','benevole'].indexOf(u.role)!==-1 && (u.ecole_val===me.structure_val || (_ecoleOf(u)&&_ecoleOf(u).id===monEcole));
+        }).length;
+        if(nbAdj>=6){ err('Limite atteinte : 6 adjoints maximum pour votre école.'); return; }
+      } else {
+        // le directeur ne modifie que ses propres adjoints
+        var cible=DB.users.find(function(u){ return u.login===orig; });
+        if(!cible || !_canEditRow(cible)){ err('Vous ne pouvez modifier que vos adjoints.'); return; }
+      }
+    } else if(currentUser.role==='correspondant'){
+      // Point 5 : pas de création d'admin/coordinateur ; suppression interdite (gérée ailleurs)
+      if(['admin','coordinateur'].indexOf(role)!==-1){ err('Rôle non autorisé pour un correspondant IEPP.'); return; }
+      if(orig){
+        var cible2=DB.users.find(function(u){ return u.login===orig; });
+        if(!cible2 || !_canEditRow(cible2)){ err('Ce compte est hors de votre circonscription.'); return; }
+      }
+    }
+
+    /* ── Mapping structure ── */
+    var structure_type='national', structure_val='', ecole_val='';
+    if(role==='coordinateur'){ structure_type='drena'; structure_val=valDrena; }
+    else if(['correspondant','cppp'].indexOf(role)!==-1){ structure_type='iepp'; structure_val=valIepp; }
+    else if(role==='directeur'){ structure_type='ecole'; structure_val=valEcole; }
+    else if(['instituteur','benevole'].indexOf(role)!==-1){ structure_type='classe'; structure_val=valClasse; ecole_val=valEcole; }
+
+    if(!login||!nom){ err('Champs obligatoires.'); return; }
+    if(!orig && !pass){ err('Mot de passe obligatoire pour un nouveau compte.'); return; }
+    if(pass && pass.length<6){ err('Mot de passe : 6 caractères minimum.'); return; }
+    if(pass && pass!==pass2){ err('Mots de passe différents.'); return; }
+    if(!orig && DB.users.find(function(u){ return u.login===login; })){ err('Identifiant déjà utilisé.'); return; }
+
+    try{ if(valDrena) memoriserChamp('drena',valDrena); if(valIepp) memoriserChamp('iepp',valIepp); if(valEcole) memoriserChamp('ecole',valEcole); }catch(e){}
+
+    if(orig){
+      var idx=DB.users.findIndex(function(u){ return u.login===orig; });
+      var uu=DB.users[idx];
+      uu.nom=nom; uu.role=role; uu.structure_type=structure_type; uu.structure_val=structure_val; uu.ecole_val=ecole_val; uu.telephone=valTel;
+      if(uu.actif===undefined) uu.actif=true;
+      if(pass){ uu.pass=hashPass(pass); uu.passPlain=pass; }
+      _appliquerRattachement(uu); /* point 8 */
+      if(window._firebaseReady && window._fb) window._fb.set('users',orig,uu).catch(function(){});
+      if(orig===(currentUser&&currentUser.login)){ currentUser.nom=nom; currentUser.role=role; applyRoleUI(); }
+      showNotif('✅ Compte modifié','success');
+    } else {
+      var email=login+'@pgnep-menaet.ci';
+      var nu={ login:login, nom:nom, pass:hashPass(pass), passPlain:pass, role:role,
+               structure_type:structure_type, structure_val:structure_val, ecole_val:ecole_val,
+               telephone:valTel, email:email, actif:true };
+      _appliquerRattachement(nu); /* point 8 */
+      DB.users.push(nu);
+      _deadRemove(login); /* si un jour supprimé, on le "ressuscite" volontairement */
+      if(window._firebaseReady && window._fb){
+        window._fb.set('users',login,nu).catch(function(){});
+        window._fb.createUser(email,pass).catch(function(){});
+      }
+      showNotif('✅ Compte créé','success');
+    }
+    save('users'); renderUsersList(); resetCompteForm();
+  };
+
+  /* ── suppression (override) : super-admin uniquement + tombstone ── */
+  deleteCompte = function(login){
+    if(!_isSuperAdmin()){ showNotif('🔒 Seul le super-administrateur peut supprimer un compte','error'); return; }
+    if(login===(currentUser&&currentUser.login)){ showNotif('Impossible de supprimer votre propre compte','error'); return; }
+    var admins=DB.users.filter(function(u){ return u.role==='admin'; });
+    var target=DB.users.find(function(u){ return u.login===login; });
+    if(admins.length===1 && target && target.role==='admin'){ showNotif('Impossible de supprimer le dernier admin','error'); return; }
+    if(!confirm('Supprimer définitivement le compte "'+login+'" ?\nIl ne réapparaîtra pas après synchronisation.')) return;
+    DB.users=DB.users.filter(function(u){ return u.login!==login; });
+    _deadAdd(login); /* point 7 */
+    save('users');
+    if(window._firebaseReady && window._fb) window._fb.del('users',login).catch(function(){});
+    renderUsersList(); showNotif('🗑 Compte supprimé définitivement','info');
+  };
+
+  /* ── Point 2 (partie sûre) : le directeur renomme son école ───── */
+  window.directeurRenommerEcole = function(){
+    if(!currentUser || currentUser.role!=='directeur'){ return; }
+    var me=_me(); if(!me) return;
+    var ecId=(typeof resolveEcoleId==='function')?resolveEcoleId(me.structure_val):me.structure_val;
+    var idx=DB.ecoles.findIndex(function(e){ return e.id===ecId; });
+    if(idx<0){ showNotif('École introuvable','error'); return; }
+    var actuel=DB.ecoles[idx].nom||'';
+    var nv=prompt('Nom de votre école :', actuel);
+    if(nv===null) return;
+    nv=nv.trim(); if(!nv){ showNotif('Nom vide','error'); return; }
+    DB.ecoles[idx].nom=nv;
+    if(window._firebaseReady && window._fb) window._fb.set('ecoles', DB.ecoles[idx].id, DB.ecoles[idx]).catch(function(){});
+    try{ save('ecoles'); }catch(e){}
+    renderUsersList();
+    if(typeof renderAdjoints==='function') renderAdjoints();
+    showNotif('✅ Nom de l\u2019école mis à jour','success');
+  };
+
+  /* ── Rendu de la liste des comptes (override complet enrichi) ──── */
+  renderUsersList = function(){
+    try{ populateFiltresUsers(); }catch(e){}
+    var allUsers=getScopeUsers();
+    var isRO=isReadonlyComptes();
+    var u0=_me();
+    var canViewPass=_isSuperAdmin();
+
+    var filtNom=((document.getElementById('filt-user-nom')||{}).value||'').toLowerCase().trim();
+    var filtRole=(document.getElementById('filt-user-role')||{}).value||'';
+    var filtClasse=(document.getElementById('filt-user-classe')||{}).value||'';
+    var filtIepp=(document.getElementById('filt-user-iepp')||{}).value||'';
+    var filtDrena=(document.getElementById('filt-user-drena')||{}).value||'';
+
+    var visibleUsers=allUsers.filter(function(u){
+      if(filtNom && (u.nom||'').toLowerCase().indexOf(filtNom)===-1 && (u.login||'').toLowerCase().indexOf(filtNom)===-1) return false;
+      if(filtRole && u.role!==filtRole) return false;
+      if(filtClasse && !(u.structure_type==='classe' && u.structure_val===filtClasse)) return false;
+      if(filtIepp){ var e1=_ecoleOf(u); if(!(e1 && e1.iepp===filtIepp) && !(u.structure_type==='iepp'&&u.structure_val===filtIepp)) return false; }
+      if(filtDrena){ var e2=_ecoleOf(u); if(!(e2 && e2.drena===filtDrena) && !(u.structure_type==='drena'&&u.structure_val===filtDrena)) return false; }
+      return true;
+    });
+
+    var titreEl=document.getElementById('comptes-titre');
+    if(titreEl){
+      var tmap={ admin:'Tous les utilisateurs',
+        coordinateur:'Instituteurs — DRENAET '+((u0&&u0.structure_val)||''),
+        correspondant:'Comptes — IEPP '+((u0&&u0.structure_val)||''),
+        directeur:'Instituteurs de mon école' };
+      titreEl.textContent=tmap[currentUser.role]||'Utilisateurs';
+      var roBadge=isRO?'<span style="display:inline-block;background:#FEF9C3;border:1px solid #FDE68A;color:#92400E;border-radius:6px;padding:2px 9px;font-size:10px;font-weight:700;margin-left:8px;">👁 Lecture seule</span>':'';
+      titreEl.innerHTML=titreEl.textContent+roBadge;
+    }
+    var container=document.getElementById('users-list');
+    if(!container) return;
+
+    /* Bandeau directeur : renommer l'école + compteur d'adjoints */
+    var bandeau='';
+    if(currentUser.role==='directeur' && u0){
+      var monEc=(typeof resolveEcoleId==='function')?resolveEcoleId(u0.structure_val):u0.structure_val;
+      var ecObj=DB.ecoles.find(function(e){ return e.id===monEc; });
+      var nbAdj=DB.users.filter(function(u){ return ['instituteur','benevole'].indexOf(u.role)!==-1 && (u.ecole_val===u0.structure_val || (_ecoleOf(u)&&_ecoleOf(u).id===monEc)); }).length;
+      bandeau='<div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;justify-content:space-between;'
+        +'background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;">'
+        +'<div style="font-size:12.5px;"><strong>🏫 '+(ecObj?ecObj.nom:'Mon école')+'</strong>'
+        +'<span style="color:var(--text2);"> · adjoints : <strong>'+nbAdj+'/6</strong></span></div>'
+        +'<button class="btn btn-secondary btn-sm" onclick="directeurRenommerEcole()">✏️ Renommer mon école</button>'
+        +'</div>';
+    }
+
+    if(!visibleUsers.length){
+      container.innerHTML=bandeau+'<p style="text-align:center;color:var(--text3);padding:20px;">Aucun utilisateur correspondant aux filtres</p>';
+    } else {
+      var rows='';
+      for(var i=0;i<visibleUsers.length;i++){
+        var u=visibleUsers[i];
+        var bg=i%2===0?'var(--surface)':'var(--bg)';
+        var rc=ROLE_COLORS[u.role]||'#6B7280';
+        var estActif=u.actif!==false;
+        var actions='';
+        if(u.login===(currentUser&&currentUser.login)){
+          actions='<span style="opacity:0.3;font-size:11px;" title="Votre compte">🔒</span>';
+        } else {
+          if(canViewPass) actions+='<button class="icon-btn" data-login="'+u.login+'" onclick="viewUserPassword(this.dataset.login)" title="Voir le mot de passe" style="color:#0369A1;">👁️‍🗨️</button>';
+          if(_canEditRow(u)) actions+='<button class="icon-btn" data-login="'+u.login+'" onclick="editCompte(this.dataset.login)" title="Modifier">✏️</button>';
+          if(_canToggleRow(u)) actions+='<button class="icon-btn" data-login="'+u.login+'" onclick="toggleActifCompte(this.dataset.login)" title="'+(estActif?'Désactiver':'Activer')+'" style="color:'+(estActif?'#B45309':'#059669')+';">'+(estActif?'⛔':'✅')+'</button>';
+          if(_canDeleteRow(u)) actions+='<button class="icon-btn" data-login="'+u.login+'" onclick="deleteCompte(this.dataset.login)" title="Supprimer" style="color:var(--danger);">🗑</button>';
+          if(!actions) actions='<span title="Consultation uniquement" style="font-size:13px;cursor:default;">👁</span>';
+        }
+        var classeLabel=(u.structure_type==='classe')?'<span style="background:var(--bleu-light);color:var(--bleu);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">'+u.structure_val+'</span>':'<span style="color:var(--text3);font-size:10px;">—</span>';
+        var ec=_ecoleOf(u);
+        var ieppTxt=(ec&&ec.iepp)||u.iepp||(u.structure_type==='iepp'?u.structure_val:'');
+        var drenaTxt=(ec&&ec.drena)||u.drena||(u.structure_type==='drena'?u.structure_val:'');
+        var ieppLabel=ieppTxt?'<span style="font-size:10px;color:var(--text2);">'+ieppTxt+'</span>':'<span style="color:var(--text3);font-size:10px;">—</span>';
+        var drenaLabel=drenaTxt?'<span style="font-size:10px;color:var(--text2);">'+drenaTxt+'</span>':'<span style="color:var(--text3);font-size:10px;">—</span>';
+        var telLabel=u.telephone?'<a href="tel:'+u.telephone+'" style="font-size:10px;color:var(--ci-vert);text-decoration:none;">📞 '+u.telephone+'</a>':'<span style="color:var(--text3);font-size:10px;">—</span>';
+        var statutLabel=estActif
+          ?'<span style="background:#DCFCE7;color:#166534;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;">● Actif</span>'
+          :'<span style="background:#FEE2E2;color:#991B1B;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;">● Désactivé</span>';
+        var rowStyle='background:'+bg+';'+(estActif?'':'opacity:0.62;');
+        rows+='<tr style="'+rowStyle+'">'
+          +'<td style="padding:7px 6px;font-size:12px;"><strong>'+u.nom+'</strong><div style="font-size:10px;color:var(--text3);">@'+u.login+'</div></td>'
+          +'<td style="padding:7px 6px;"><span style="background:'+rc+'20;color:'+rc+';padding:2px 7px;border-radius:6px;font-size:10px;font-weight:600;">'+(ROLE_LABELS[u.role]||u.role)+'</span></td>'
+          +'<td style="padding:7px 6px;text-align:center;">'+classeLabel+'</td>'
+          +'<td style="padding:7px 6px;">'+ieppLabel+'</td>'
+          +'<td style="padding:7px 6px;">'+drenaLabel+'</td>'
+          +'<td style="padding:7px 6px;text-align:center;">'+statutLabel+'</td>'
+          +'<td style="padding:7px 6px;">'+telLabel+'</td>'
+          +'<td style="padding:7px 6px;"><div class="actions-cell">'+actions+'</div></td>'
+          +'</tr>';
+      }
+      container.innerHTML=bandeau+'<table style="width:100%;border-collapse:collapse;">'
+        +'<thead><tr style="background:var(--surface);">'
+        +'<th style="padding:8px 6px;text-align:left;font-size:11px;border-bottom:2px solid var(--border);">Nom</th>'
+        +'<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">Emploi</th>'
+        +'<th style="padding:8px 6px;font-size:11px;text-align:center;border-bottom:2px solid var(--border);">Classe</th>'
+        +'<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">IEPP</th>'
+        +'<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">DRENAET</th>'
+        +'<th style="padding:8px 6px;font-size:11px;text-align:center;border-bottom:2px solid var(--border);">Statut</th>'
+        +'<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">📞 Tél.</th>'
+        +'<th style="padding:8px 6px;font-size:11px;border-bottom:2px solid var(--border);">⚙️</th>'
+        +'</tr></thead><tbody>'+rows+'</tbody></table>';
+    }
+    var formSection=document.getElementById('compte-form-section');
+    if(formSection) formSection.style.display=canManageComptes()?'':'none';
+  };
+
+})();
+</script>
+
+<!-- ════════════════════════════════════════════════════════════════
+     MODULE DÉFILEMENT TABLEAU DES COMPTES (ajout additif — v3.1)
+     Rend le tableau "Comptes utilisateurs" défilable horizontalement
+     avec une barre bien visible, et fait passer la page Comptes en une
+     seule colonne sur petit écran. N'affecte que #users-list et #page-comptes.
+     ════════════════════════════════════════════════════════════════ -->
+<style id="pgnep-comptes-scroll">
+  /* Le tableau des comptes peut défiler dans les DEUX sens (H + V) */
+  #users-list{
+    overflow:auto;                 /* horizontal ET vertical */
+    max-height:70vh;               /* borne la hauteur → curseur vertical si liste longue */
+    -webkit-overflow-scrolling:touch;
+    scroll-behavior:smooth;
+    scrollbar-width:thin;
+    scrollbar-color:#123a63 #E2E8F0;
+  }
+  /* Largeur minimale : les 8 colonnes restent lisibles → débordement → curseur */
+  #users-list > table{ min-width:760px; }
+  /* En-tête du tableau figé en haut pendant le défilement vertical */
+  #users-list > table thead th{ position:sticky; top:0; z-index:2; background:var(--surface); box-shadow:inset 0 -2px 0 var(--border); }
+  /* Barre de défilement visible (Chrome / navigateurs WebKit d'Android) — H et V */
+  #users-list::-webkit-scrollbar{ height:10px; width:10px; }
+  #users-list::-webkit-scrollbar-track{ background:#E2E8F0; border-radius:6px; }
+  #users-list::-webkit-scrollbar-thumb{ background:#123a63; border-radius:6px; }
+  #users-list::-webkit-scrollbar-thumb:hover{ background:#0d2b49; }
+
+  @media(max-width:900px){
+    /* La page Comptes passe en une seule colonne (liste puis formulaire) */
+    #page-comptes > div[style*="grid-template-columns"]{ grid-template-columns:1fr !important; }
+  }
+</style>
+<script id="pgnep-annee">/* Bascule année scolaire (additif) */window.ANNEE_SCOLAIRE="2026-2027";</script>
+
+<!-- ════════════════════════════════════════════════════════════════
+     MODULE CLOISONNEMENT DES COMPTES (ajout additif — v3.1)
+     Corrige getScopeUsers() pour le DIRECTEUR : il ne voit que son
+     propre compte + les instituteurs/adjoints de SON école (id résolu).
+     Si son école est inconnue → il ne voit que lui-même (aucune fuite).
+     Les autres rôles restent identiques à l'origine.
+     ════════════════════════════════════════════════════════════════ -->
+<script id="pgnep-scope">
+(function(){
+  "use strict";
+  if(typeof getScopeUsers!=='function') return;
+  var RES=function(v){ return (typeof resolveEcoleId==='function') ? resolveEcoleId(v) : v; };
+
+  getScopeUsers = function(){
+    var u = getCurrentUserData(); if(!u) return [];
+
+    // Admin / DIOMANDE YAYA : voient tout
+    if(u.role==='admin' || u.login==='diomande') return DB.users;
+
+    // DIRECTEUR : son propre compte + les instituteurs/bénévoles de SON école uniquement
+    if(u.role==='directeur'){
+      var monEc = RES(u.structure_val);
+      return DB.users.filter(function(usr){
+        if(usr.login===u.login) return true;                       // son propre espace
+        if(['instituteur','benevole'].indexOf(usr.role)===-1) return false; // jamais d'autres directeurs/admin/etc.
+        if(!monEc) return false;                                    // école inconnue → rien d'autre (pas de fuite)
+        var brut = usr.ecole_val || (usr.structure_type==='classe' ? usr.ecole_val : usr.structure_val);
+        var ecu  = RES(brut);
+        return !!ecu && ecu===monEc;                               // même école, id non vide
+      });
+    }
+
+    // CORRESPONDANT IEPP : toutes les écoles de sa circonscription (inchangé)
+    if(u.role==='correspondant'){
+      var ecoIdsC=getScopeEcoles().map(function(ec){ return ec.id; });
+      return DB.users.filter(function(usr){
+        if(['admin','cabinet'].indexOf(usr.role)!==-1) return false;
+        return ecoIdsC.indexOf(usr.ecole_val)!==-1 || ecoIdsC.indexOf(usr.structure_val)!==-1;
+      });
+    }
+
+    // COORDINATEUR DRENAET : toutes les IEPP et écoles de sa DRENAET (inchangé)
+    if(u.role==='coordinateur'){
+      var ecoIdsD=getScopeEcoles().map(function(ec){ return ec.id; });
+      var ieppList=Array.from(new Set(getScopeEcoles().map(function(ec){ return ec.iepp; }).filter(Boolean)));
+      return DB.users.filter(function(usr){
+        if(['admin','cabinet'].indexOf(usr.role)!==-1) return false;
+        if(usr.structure_type==='drena' && usr.structure_val===u.structure_val) return true;
+        if(usr.structure_type==='iepp')  return ieppList.indexOf(usr.structure_val)!==-1;
+        if(usr.structure_type==='ecole') return ecoIdsD.indexOf(usr.structure_val)!==-1;
+        if(usr.structure_type==='classe')return ecoIdsD.indexOf(usr.ecole_val)!==-1;
+        return false;
+      });
+    }
+
+    // cppp, cabinet, lecteur, instituteur, bénévole : aucun accès aux comptes
+    return [];
+  };
 })();
 </script>
 </body>
