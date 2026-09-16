@@ -12616,5 +12616,994 @@ if ('serviceWorker' in navigator) {
   };
 })();
 </script>
+<!-- ═══ CORRECTIF ADDITIF Écoles : enregistrement fiable + anti-doublons (aucune ligne existante modifiée) ═══ -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIF ADDITIF — Écoles : enregistrement fiable + anti-doublons
+   Aucune ligne existante n'est modifiée. Ce script redéfinit
+   window.saveEcole (la nouvelle version prime sur l'ancienne) et
+   ajoute des outils (fusion des doublons, synchro de la table).
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  // Clé d'unicité d'une école : le CODE D'OUVERTURE s'il existe (unique
+  // par établissement), sinon repli sur nom+iepp+drena. Deux écoles de
+  // même nom mais de codes différents restent donc bien distinctes.
+  function ecoleKey(e) {
+    var code = (e && e.code ? String(e.code) : '').trim().toUpperCase();
+    if (code) return 'C::' + code;
+    return 'N::' + [(e && e.nom) || '', (e && e.iepp) || '', (e && e.drena) || '']
+      .map(function (s) { return String(s).trim().toUpperCase(); }).join('|');
+  }
+
+  var _savingEcole = false;
+
+  // ---- Redéfinition idempotente de saveEcole ----
+  window.saveEcole = function () {
+    if (_savingEcole) return;                       // anti double-clic
+    var nom   = (document.getElementById('ec-nom-f').value || '').trim();
+    var code  = (document.getElementById('ec-code').value  || '').trim();
+    var iepp  = (document.getElementById('ec-iepp').value  || '').trim();
+    var drena = (document.getElementById('ec-drena').value || '').trim();
+    if (!nom) { showNotif("Nom de l'école obligatoire", 'error'); return; }
+
+    _savingEcole = true;
+    var btn = document.querySelector('#modal-ecole .btn-primary');
+    if (btn) { btn.disabled = true; }
+
+    try {
+      var rec;
+      if (typeof editingEcoleIdx !== 'undefined' && editingEcoleIdx !== null) {
+        // Modification d'une école existante
+        DB.ecoles[editingEcoleIdx] = Object.assign({}, DB.ecoles[editingEcoleIdx],
+          { nom: nom, code: code, iepp: iepp, drena: drena });
+        rec = DB.ecoles[editingEcoleIdx];
+      } else {
+        // Ajout : si une école a déjà la même clé -> on la met à jour
+        // (même id) au lieu d'en créer une nouvelle. Un second clic sur
+        // « Enregistrer » ne crée donc plus de doublon.
+        var k = ecoleKey({ nom: nom, code: code, iepp: iepp, drena: drena });
+        var existing = DB.ecoles.find(function (e) { return ecoleKey(e) === k; });
+        if (existing) {
+          existing.nom = nom; existing.code = code; existing.iepp = iepp; existing.drena = drena;
+          rec = existing;
+        } else {
+          rec = { id: genId('ec'), nom: nom, code: code, iepp: iepp, drena: drena };
+          DB.ecoles.push(rec);
+        }
+        // Rattachement instituteur/bénévole (identique à l'original)
+        if (currentUser && ['instituteur', 'benevole'].indexOf(currentUser.role) !== -1) {
+          var u = DB.users.find(function (x) { return x.login === currentUser.login; });
+          if (u) {
+            u.ecole_val = rec.id; save('users');
+            var structEl = document.getElementById('user-structure-label');
+            if (structEl && typeof getStructureLabel === 'function') structEl.textContent = getStructureLabel(u);
+          }
+        }
+      }
+
+      // Persistance : Firebase (par id, donc idempotent) + localStorage via save()
+      if (window._firebaseReady && window._fb) {
+        window._fb.set('ecoles', rec.id, rec).catch(function (err) {
+          console.error('Firebase set ecole', err);
+          showNotif('⚠️ École enregistrée localement — synchro Firebase en attente', 'warning');
+        });
+      }
+      save('ecoles');
+      if (typeof updateStats === 'function') updateStats();
+      if (typeof renderEcoles === 'function') renderEcoles();
+      closeModal('modal-ecole');
+      showNotif('✅ École enregistrée', 'success');
+    } catch (e) {
+      console.error('saveEcole', e);
+      showNotif("❌ Erreur lors de l'enregistrement", 'error');
+    } finally {
+      _savingEcole = false;
+      if (btn) { btn.disabled = false; }
+    }
+  };
+
+  // ---- Fusion des doublons déjà présents (déclenchée par bouton) ----
+  window.dedupEcoles = function () {
+    var groups = {};
+    DB.ecoles.forEach(function (e) {
+      var k = ecoleKey(e);
+      (groups[k] = groups[k] || []).push(e);
+    });
+    var reassign = {};   // ancien id de doublon -> id conservé
+    var toDelete = [];
+    Object.keys(groups).forEach(function (k) {
+      var arr = groups[k];
+      if (arr.length > 1) {
+        var keep = arr[0];
+        for (var i = 1; i < arr.length; i++) {
+          reassign[arr[i].id] = keep.id;
+          toDelete.push(arr[i].id);
+        }
+      }
+    });
+    if (toDelete.length === 0) { showNotif('Aucun doublon détecté', 'info'); return; }
+    if (!confirm('Fusionner ' + toDelete.length + " doublon(s) d'école ?\nLes élèves rattachés seront conservés et reliés à la fiche gardée.")) return;
+
+    // Réaffecter les élèves des doublons vers la fiche conservée
+    (DB.eleves || []).forEach(function (el) {
+      if (el && reassign[el.ecole_id]) {
+        el.ecole_id = reassign[el.ecole_id];
+        if (window._firebaseReady && window._fb) window._fb.set('eleves', el.id, el).catch(function () {});
+      }
+    });
+    save('eleves');
+
+    // Retirer les doublons (DB locale + Firebase)
+    DB.ecoles = DB.ecoles.filter(function (e) { return toDelete.indexOf(e.id) === -1; });
+    toDelete.forEach(function (id) {
+      if (window._firebaseReady && window._fb) window._fb.del('ecoles', id).catch(function () {});
+    });
+    save('ecoles');
+
+    if (typeof updateStats === 'function') updateStats();
+    if (typeof renderEcoles === 'function') renderEcoles();
+    showNotif('🧹 ' + toDelete.length + ' doublon(s) fusionné(s)', 'success');
+  };
+
+  // ---- Bouton « Fusionner les doublons » à côté de « Ajouter une école » ----
+  function injectDedupButton() {
+    var addBtn = document.querySelector('button[onclick="openAddEcole()"]');
+    if (!addBtn || document.getElementById('btn-dedup-ecoles')) return;
+    var b = document.createElement('button');
+    b.id = 'btn-dedup-ecoles';
+    b.className = addBtn.className;
+    b.style.marginLeft = '6px';
+    b.textContent = '🧹 Fusionner les doublons';
+    b.setAttribute('onclick', 'dedupEcoles()');
+    addBtn.parentNode.insertBefore(b, addBtn.nextSibling);
+  }
+  if (document.readyState !== 'loading') injectDedupButton();
+  else document.addEventListener('DOMContentLoaded', injectDedupButton);
+  setInterval(injectDedupButton, 4000); // réinsertion défensive si la barre est re-render
+
+  // ---- Écouteur supplémentaire : garder la table écoles synchro avec Firebase ----
+  var _extraListenerSet = false;
+  function attachEcoleListener() {
+    if (_extraListenerSet || !window._firebaseReady || !window._fb) return;
+    try {
+      window._fb.listen('ecoles', function (data) {
+        DB.ecoles = data;
+        var tbl = document.getElementById('table-ecoles');
+        if (tbl && tbl.offsetParent !== null && typeof renderEcoles === 'function') renderEcoles();
+      });
+      _extraListenerSet = true;
+    } catch (e) { /* ignore */ }
+  }
+  var _li = setInterval(function () { attachEcoleListener(); if (_extraListenerSet) clearInterval(_li); }, 1500);
+
+})();
+
+</script>
+
+<!-- ═══ CORRECTIF ADDITIF Super Administrateur : rôle tout-puissant + menu modèle IEPP (aucune ligne existante modifiée) ═══ -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIF ADDITIF — Super Administrateur : rôle tout-puissant
+   + présentation du menu alignée sur le modèle Plateforme-IEPP.
+   Aucune ligne existante n'est modifiée : ce bloc enrobe
+   applyRoleUI (l'original reste appelé), ajoute des styles et
+   une bande « Administration », sans supprimer quoi que ce soit.
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  function isSuperAdmin() {
+    return !!(window.currentUser &&
+      (currentUser.role === 'admin' || currentUser.login === 'diomande'));
+  }
+
+  // ── A) GARANTIE « voit et gère TOUT » pour le super administrateur ──
+  function hardenSuperAdmin() {
+    if (!isSuperAdmin()) return;
+    // Tous les groupes et entrées de la sidebar visibles
+    document.querySelectorAll('.sidebar .nav-group').forEach(function (g) {
+      g.style.display = '';
+    });
+    ['grp-espaces', 'esp-head-sa', 'esp-head-cf', 'esp-head-ma', 'esp-head-di',
+     'nav-comptes', 'nav-ecoles', 'btn-add'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = (id === 'btn-add' || id.indexOf('nav-') === 0 || id.indexOf('esp-head') === 0) ? 'flex' : '';
+    });
+    // Espace « Super Administrateur » déplié par défaut (comme le superadmin IEPP)
+    var h = document.getElementById('esp-head-sa');
+    var s = document.getElementById('esp-sub-sa');
+    if (h) h.classList.add('open');
+    if (s) s.classList.add('open');
+  }
+
+  // Enrober applyRoleUI : on appelle l'originale puis on garantit l'accès total.
+  if (typeof window.applyRoleUI === 'function' && !window.__pgApplyRoleWrapped) {
+    var _origApplyRoleUI = window.applyRoleUI;
+    window.applyRoleUI = function () {
+      var r = _origApplyRoleUI.apply(this, arguments);
+      try { hardenSuperAdmin(); injectUmbrella(); } catch (e) { console.warn('superadmin align', e); }
+      return r;
+    };
+    window.__pgApplyRoleWrapped = true;
+  }
+
+  // ── B) PRÉSENTATION façon Plateforme-IEPP : bande « Administration » ──
+  function injectUmbrella() {
+    if (document.getElementById('pg-umbrella-admin')) return;
+    // Trouver le groupe dont le libellé est « Administration »
+    var groups = document.querySelectorAll('.sidebar .nav-group');
+    var target = null;
+    groups.forEach(function (g) {
+      var lbl = g.querySelector('.nav-group-label');
+      if (lbl && lbl.textContent.trim().toLowerCase() === 'administration') target = g;
+    });
+    if (!target) return;
+    var band = document.createElement('div');
+    band.id = 'pg-umbrella-admin';
+    band.className = 'pg-umbrella';
+    band.innerHTML = '<span>🏛️</span><span>Administration de la plateforme</span>';
+    target.parentNode.insertBefore(band, target);
+  }
+
+  // ── Styles additifs (modèle IEPP, adaptés au thème sombre Perroquet) ──
+  function injectStyles() {
+    if (document.getElementById('pg-superadmin-style')) return;
+    var css = ''
+      + '.sidebar .nav-group-label{font-size:10px;letter-spacing:1.4px;color:rgba(255,255,255,.42);margin:8px 0 3px;}'
+      // Puces d'icônes colorées comme dans l'IEPP (chip arrondi translucide)
+      + '.sidebar .nav-item > .nav-icon{display:inline-flex;align-items:center;justify-content:center;'
+      + 'width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.08);font-size:15px;}'
+      + '.sidebar .nav-subitem > .nav-icon{width:22px;height:22px;border-radius:6px;font-size:12px;}'
+      // Bande « chapeau » Administration (équivalent .sb-umbrella)
+      + '.pg-umbrella{display:flex;align-items:center;gap:8px;margin:12px 8px 4px;padding:8px 11px;'
+      + 'border-radius:9px;font-size:11.5px;font-weight:800;letter-spacing:.4px;color:#fff;'
+      + 'background:linear-gradient(135deg,rgba(0,107,63,.55),rgba(0,107,63,.18));'
+      + 'border:1px solid rgba(255,255,255,.10);text-transform:uppercase;}'
+      + '.pg-umbrella span:first-child{font-size:15px;}'
+      // Mise en avant de l'espace Super Administrateur (comme le superadmin IEPP)
+      + '#esp-head-sa{background:linear-gradient(135deg,rgba(247,127,0,.24),rgba(247,127,0,.06));'
+      + 'border-radius:8px;border:1px solid rgba(247,127,0,.35);font-weight:800;}'
+      + '#esp-head-sa .nav-icon{background:rgba(247,127,0,.30);}';
+    var st = document.createElement('style');
+    st.id = 'pg-superadmin-style';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  // Initialisation + relances défensives (login asynchrone, re-render de la barre)
+  function boot() { injectStyles(); injectUmbrella(); hardenSuperAdmin(); }
+  if (document.readyState !== 'loading') boot();
+  else document.addEventListener('DOMContentLoaded', boot);
+  setInterval(function () {
+    injectStyles(); injectUmbrella();
+    if (isSuperAdmin()) hardenSuperAdmin();
+  }, 3000);
+
+})();
+
+</script>
+
+<!-- ═══ CORRECTIF ADDITIF Console Super Administrateur : création comptes (DRENAET/IEPP/Directeur/Adjoint) + date de fonctionnement + sous-menus (aucune ligne existante modifiée) ═══ -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIF ADDITIF — Console Super Administrateur
+   • Créer des comptes DRENAET / IEPP / Directeur / Adjoint-Instituteur
+   • Programmer une DATE DE FONCTIONNEMENT (début + fin) par compte
+   • Sous-menus : Toutes les DRENAET, IEPP, écoles, comptes
+   Réutilise le modèle de compte existant (hashPass, _fb, DB.users).
+   Aucune ligne existante n'est modifiée : on enrobe le login pour
+   la période d'activité et on ajoute des éléments d'interface.
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  function isSuperAdmin() {
+    return !!(window.currentUser &&
+      (currentUser.role === 'admin' || currentUser.login === 'diomande'));
+  }
+  function todayStr() { return new Date().toISOString().slice(0, 10); }
+  function hp(p) { return (typeof hashPass === 'function') ? hashPass(p) : p; }
+
+  // ══ 1) DATE DE FONCTIONNEMENT — blocage du login hors période ══
+  function _blocHorsPeriode(login) {
+    var u = (window.DB && DB.users || []).find(function (x) {
+      return x.login === (login || '').toLowerCase().trim();
+    });
+    if (!u) return false;
+    var t = todayStr(), msg = '';
+    if (u.date_debut && t < u.date_debut) msg = "⏳ Ce compte sera actif à partir du " + u.date_debut + ".";
+    else if (u.date_fin && t > u.date_fin) msg = "⛔ Ce compte a expiré le " + u.date_fin + ". Contactez l'administrateur.";
+    if (msg) {
+      var errEl = document.getElementById('login-error');
+      if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+      var pw = document.getElementById('login-pass'); if (pw) pw.value = '';
+      return true;
+    }
+    return false;
+  }
+  if (typeof window.doLogin === 'function' && !window.__pgPeriodeDoLogin) {
+    var _dl = window.doLogin;
+    window.doLogin = function () {
+      var login = (document.getElementById('login-user') || {}).value || '';
+      if (_blocHorsPeriode(login)) return;
+      return _dl.apply(this, arguments);
+    };
+    window.__pgPeriodeDoLogin = true;
+  }
+  if (window._doLoginFirebase && !window.__pgPeriodeFbLogin) {
+    var _fl = window._doLoginFirebase;
+    window._doLoginFirebase = function (loginId, pass) {
+      if (_blocHorsPeriode(loginId)) return Promise.resolve();
+      return _fl.apply(this, arguments);
+    };
+    window.__pgPeriodeFbLogin = true;
+  }
+
+  // ══ Utilitaires listes ══
+  function ecolesAll() { return (window.DB && DB.ecoles) || []; }
+  function usersAll() { return (window.DB && DB.users) || []; }
+  function uniqSorted(arr) {
+    return Array.from(new Set(arr.filter(function (x) { return x && String(x).trim(); })
+      .map(function (x) { return String(x).trim(); }))).sort(function (a, b) { return a.localeCompare(b); });
+  }
+  function allDrenaet() {
+    return uniqSorted(ecolesAll().map(function (e) { return e.drena; })
+      .concat(usersAll().filter(function (u) { return u.structure_type === 'drena'; }).map(function (u) { return u.structure_val; })));
+  }
+  function allIepp() {
+    return uniqSorted(ecolesAll().map(function (e) { return e.iepp; })
+      .concat(usersAll().filter(function (u) { return u.structure_type === 'iepp'; }).map(function (u) { return u.structure_val; })));
+  }
+
+  // ══ 2) MODALE : créer / programmer un compte ══
+  function ensureModal() {
+    if (document.getElementById('modal-sa-compte')) return;
+    var wrap = document.createElement('div');
+    wrap.innerHTML =
+      '<div class="modal-overlay" id="modal-sa-compte" onclick="saCloseModal(event)">'
+      + '<div class="modal" onclick="event.stopPropagation()" style="max-width:640px;">'
+      + '<div class="modal-header"><h3>👑 Créer / programmer un compte</h3>'
+      + '<button class="modal-close" onclick="saCloseModal()">✕</button></div>'
+      + '<div class="modal-body">'
+      + '<div class="form-grid">'
+      + '<div class="form-group full"><label class="form-field"><label>Type de compte</label>'
+      + '<select id="sa-type" onchange="saTypeChange()">'
+      + '<option value="coordinateur">DRENAET — Coordonnateur régional</option>'
+      + '<option value="correspondant">IEPP — Correspondant / Inspection</option>'
+      + '<option value="directeur">Directeur d\'école</option>'
+      + '<option value="instituteur">Adjoint / Instituteur (maître de classe)</option>'
+      + '<option value="benevole">Bénévole (classe)</option>'
+      + '</select></label></div>'
+      + '<div class="form-group"><label class="form-field"><label>Nom complet</label>'
+      + '<input type="text" id="sa-nom" placeholder="Ex : KONE Awa"></label></div>'
+      + '<div class="form-group"><label class="form-field"><label>Identifiant (login)</label>'
+      + '<input type="text" id="sa-login" placeholder="ex : drenaet.katiola"></label></div>'
+      + '<div class="form-group" id="sa-field-drena"><label class="form-field"><label>DRENAET</label>'
+      + '<input type="text" id="sa-drena" list="sa-drena-list" placeholder="DRENAET ..."><datalist id="sa-drena-list"></datalist></label></div>'
+      + '<div class="form-group" id="sa-field-iepp"><label class="form-field"><label>IEPP</label>'
+      + '<input type="text" id="sa-iepp" list="sa-iepp-list" placeholder="IEPP ..."><datalist id="sa-iepp-list"></datalist></label></div>'
+      + '<div class="form-group" id="sa-field-ecole"><label class="form-field"><label>École</label>'
+      + '<select id="sa-ecole"></select></label></div>'
+      + '<div class="form-group" id="sa-field-classe"><label class="form-field"><label>Classe</label>'
+      + '<select id="sa-classe"><option>CP1</option><option>CP2</option><option>CE1</option><option>CE2</option><option>CM1</option><option>CM2</option></select></label></div>'
+      + '<div class="form-group"><label class="form-field"><label>Téléphone (optionnel)</label>'
+      + '<input type="text" id="sa-tel" placeholder="+225 ..."></label></div>'
+      + '<div class="form-group"><label class="form-field"><label>Mot de passe</label>'
+      + '<input type="password" id="sa-pass" placeholder="6 caractères min."></label></div>'
+      + '<div class="form-group"><label class="form-field"><label>Confirmer le mot de passe</label>'
+      + '<input type="password" id="sa-pass2"></label></div>'
+      + '<div class="form-group"><label class="form-field"><label>Date de début de fonctionnement</label>'
+      + '<input type="date" id="sa-date-debut"></label></div>'
+      + '<div class="form-group"><label class="form-field"><label>Date de fin de fonctionnement</label>'
+      + '<input type="date" id="sa-date-fin"></label></div>'
+      + '<div class="form-group full"><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">'
+      + '<input type="checkbox" id="sa-actif" checked style="width:auto;"> Compte actif</label></div>'
+      + '</div>'
+      + '<div id="sa-error" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;border-radius:8px;padding:9px 11px;font-size:12.5px;margin-top:8px;"></div>'
+      + '<p style="font-size:11.5px;color:var(--text3,#889);margin-top:10px;">Laissez les dates vides pour un compte permanent. Le compte est refusé à la connexion avant la date de début et après la date de fin.</p>'
+      + '</div>'
+      + '<div class="modal-footer">'
+      + '<button class="btn btn-secondary" onclick="saCloseModal()">Annuler</button>'
+      + '<button class="btn btn-primary" onclick="saveSaCompte()">💾 Créer le compte</button>'
+      + '</div></div></div>';
+    document.body.appendChild(wrap.firstChild);
+  }
+
+  window.saCloseModal = function (ev) {
+    if (ev && ev.target && ev.target.id !== 'modal-sa-compte') return;
+    var m = document.getElementById('modal-sa-compte'); if (m) m.classList.remove('active');
+  };
+
+  window.saTypeChange = function () {
+    var t = document.getElementById('sa-type').value;
+    var show = function (id, on) { var e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
+    show('sa-field-drena', t === 'coordinateur');
+    show('sa-field-iepp', t === 'correspondant');
+    show('sa-field-ecole', t === 'directeur' || t === 'instituteur' || t === 'benevole');
+    show('sa-field-classe', t === 'instituteur' || t === 'benevole');
+  };
+
+  window.openSaCompteModal = function () {
+    if (!isSuperAdmin()) { showNotif('🔒 Réservé au super-administrateur', 'error'); return; }
+    ensureModal();
+    // Remplir datalists + écoles à chaque ouverture
+    var dl = document.getElementById('sa-drena-list');
+    if (dl) dl.innerHTML = allDrenaet().map(function (d) { return '<option value="' + d.replace(/"/g, '&quot;') + '">'; }).join('');
+    var il = document.getElementById('sa-iepp-list');
+    if (il) il.innerHTML = allIepp().map(function (d) { return '<option value="' + d.replace(/"/g, '&quot;') + '">'; }).join('');
+    var es = document.getElementById('sa-ecole');
+    if (es) es.innerHTML = ecolesAll().map(function (e) {
+      return '<option value="' + e.id + '">' + (e.nom || e.id) + (e.iepp ? ' — ' + e.iepp : '') + '</option>';
+    }).join('') || '<option value="">(aucune école — créez-en d\'abord)</option>';
+    ['sa-nom', 'sa-login', 'sa-tel', 'sa-pass', 'sa-pass2', 'sa-drena', 'sa-iepp', 'sa-date-debut', 'sa-date-fin']
+      .forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
+    var ac = document.getElementById('sa-actif'); if (ac) ac.checked = true;
+    var er = document.getElementById('sa-error'); if (er) er.style.display = 'none';
+    saTypeChange();
+    document.getElementById('modal-sa-compte').classList.add('active');
+  };
+
+  window.saveSaCompte = function () {
+    if (!isSuperAdmin()) { showNotif('🔒 Réservé au super-administrateur', 'error'); return; }
+    var er = document.getElementById('sa-error');
+    var fail = function (m) { if (er) { er.textContent = m; er.style.display = 'block'; } };
+    var role = document.getElementById('sa-type').value;
+    var nom = (document.getElementById('sa-nom').value || '').trim();
+    var login = (document.getElementById('sa-login').value || '').trim().toLowerCase();
+    var tel = (document.getElementById('sa-tel').value || '').trim();
+    var pass = document.getElementById('sa-pass').value;
+    var pass2 = document.getElementById('sa-pass2').value;
+    var dd = document.getElementById('sa-date-debut').value || '';
+    var df = document.getElementById('sa-date-fin').value || '';
+    var actif = !!document.getElementById('sa-actif').checked;
+
+    if (!nom || !login) { fail('Nom et identifiant obligatoires.'); return; }
+    if (!pass) { fail('Mot de passe obligatoire.'); return; }
+    if (pass.length < 6) { fail('Mot de passe : 6 caractères minimum.'); return; }
+    if (pass !== pass2) { fail('Les deux mots de passe diffèrent.'); return; }
+    if (usersAll().find(function (u) { return u.login === login; })) { fail('Identifiant déjà utilisé.'); return; }
+    if (dd && df && df < dd) { fail('La date de fin est antérieure à la date de début.'); return; }
+
+    var structure_type = 'national', structure_val = '', ecole_val = '';
+    if (role === 'coordinateur') { structure_type = 'drena'; structure_val = (document.getElementById('sa-drena').value || '').trim(); if (!structure_val) { fail('Indiquez la DRENAET.'); return; } }
+    else if (role === 'correspondant') { structure_type = 'iepp'; structure_val = (document.getElementById('sa-iepp').value || '').trim(); if (!structure_val) { fail('Indiquez l\'IEPP.'); return; } }
+    else if (role === 'directeur') { structure_type = 'ecole'; structure_val = document.getElementById('sa-ecole').value || ''; if (!structure_val) { fail('Sélectionnez l\'école.'); return; } }
+    else if (role === 'instituteur' || role === 'benevole') { structure_type = 'classe'; structure_val = document.getElementById('sa-classe').value || ''; ecole_val = document.getElementById('sa-ecole').value || ''; if (!ecole_val) { fail('Sélectionnez l\'école.'); return; } }
+
+    var email = login + '@pgnep-menaet.ci';
+    var newUser = {
+      login: login, nom: nom, pass: hp(pass), role: role,
+      structure_type: structure_type, structure_val: structure_val, ecole_val: ecole_val,
+      telephone: tel, email: email, actif: actif
+    };
+    if (dd) newUser.date_debut = dd;
+    if (df) newUser.date_fin = df;
+
+    DB.users.push(newUser);
+    if (window._firebaseReady && window._fb) {
+      window._fb.set('users', login, newUser).catch(function () {});
+      window._fb.createUser(email, pass).catch(function () {});
+    }
+    if (typeof save === 'function') save('users');
+    if (typeof renderUsersList === 'function') { try { renderUsersList(); } catch (e) {} }
+    saCloseModal();
+    var quand = (dd || df) ? (' (période : ' + (dd || '…') + ' → ' + (df || '…') + ')') : '';
+    showNotif('✅ Compte « ' + login + ' » créé' + quand, 'success');
+  };
+
+  // ══ 3) MODALE liste (DRENAET / IEPP) ══
+  function ensureListModal() {
+    if (document.getElementById('modal-sa-list')) return;
+    var wrap = document.createElement('div');
+    wrap.innerHTML =
+      '<div class="modal-overlay" id="modal-sa-list" onclick="saCloseList(event)">'
+      + '<div class="modal" onclick="event.stopPropagation()" style="max-width:720px;">'
+      + '<div class="modal-header"><h3 id="sa-list-title">Liste</h3>'
+      + '<button class="modal-close" onclick="saCloseList()">✕</button></div>'
+      + '<div class="modal-body" id="sa-list-body" style="max-height:60vh;overflow:auto;"></div>'
+      + '<div class="modal-footer"><button class="btn btn-secondary" onclick="saCloseList()">Fermer</button></div>'
+      + '</div></div>';
+    document.body.appendChild(wrap.firstChild);
+  }
+  window.saCloseList = function (ev) {
+    if (ev && ev.target && ev.target.id !== 'modal-sa-list') return;
+    var m = document.getElementById('modal-sa-list'); if (m) m.classList.remove('active');
+  };
+  function renderList(title, rows, headers) {
+    ensureListModal();
+    document.getElementById('sa-list-title').textContent = title;
+    var th = headers.map(function (h) { return '<th style="text-align:left;padding:7px 9px;border-bottom:2px solid var(--border,#e5e7eb);font-size:11px;color:var(--text2,#556);">' + h + '</th>'; }).join('');
+    var body = rows.map(function (r) {
+      return '<tr>' + r.map(function (c) { return '<td style="padding:7px 9px;border-bottom:1px solid var(--border,#eee);font-size:13px;">' + c + '</td>'; }).join('') + '</tr>';
+    }).join('') || '<tr><td colspan="' + headers.length + '" style="padding:14px;text-align:center;color:var(--text3,#889);">Aucune donnée</td></tr>';
+    document.getElementById('sa-list-body').innerHTML =
+      '<table style="width:100%;border-collapse:collapse;"><thead><tr>' + th + '</tr></thead><tbody>' + body + '</tbody></table>';
+    document.getElementById('modal-sa-list').classList.add('active');
+  }
+  window.saShowDrenaet = function () {
+    if (!isSuperAdmin()) return;
+    var rows = allDrenaet().map(function (d) {
+      var nbEc = ecolesAll().filter(function (e) { return (e.drena || '').trim() === d; }).length;
+      var nbC = usersAll().filter(function (u) { return u.structure_type === 'drena' && (u.structure_val || '').trim() === d; }).length;
+      return [d, String(nbEc), String(nbC)];
+    });
+    renderList('🏛️ Toutes les DRENAET (' + rows.length + ')', rows, ['DRENAET', 'Écoles', 'Comptes']);
+  };
+  window.saShowIepp = function () {
+    if (!isSuperAdmin()) return;
+    var rows = allIepp().map(function (i) {
+      var nbEc = ecolesAll().filter(function (e) { return (e.iepp || '').trim() === i; }).length;
+      var nbC = usersAll().filter(function (u) { return u.structure_type === 'iepp' && (u.structure_val || '').trim() === i; }).length;
+      var dr = (ecolesAll().find(function (e) { return (e.iepp || '').trim() === i; }) || {}).drena || '—';
+      return [i, dr, String(nbEc), String(nbC)];
+    });
+    renderList('🏢 Toutes les IEPP (' + rows.length + ')', rows, ['IEPP', 'DRENAET', 'Écoles', 'Comptes']);
+  };
+
+  // ══ 4) Sous-menus dans l'espace 👑 Super Administrateur ══
+  function injectSubmenu() {
+    var sub = document.getElementById('esp-sub-sa');
+    if (!sub || document.getElementById('sa-menu-creer')) return;
+    var items = [
+      ['sa-menu-creer', 'openSaCompteModal()', '➕', 'Créer / programmer un compte'],
+      ['sa-menu-drenaet', 'saShowDrenaet()', '🏛️', 'Toutes les DRENAET'],
+      ['sa-menu-iepp', 'saShowIepp()', '🏢', 'Toutes les IEPP'],
+      ['sa-menu-ecoles', "showPage('ecoles')", '🏫', 'Toutes les écoles'],
+      ['sa-menu-comptes', "showPage('comptes')", '👥', 'Tous les comptes']
+    ];
+    items.forEach(function (it) {
+      var d = document.createElement('div');
+      d.className = 'nav-item nav-subitem';
+      d.id = it[0];
+      d.setAttribute('onclick', it[1]);
+      d.innerHTML = '<span class="nav-icon">' + it[2] + '</span> ' + it[3];
+      sub.appendChild(d);
+    });
+  }
+
+  function boot() { injectSubmenu(); }
+  if (document.readyState !== 'loading') boot();
+  else document.addEventListener('DOMContentLoaded', boot);
+  setInterval(injectSubmenu, 3000);
+
+})();
+
+</script>
+
+<!-- ═══ CORRECTIF ADDITIF Suppression doublons écoles PAR NOM (aucune ligne existante modifiée) ═══ -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIF ADDITIF — Suppression des doublons d'écoles PAR NOM
+   Fusionne toutes les fiches de MÊME NOM (codes incohérents inclus),
+   garde la fiche portant le code le plus fréquent, complète l'IEPP/
+   DRENAET manquants, réaffecte les élèves, supprime le reste
+   (localStorage + Firebase). Additif : ne modifie aucune ligne.
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  function normNom(s) { return (s || '').trim().toUpperCase().replace(/\s+/g, ' '); }
+  // Code réel ? on ignore les caractères de remplissage vides
+  function realCode(s) {
+    s = (s || '').trim().toUpperCase();
+    return (s === '' || s === '-' || s === '–' || s === '—' || s === '_') ? '' : s;
+  }
+
+  window.pgSupprimerDoublons = function () {
+    if (!window.DB || !DB.ecoles) { return; }
+    var groups = {};
+    DB.ecoles.forEach(function (e) {
+      var k = normNom(e.nom);
+      (groups[k] = groups[k] || []).push(e);
+    });
+
+    var reassign = {}, toDelete = [], keptCount = 0;
+    Object.keys(groups).forEach(function (k) {
+      var arr = groups[k];
+      if (arr.length < 2) return;
+      // code dominant (le plus fréquent parmi les codes réels)
+      var tally = {}, best = '', bestN = 0;
+      arr.forEach(function (e) {
+        var c = realCode(e.code);
+        if (c) { tally[c] = (tally[c] || 0) + 1; if (tally[c] > bestN) { bestN = tally[c]; best = c; } }
+      });
+      // fiche à conserver : celle qui porte le code dominant, sinon la première
+      var keep = (best && arr.find(function (e) { return realCode(e.code) === best; })) || arr[0];
+      // compléter la fiche conservée avec les infos présentes ailleurs
+      arr.forEach(function (e) {
+        if (!realCode(keep.code) && realCode(e.code)) keep.code = e.code;
+        if (!(keep.iepp || '').trim() && (e.iepp || '').trim()) keep.iepp = e.iepp;
+        if (!(keep.drena || '').trim() && (e.drena || '').trim()) keep.drena = e.drena;
+      });
+      if (best) keep.code = best;
+      keptCount++;
+      arr.forEach(function (e) { if (e !== keep) { reassign[e.id] = keep.id; toDelete.push(e.id); } });
+    });
+
+    if (toDelete.length === 0) {
+      if (typeof showNotif === 'function') showNotif('Aucun doublon détecté', 'info'); else alert('Aucun doublon.');
+      return;
+    }
+    if (!confirm('Fusionner ' + toDelete.length + ' doublon(s) d\'école en ' + keptCount +
+      ' fiche(s) unique(s) ?\nLes écoles de même nom sont regroupées ; les élèves rattachés sont conservés.')) return;
+
+    // réaffecter les élèves des doublons vers la fiche conservée
+    (DB.eleves || []).forEach(function (el) {
+      if (el && reassign[el.ecole_id]) {
+        el.ecole_id = reassign[el.ecole_id];
+        if (window._firebaseReady && window._fb) window._fb.set('eleves', el.id, el).catch(function () {});
+      }
+    });
+    // conserver aussi les fiches gardées mises à jour côté Firebase
+    DB.ecoles.forEach(function (e) {
+      if (window._firebaseReady && window._fb) window._fb.set('ecoles', e.id, e).catch(function () {});
+    });
+    // retirer les doublons (local + Firebase)
+    DB.ecoles = DB.ecoles.filter(function (e) { return toDelete.indexOf(e.id) === -1; });
+    toDelete.forEach(function (id) {
+      if (window._firebaseReady && window._fb) window._fb.del('ecoles', id).catch(function () {});
+    });
+
+    if (typeof save === 'function') { save('ecoles'); save('eleves'); }
+    if (typeof updateStats === 'function') updateStats();
+    if (typeof renderEcoles === 'function') renderEcoles();
+    if (typeof showNotif === 'function') showNotif('🧹 ' + toDelete.length + ' doublon(s) supprimé(s)', 'success');
+    else alert('✅ ' + toDelete.length + ' doublon(s) supprimé(s).');
+  };
+
+  // La fusion « par nom » remplace l'ancienne fusion « par code »
+  window.dedupEcoles = window.pgSupprimerDoublons;
+
+  // Bouton visible « Supprimer les doublons » à côté de « Ajouter une école »
+  function injectBtn() {
+    var addBtn = document.querySelector('button[onclick="openAddEcole()"]');
+    if (!addBtn) return;
+    var b = document.getElementById('btn-dedup-ecoles');
+    if (!b) {
+      b = document.createElement('button');
+      b.id = 'btn-dedup-ecoles';
+      b.className = addBtn.className;
+      b.style.marginLeft = '6px';
+      b.setAttribute('onclick', 'pgSupprimerDoublons()');
+      addBtn.parentNode.insertBefore(b, addBtn.nextSibling);
+    }
+    b.textContent = '🧹 Supprimer les doublons';
+    b.setAttribute('onclick', 'pgSupprimerDoublons()');
+  }
+  if (document.readyState !== 'loading') injectBtn();
+  else document.addEventListener('DOMContentLoaded', injectBtn);
+  setInterval(injectBtn, 3000);
+
+})();
+
+</script>
+
+<!-- ═══ CORRECTIF ADDITIF Gestion DRENAET & IEPP : CRUD + import/export/impression + répercussion des renommages (aucune ligne existante modifiée) ═══ -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIF ADDITIF — Gestion DRENAET & IEPP (vraies fiches)
+   Transforme les menus « Toutes les DRENAET / IEPP » en modules
+   complets : Ajouter · Modifier · Supprimer · Imprimer · Export
+   Excel · Export PDF · Import (Excel/CSV). Crée deux registres
+   DB.drenaets / DB.iepps (amorcés depuis les écoles existantes),
+   persistés en local + Firebase. Additif : aucune ligne modifiée.
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  function isSuper() { return !!(window.currentUser && (currentUser.role === 'admin' || currentUser.login === 'diomande')); }
+  function norm(s) { return (s || '').trim().toUpperCase().replace(/\s+/g, ' '); }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function gid(p) { return (typeof genId === 'function') ? genId(p) : p + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+  function ecoles() { return (window.DB && DB.ecoles) || []; }
+  function users() { return (window.DB && DB.users) || []; }
+  function notif(m, t) { if (typeof showNotif === 'function') showNotif(m, t || 'success'); else alert(m); }
+
+  // ── Registres : amorçage depuis les écoles + persistance ──
+  function ensureReg() {
+    if (!window.DB) return;
+    if (!Array.isArray(DB.drenaets)) DB.drenaets = lsGet('pgnep_drenaets') || [];
+    if (!Array.isArray(DB.iepps)) DB.iepps = lsGet('pgnep_iepps') || [];
+    var changed = false;
+    ecoles().forEach(function (e) {
+      var d = (e.drena || '').trim();
+      if (d && !DB.drenaets.some(function (x) { return norm(x.nom) === norm(d); })) { DB.drenaets.push({ id: gid('dr'), nom: d, code: '' }); changed = true; }
+      var i = (e.iepp || '').trim();
+      if (i && !DB.iepps.some(function (x) { return norm(x.nom) === norm(i); })) { DB.iepps.push({ id: gid('ie'), nom: i, code: '', drena: (e.drena || '').trim() }); changed = true; }
+    });
+    if (changed) persist();
+  }
+  function persist() { if (typeof save === 'function') { try { save('drenaets'); save('iepps'); } catch (e) {} } }
+
+  // ── Chargement Firebase (fusion par nom) + écoute temps réel ──
+  var _synced = false;
+  function syncCloud() {
+    if (_synced || !window._firebaseReady || !window._fb) return;
+    _synced = true;
+    ['drenaets', 'iepps'].forEach(function (col) {
+      try {
+        window._fb.getAll(col).then(function (arr) {
+          if (!arr || !arr.length) return;
+          arr.forEach(function (r) {
+            if (!DB[col].some(function (x) { return x.id === r.id || norm(x.nom) === norm(r.nom); })) DB[col].push(r);
+          });
+          persist(); refreshOpen();
+        }).catch(function () {});
+        window._fb.listen(col, function (data) {
+          DB[col] = data; refreshOpen();
+        });
+      } catch (e) {}
+    });
+  }
+
+  // ── Comptages ──
+  function ecolesDe(kind, nom) { return ecoles().filter(function (e) { return norm(kind === 'drena' ? e.drena : e.iepp) === norm(nom); }).length; }
+  function comptesDe(kind, nom) { return users().filter(function (u) { return u.structure_type === (kind === 'drena' ? 'drena' : 'iepp') && norm(u.structure_val) === norm(nom); }).length; }
+  function ieppsDe(drena) { return (DB.iepps || []).filter(function (i) { return norm(i.drena) === norm(drena); }).length; }
+
+  // ══ MODALE DE GESTION (liste + barre d'outils) ══
+  function ensureAdminModal() {
+    if (document.getElementById('modal-reg-admin')) return;
+    var d = document.createElement('div');
+    d.innerHTML =
+      '<div class="modal-overlay" id="modal-reg-admin" onclick="regAdminClose(event)">'
+      + '<div class="modal" onclick="event.stopPropagation()" style="max-width:860px;">'
+      + '<div class="modal-header"><h3 id="reg-admin-title">Gestion</h3>'
+      + '<button class="modal-close" onclick="regAdminClose()">✕</button></div>'
+      + '<div class="modal-body">'
+      + '<div id="reg-admin-toolbar" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;"></div>'
+      + '<div id="reg-admin-body" style="max-height:58vh;overflow:auto;"></div>'
+      + '</div></div></div>';
+    document.body.appendChild(d.firstChild);
+  }
+  window.regAdminClose = function (ev) {
+    if (ev && ev.target && ev.target.id !== 'modal-reg-admin') return;
+    var m = document.getElementById('modal-reg-admin'); if (m) m.classList.remove('active');
+  };
+
+  var _kind = 'drena';
+  function refreshOpen() {
+    var m = document.getElementById('modal-reg-admin');
+    if (m && m.classList.contains('active')) renderAdmin();
+  }
+  function renderAdmin() {
+    ensureReg();
+    var isDr = _kind === 'drena';
+    var list = isDr ? (DB.drenaets || []) : (DB.iepps || []);
+    list = list.slice().sort(function (a, b) { return norm(a.nom).localeCompare(norm(b.nom)); });
+    document.getElementById('reg-admin-title').textContent = isDr ? '🏛️ Toutes les DRENAET (' + list.length + ')' : '🏢 Toutes les IEPP (' + list.length + ')';
+
+    var tb = document.getElementById('reg-admin-toolbar');
+    tb.innerHTML =
+      '<button class="btn btn-primary btn-sm" onclick="regAdd()">➕ Ajouter</button>'
+      + '<button class="btn btn-secondary btn-sm" onclick="regImport()">📥 Importer</button>'
+      + '<button class="btn btn-secondary btn-sm" onclick="regExportExcel()">⬇️ Excel</button>'
+      + '<button class="btn btn-secondary btn-sm" onclick="regExportPdf()">📄 PDF</button>'
+      + '<button class="btn btn-secondary btn-sm" onclick="regPrint()">🖨️ Imprimer</button>';
+
+    var headers = isDr ? ['DRENAET', 'Code', 'IEPP', 'Écoles', 'Comptes', 'Actions']
+      : ['IEPP', 'DRENAET', 'Code', 'Écoles', 'Comptes', 'Actions'];
+    var th = headers.map(function (h) { return '<th style="text-align:left;padding:8px 10px;border-bottom:2px solid var(--border,#e5e7eb);font-size:11px;color:var(--text2,#556);white-space:nowrap;">' + h + '</th>'; }).join('');
+    var rows = list.map(function (r) {
+      var act = '<button class="btn btn-secondary btn-sm" style="padding:3px 8px;" onclick="regEdit(\'' + r.id + '\')">✏️</button> '
+        + '<button class="btn btn-danger btn-sm" style="padding:3px 8px;" onclick="regDelete(\'' + r.id + '\')">🗑️</button>';
+      var cells = isDr
+        ? [r.nom, r.code || '—', String(ieppsDe(r.nom)), String(ecolesDe('drena', r.nom)), String(comptesDe('drena', r.nom)), act]
+        : [r.nom, r.drena || '—', r.code || '—', String(ecolesDe('iepp', r.nom)), String(comptesDe('iepp', r.nom)), act];
+      return '<tr>' + cells.map(function (c, i) { return '<td style="padding:8px 10px;border-bottom:1px solid var(--border,#eee);font-size:13px;' + (i === headers.length - 1 ? 'white-space:nowrap;' : '') + '">' + (i === headers.length - 1 ? c : esc(c)) + '</td>'; }).join('') + '</tr>';
+    }).join('') || '<tr><td colspan="' + headers.length + '" style="padding:16px;text-align:center;color:var(--text3,#889);">Aucune fiche — cliquez « Ajouter » ou « Importer ».</td></tr>';
+    document.getElementById('reg-admin-body').innerHTML =
+      '<table style="width:100%;border-collapse:collapse;"><thead><tr>' + th + '</tr></thead><tbody>' + rows + '</tbody></table>';
+    document.getElementById('modal-reg-admin').classList.add('active');
+  }
+
+  window.openDrenaetAdmin = function () { if (!isSuper()) { notif('🔒 Réservé au super-administrateur', 'error'); return; } _kind = 'drena'; ensureAdminModal(); renderAdmin(); };
+  window.openIeppAdmin = function () { if (!isSuper()) { notif('🔒 Réservé au super-administrateur', 'error'); return; } _kind = 'iepp'; ensureAdminModal(); renderAdmin(); };
+  // Remplace les anciens menus (lecture seule) par les modules complets
+  window.saShowDrenaet = window.openDrenaetAdmin;
+  window.saShowIepp = window.openIeppAdmin;
+
+  // ══ MODALE FICHE (ajout / modification) ══
+  function ensureEditModal() {
+    if (document.getElementById('modal-reg-edit')) return;
+    var d = document.createElement('div');
+    d.innerHTML =
+      '<div class="modal-overlay" id="modal-reg-edit" onclick="regEditClose(event)">'
+      + '<div class="modal" onclick="event.stopPropagation()" style="max-width:480px;">'
+      + '<div class="modal-header"><h3 id="reg-edit-title">Fiche</h3><button class="modal-close" onclick="regEditClose()">✕</button></div>'
+      + '<div class="modal-body"><div class="form-grid">'
+      + '<div class="form-group full"><label class="form-field"><label>Nom</label><input type="text" id="reg-edit-nom"></label></div>'
+      + '<div class="form-group full"><label class="form-field"><label>Code (optionnel)</label><input type="text" id="reg-edit-code"></label></div>'
+      + '<div class="form-group full" id="reg-edit-drena-wrap"><label class="form-field"><label>DRENAET de rattachement</label>'
+      + '<input type="text" id="reg-edit-drena" list="reg-edit-drena-list"><datalist id="reg-edit-drena-list"></datalist></label></div>'
+      + '</div><div id="reg-edit-err" style="display:none;background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;border-radius:8px;padding:9px 11px;font-size:12.5px;margin-top:8px;"></div></div>'
+      + '<div class="modal-footer"><button class="btn btn-secondary" onclick="regEditClose()">Annuler</button>'
+      + '<button class="btn btn-primary" onclick="regEditSave()">💾 Enregistrer</button></div>'
+      + '</div></div>';
+    document.body.appendChild(d.firstChild);
+  }
+  window.regEditClose = function (ev) { if (ev && ev.target && ev.target.id !== 'modal-reg-edit') return; var m = document.getElementById('modal-reg-edit'); if (m) m.classList.remove('active'); };
+  var _editId = null;
+  window.regAdd = function () { openEdit(null); };
+  window.regEdit = function (id) { openEdit(id); };
+  function openEdit(id) {
+    ensureEditModal();
+    _editId = id;
+    var isDr = _kind === 'drena';
+    var rec = id ? ((isDr ? DB.drenaets : DB.iepps) || []).find(function (x) { return x.id === id; }) : null;
+    document.getElementById('reg-edit-title').textContent = (id ? 'Modifier ' : 'Ajouter ') + (isDr ? 'une DRENAET' : 'une IEPP');
+    document.getElementById('reg-edit-nom').value = rec ? (rec.nom || '') : '';
+    document.getElementById('reg-edit-code').value = rec ? (rec.code || '') : '';
+    document.getElementById('reg-edit-drena-wrap').style.display = isDr ? 'none' : '';
+    if (!isDr) {
+      var dl = document.getElementById('reg-edit-drena-list');
+      dl.innerHTML = (DB.drenaets || []).map(function (d) { return '<option value="' + esc(d.nom) + '">'; }).join('');
+      document.getElementById('reg-edit-drena').value = rec ? (rec.drena || '') : '';
+    }
+    document.getElementById('reg-edit-err').style.display = 'none';
+    document.getElementById('modal-reg-edit').classList.add('active');
+  }
+  window.regEditSave = function () {
+    var isDr = _kind === 'drena';
+    var nom = (document.getElementById('reg-edit-nom').value || '').trim();
+    var code = (document.getElementById('reg-edit-code').value || '').trim();
+    var drena = isDr ? '' : (document.getElementById('reg-edit-drena').value || '').trim();
+    var err = document.getElementById('reg-edit-err');
+    if (!nom) { err.textContent = 'Le nom est obligatoire.'; err.style.display = 'block'; return; }
+    var arr = isDr ? DB.drenaets : DB.iepps;
+    // doublon de nom (hors la fiche en cours)
+    if (arr.some(function (x) { return norm(x.nom) === norm(nom) && x.id !== _editId; })) { err.textContent = 'Ce nom existe déjà.'; err.style.display = 'block'; return; }
+    var rec, oldNom = null;
+    if (_editId) { rec = arr.find(function (x) { return x.id === _editId; }); if (!rec) return; oldNom = rec.nom; rec.nom = nom; rec.code = code; if (!isDr) rec.drena = drena; }
+    else { rec = isDr ? { id: gid('dr'), nom: nom, code: code } : { id: gid('ie'), nom: nom, code: code, drena: drena }; arr.push(rec); }
+    if (window._firebaseReady && window._fb) window._fb.set(isDr ? 'drenaets' : 'iepps', rec.id, rec).catch(function () {});
+    var moved = 0;
+    if (_editId && oldNom && norm(oldNom) !== norm(nom)) moved = propagateRename(isDr, oldNom, nom);
+    persist();
+    regEditClose(); renderAdmin();
+    notif(moved ? ('✅ Fiche enregistrée — ' + moved + ' rattachement(s) mis à jour') : '✅ Fiche enregistrée', 'success');
+  };
+
+  // Répercuter un changement de nom sur les écoles, IEPP et comptes rattachés
+  function propagateRename(isDr, oldNom, newNom) {
+    var n = 0, fb = (window._firebaseReady && window._fb);
+    (ecoles()).forEach(function (e) {
+      if (isDr && norm(e.drena) === norm(oldNom)) { e.drena = newNom; n++; if (fb) window._fb.set('ecoles', e.id, e).catch(function () {}); }
+      if (!isDr && norm(e.iepp) === norm(oldNom)) { e.iepp = newNom; n++; if (fb) window._fb.set('ecoles', e.id, e).catch(function () {}); }
+    });
+    if (isDr) (DB.iepps || []).forEach(function (i) {
+      if (norm(i.drena) === norm(oldNom)) { i.drena = newNom; n++; if (fb) window._fb.set('iepps', i.id, i).catch(function () {}); }
+    });
+    (users()).forEach(function (u) {
+      if (u.structure_type === (isDr ? 'drena' : 'iepp') && norm(u.structure_val) === norm(oldNom)) {
+        u.structure_val = newNom; n++; if (fb) window._fb.set('users', u.id || u.login, u).catch(function () {});
+      }
+    });
+    if (typeof save === 'function') { try { save('ecoles'); save('users'); if (isDr) save('iepps'); } catch (e) {} }
+    if (typeof renderEcoles === 'function') { try { renderEcoles(); } catch (e) {} }
+    if (typeof updateStats === 'function') { try { updateStats(); } catch (e) {} }
+    return n;
+  }
+  window.regDelete = function (id) {
+    var isDr = _kind === 'drena';
+    var arr = isDr ? DB.drenaets : DB.iepps;
+    var rec = arr.find(function (x) { return x.id === id; }); if (!rec) return;
+    var nbEc = ecolesDe(isDr ? 'drena' : 'iepp', rec.nom), nbC = comptesDe(isDr ? 'drena' : 'iepp', rec.nom);
+    var av = (nbEc || nbC) ? '\n\n⚠️ ' + nbEc + ' école(s) et ' + nbC + ' compte(s) y font référence (ils ne seront pas supprimés, seulement la fiche).' : '';
+    if (!confirm('Supprimer « ' + rec.nom + ' » ?' + av)) return;
+    if (isDr) DB.drenaets = arr.filter(function (x) { return x.id !== id; });
+    else DB.iepps = arr.filter(function (x) { return x.id !== id; });
+    if (window._firebaseReady && window._fb) window._fb.del(isDr ? 'drenaets' : 'iepps', id).catch(function () {});
+    persist(); renderAdmin();
+    notif('🗑️ Fiche supprimée', 'info');
+  };
+
+  // ══ EXPORT / IMPORT / IMPRESSION ══
+  function currentAOA() {
+    var isDr = _kind === 'drena';
+    var list = (isDr ? DB.drenaets : DB.iepps || []).slice().sort(function (a, b) { return norm(a.nom).localeCompare(norm(b.nom)); });
+    if (isDr) {
+      var aoa = [['DRENAET', 'Code', 'Nb IEPP', 'Nb écoles', 'Nb comptes']];
+      list.forEach(function (r) { aoa.push([r.nom, r.code || '', ieppsDe(r.nom), ecolesDe('drena', r.nom), comptesDe('drena', r.nom)]); });
+      return aoa;
+    }
+    var a2 = [['IEPP', 'DRENAET', 'Code', 'Nb écoles', 'Nb comptes']];
+    list.forEach(function (r) { a2.push([r.nom, r.drena || '', r.code || '', ecolesDe('iepp', r.nom), comptesDe('iepp', r.nom)]); });
+    return a2;
+  }
+  window.regExportExcel = function () {
+    var aoa = currentAOA(); var base = _kind === 'drena' ? 'DRENAET' : 'IEPP';
+    if (typeof XLSX !== 'undefined') {
+      var ws = XLSX.utils.aoa_to_sheet(aoa), wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, base); XLSX.writeFile(wb, 'Liste_' + base + '.xlsx');
+    } else {
+      var csv = aoa.map(function (r) { return r.map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(';'); }).join('\n');
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })); a.download = 'Liste_' + base + '.csv'; a.click();
+    }
+    notif('⬇️ Export Excel généré', 'success');
+  };
+  function printAOA(title, aoa) {
+    var w = window.open('', '_blank'); if (!w) { alert('Autorisez les fenêtres pop-up pour imprimer/exporter en PDF.'); return; }
+    var th = aoa[0].map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('');
+    var tb = aoa.slice(1).map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; }).join('');
+    w.document.write('<html><head><meta charset="UTF-8"><title>' + esc(title) + '</title><style>body{font-family:Arial,sans-serif;padding:18px;font-size:12px;color:#111}h1{font-size:16px;color:#123a63;text-align:center}p{text-align:center;color:#555;font-size:11px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #bbb;padding:5px 8px;font-size:11px;text-align:left}th{background:#123a63;color:#fff}tr:nth-child(even) td{background:#f5f5f5}@page{margin:14mm}</style></head><body><h1>' + esc(title) + '</h1><p>Le Perroquet · PGNEP — ' + new Date().toLocaleDateString('fr-FR') + '</p><table><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table><scr' + 'ipt>window.onload=function(){setTimeout(function(){window.print();},250);}<\/scr' + 'ipt></body></html>');
+    w.document.close();
+  }
+  window.regPrint = function () { printAOA((_kind === 'drena' ? 'Liste des DRENAET' : 'Liste des IEPP'), currentAOA()); };
+  window.regExportPdf = function () { printAOA((_kind === 'drena' ? 'Liste des DRENAET' : 'Liste des IEPP') + ' (PDF)', currentAOA()); };
+  window.regImport = function () {
+    var isDr = _kind === 'drena';
+    var inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.xlsx,.xls,.csv';
+    inp.onchange = function () {
+      var f = inp.files[0]; if (!f) return; var r = new FileReader();
+      r.onload = function () {
+        try {
+          var rows;
+          if (typeof XLSX !== 'undefined') { var wb = XLSX.read(r.result, { type: 'binary' }); rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 }); }
+          else { rows = String(r.result).split(/\r?\n/).map(function (l) { return l.split(/[;,\t]/); }); }
+          var added = 0;
+          rows.forEach(function (row, i) {
+            if (!row || !row[0]) return;
+            var nom = String(row[0]).trim(); if (!nom) return;
+            if (i === 0 && /nom|drenaet|iepp/i.test(nom)) return;
+            var code = row[1] != null ? String(row[1]).trim() : '';
+            var arr = isDr ? DB.drenaets : DB.iepps;
+            if (arr.some(function (x) { return norm(x.nom) === norm(nom); })) return;
+            var rec = isDr ? { id: gid('dr'), nom: nom, code: code } : { id: gid('ie'), nom: nom, code: code, drena: (row[2] != null ? String(row[2]).trim() : '') };
+            arr.push(rec);
+            if (window._firebaseReady && window._fb) window._fb.set(isDr ? 'drenaets' : 'iepps', rec.id, rec).catch(function () {});
+            added++;
+          });
+          persist(); renderAdmin();
+          notif('📥 ' + added + ' fiche(s) importée(s)', 'success');
+        } catch (e) { alert('Import impossible : ' + e.message); }
+      };
+      if (typeof XLSX !== 'undefined') r.readAsBinaryString(f); else r.readAsText(f);
+    };
+    inp.click();
+  };
+
+  // ── Amorçage ──
+  function boot() { try { ensureReg(); syncCloud(); } catch (e) { console.warn('reg boot', e); } }
+  if (document.readyState !== 'loading') boot(); else document.addEventListener('DOMContentLoaded', boot);
+  var tries = 0;
+  var iv = setInterval(function () { boot(); if ((_synced) || ++tries > 20) clearInterval(iv); }, 1500);
+
+})();
+
+</script>
+
+<!-- ═══ CORRECTIF ADDITIF Pont window.currentUser / window.DB (aucune ligne existante modifiée) ═══ -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIF ADDITIF — Pont window.currentUser / window.DB
+   currentUser (let) et DB (const) sont des variables lexicales :
+   window.currentUser et window.DB valaient donc undefined, ce qui
+   faisait échouer les contrôles « super administrateur » et
+   empêchait les menus Créer un compte / DRENAET / IEPP de s'ouvrir.
+   Ce pont les expose en lecture (et écriture) sans rien modifier.
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  function bridge(name, reader, writer) {
+    try {
+      var d = Object.getOwnPropertyDescriptor(window, name);
+      if (d && d.get) return;
+      Object.defineProperty(window, name, { configurable: true, get: reader, set: writer });
+    } catch (e) {}
+  }
+  bridge('currentUser',
+    function () { try { return currentUser; } catch (e) { return undefined; } },
+    function (v) { try { currentUser = v; } catch (e) {} });
+  bridge('DB',
+    function () { try { return DB; } catch (e) { return undefined; } },
+    function (v) { try { DB = v; } catch (e) {} });
+})();
+
+</script>
+
 </body>
 </html>
