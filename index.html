@@ -13605,5 +13605,280 @@ if ('serviceWorker' in navigator) {
 
 </script>
 
+<!-- ═══ CORRECTIF ADDITIF Bouton Installer l'application (PWA) sur la page de connexion (aucune ligne existante modifiée) ═══ -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIF ADDITIF — Bouton « Installer l'application » (PWA)
+   sur la page de connexion : installation native sur ordinateur
+   (Chrome/Edge) et Android, avec repli d'instructions (iPhone,
+   navigateurs sans invite). Additif : aucune ligne modifiée.
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  // Capturer l'invite d'installation native (en plus du gestionnaire existant)
+  window.addEventListener('beforeinstallprompt', function (e) { window.__pgDeferred = e; });
+  window.addEventListener('appinstalled', function () {
+    window.__pgDeferred = null;
+    var b = document.getElementById('btn-install-perroquet');
+    if (b) { b.textContent = '✅ Application installée'; b.disabled = true; b.style.opacity = '.7'; }
+  });
+
+  function isStandalone() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  }
+
+  // Fenêtre d'instructions (repli)
+  function ensureModal() {
+    if (document.getElementById('modal-install')) return;
+    var d = document.createElement('div');
+    d.innerHTML =
+      '<div class="modal-overlay" id="modal-install" onclick="pgInstallClose(event)">'
+      + '<div class="modal" onclick="event.stopPropagation()" style="max-width:520px;">'
+      + '<div class="modal-header"><h3>📥 Installer Le Perroquet</h3><button class="modal-close" onclick="pgInstallClose()">✕</button></div>'
+      + '<div class="modal-body" style="font-size:13.5px;line-height:1.55;">'
+      + '<p style="margin-top:0;color:var(--text2,#556);">Installez l\'application pour l\'ouvrir comme un logiciel, avec une icône dédiée et un fonctionnement hors-ligne.</p>'
+      + block('🖥️ Ordinateur (Chrome ou Edge)', ['Cliquez sur l\'icône d\'installation (⊕ ou un écran avec une flèche) à droite de la barre d\'adresse,', 'ou ouvrez le menu ⋮ → « Installer Le Perroquet… ».', 'Confirmez « Installer ».'])
+      + block('🤖 Téléphone Android (Chrome)', ['Ouvrez le menu ⋮ en haut à droite,', 'touchez « Installer l\'application » ou « Ajouter à l\'écran d\'accueil »,', 'confirmez : l\'icône apparaît sur l\'écran d\'accueil.'])
+      + block('🍎 iPhone / iPad (Safari)', ['Touchez le bouton Partager (carré avec une flèche vers le haut),', 'faites défiler puis touchez « Sur l\'écran d\'accueil »,', 'touchez « Ajouter ».'])
+      + '</div>'
+      + '<div class="modal-footer"><button class="btn btn-primary" onclick="pgInstallClose()">J\'ai compris</button></div>'
+      + '</div></div>';
+    document.body.appendChild(d.firstChild);
+  }
+  function block(titre, etapes) {
+    return '<div style="margin:12px 0;padding:11px 13px;border:1px solid var(--border,#e5e7eb);border-radius:10px;">'
+      + '<div style="font-weight:800;margin-bottom:6px;">' + titre + '</div>'
+      + '<ol style="margin:0;padding-left:18px;">' + etapes.map(function (s) { return '<li style="margin:3px 0;">' + s + '</li>'; }).join('') + '</ol></div>';
+  }
+  window.pgInstallClose = function (ev) {
+    if (ev && ev.target && ev.target.id !== 'modal-install') return;
+    var m = document.getElementById('modal-install'); if (m) m.classList.remove('active');
+  };
+
+  // Action du bouton : invite native si dispo, sinon instructions
+  window.installPerroquet = function () {
+    var dp = window.__pgDeferred;
+    if (!dp) { try { dp = deferredPrompt; } catch (e) { dp = null; } }
+    if (dp && dp.prompt) {
+      dp.prompt();
+      if (dp.userChoice) dp.userChoice.then(function () { window.__pgDeferred = null; });
+      return;
+    }
+    if (isStandalone()) { if (typeof showNotif === 'function') showNotif('✅ Application déjà installée', 'success'); else alert('✅ Application déjà installée.'); return; }
+    ensureModal();
+    document.getElementById('modal-install').classList.add('active');
+  };
+
+  // Injecter le bouton sur la page de connexion
+  function injectBtn() {
+    if (isStandalone()) return; // déjà installée : inutile
+    var body = document.querySelector('#login-screen .login-body');
+    if (!body || document.getElementById('btn-install-perroquet')) return;
+    var b = document.createElement('button');
+    b.id = 'btn-install-perroquet';
+    b.type = 'button';
+    b.textContent = '📥 Installer';
+    b.setAttribute('onclick', 'installPerroquet()');
+    b.style.cssText = 'width:100%;margin-top:10px;padding:11px;border-radius:10px;border:1px solid rgba(255,255,255,.28);'
+      + 'background:rgba(255,255,255,.10);color:#fff;font-weight:700;font-size:13.5px;cursor:pointer;transition:background .15s;';
+    b.onmouseover = function () { b.style.background = 'rgba(255,255,255,.18)'; };
+    b.onmouseout = function () { b.style.background = 'rgba(255,255,255,.10)'; };
+    var loginBtn = body.querySelector('.login-btn');
+    if (loginBtn && loginBtn.parentNode) loginBtn.parentNode.insertBefore(b, loginBtn.nextSibling);
+    else body.appendChild(b);
+  }
+
+  if (document.readyState !== 'loading') injectBtn();
+  else document.addEventListener('DOMContentLoaded', injectBtn);
+  setInterval(injectBtn, 3000);
+})();
+
+</script>
+
+<!-- ═══ CORRECTIF ADDITIF Pouvoirs Super Administrateur garantis + fix deleteEcole (aucune ligne existante modifiée) ═══ -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIF ADDITIF — Pouvoirs du Super Administrateur garantis
+   • Garantit canDelete/canEdit/canManageComptes pour le super admin
+     (rôle admin OU identifiant diomande/admin).
+   • Corrige deleteEcole (supprimait par position de liste filtrée →
+     mauvaise école ; désormais par identifiant réel).
+   • Fiabilise l'activation/désactivation de compte pour le super admin.
+   • Ajoute un diagnostic : pgDiagSuperAdmin().
+   Additif : aucune ligne existante modifiée (enrobage de fonctions).
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  function sup() {
+    try {
+      return !!(currentUser && (currentUser.role === 'admin'
+        || currentUser.login === 'diomande' || currentUser.login === 'admin'));
+    } catch (e) { return false; }
+  }
+
+  // 1) Permissions garanties pour le super admin (enrobage)
+  ['canDelete', 'canEdit', 'canManageComptes'].forEach(function (fn) {
+    try {
+      var orig = window[fn];
+      if (typeof orig === 'function') {
+        window[fn] = function () { return sup() ? true : orig.apply(this, arguments); };
+      }
+    } catch (e) {}
+  });
+
+  // 2) deleteEcole : supprimer par identifiant réel (et non par index de la liste affichée)
+  try {
+    var origDeleteEcole = window.deleteEcole;
+    if (typeof origDeleteEcole === 'function') {
+      window.deleteEcole = function (i) {
+        try {
+          var scope = (typeof getScopeEcoles === 'function') ? getScopeEcoles() : DB.ecoles;
+          var ec = scope[i];
+          if (ec) { var real = DB.ecoles.indexOf(ec); if (real >= 0) return origDeleteEcole.call(this, real); }
+        } catch (e) {}
+        return origDeleteEcole.apply(this, arguments);
+      };
+    }
+  } catch (e) {}
+
+  // 3) Activation / désactivation de compte fiabilisée pour le super admin
+  try {
+    var origToggle = window.toggleActifCompte;
+    window.toggleActifCompte = function (login) {
+      if (!sup()) { if (typeof origToggle === 'function') return origToggle.apply(this, arguments); return; }
+      if (login === currentUser.login) { showNotif('Impossible de désactiver votre propre compte', 'error'); return; }
+      var idx = DB.users.findIndex(function (u) { return u.login === login; });
+      if (idx < 0) return;
+      var actuel = DB.users[idx].actif !== false;
+      DB.users[idx].actif = !actuel;
+      if (window._firebaseReady && window._fb) window._fb.set('users', login, DB.users[idx]).catch(function () {});
+      if (typeof save === 'function') save('users');
+      if (typeof renderUsersList === 'function') renderUsersList();
+      showNotif(DB.users[idx].actif ? '✅ Compte activé' : '⛔ Compte désactivé', DB.users[idx].actif ? 'success' : 'info');
+    };
+  } catch (e) {}
+
+  // 4) Diagnostic
+  window.pgDiagSuperAdmin = function () {
+    var u = (typeof getCurrentUserData === 'function') ? getCurrentUserData() : null;
+    var msg = 'DIAGNOSTIC SUPER ADMIN\n'
+      + '• Connecté : ' + (currentUser ? currentUser.login : '(personne)') + '\n'
+      + '• Rôle : ' + (currentUser ? currentUser.role : '—') + '\n'
+      + '• structure_type : ' + (u ? u.structure_type : '—') + '\n'
+      + '• Super admin reconnu : ' + (sup() ? 'OUI' : 'NON') + '\n'
+      + '• canDelete() : ' + (typeof canDelete === 'function' ? canDelete() : '?') + '\n'
+      + '• canEdit() : ' + (typeof canEdit === 'function' ? canEdit() : '?') + '\n'
+      + '• canManageComptes() : ' + (typeof canManageComptes === 'function' ? canManageComptes() : '?');
+    try { alert(msg); } catch (e) {}
+    console.log(msg);
+    return msg;
+  };
+})();
+
+</script>
+
+<!-- ═══ CORRECTIF ADDITIF Suppressions fiables sans pop-up natif (aucune ligne existante modifiée) ═══ -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIF ADDITIF — Suppressions fiables (sans pop-up natif)
+   Certains navigateurs / applis installées bloquent confirm() :
+   les suppressions s'annulaient alors en silence (« rien ne se
+   passe »). On remplace confirm() par une fenêtre intégrée pour
+   deleteEcole / deleteEleve / deleteCompte. Additif : enrobage.
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  function sup() { try { return !!(currentUser && (currentUser.role === 'admin' || currentUser.login === 'diomande' || currentUser.login === 'admin')); } catch (e) { return false; } }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  function ensureConfirm() {
+    if (document.getElementById('pg-confirm')) return;
+    var d = document.createElement('div');
+    d.innerHTML = '<div class="modal-overlay" id="pg-confirm" style="z-index:99999;">'
+      + '<div class="modal" onclick="event.stopPropagation()" style="max-width:430px;">'
+      + '<div class="modal-header"><h3 id="pg-confirm-title">Confirmation</h3></div>'
+      + '<div class="modal-body"><p id="pg-confirm-msg" style="margin:0;font-size:14px;line-height:1.55;"></p></div>'
+      + '<div class="modal-footer"><button class="btn btn-secondary" id="pg-confirm-no">Annuler</button>'
+      + '<button class="btn btn-danger" id="pg-confirm-yes" style="background:var(--danger,#DC2626);color:#fff;">Supprimer</button></div>'
+      + '</div></div>';
+    document.body.appendChild(d.firstChild);
+  }
+  function pgConfirm(msg, onYes) {
+    ensureConfirm();
+    var m = document.getElementById('pg-confirm');
+    document.getElementById('pg-confirm-msg').innerHTML = esc(msg).replace(/\n/g, '<br>');
+    m.classList.add('active');
+    var yes = document.getElementById('pg-confirm-yes'), no = document.getElementById('pg-confirm-no');
+    function close() { m.classList.remove('active'); yes.onclick = null; no.onclick = null; }
+    yes.onclick = function () { close(); try { onYes(); } catch (e) { console.error(e); if (typeof showNotif === 'function') showNotif('❌ Erreur : ' + e.message, 'error'); } };
+    no.onclick = function () { close(); };
+  }
+  window.pgConfirm = pgConfirm;
+
+  // ── deleteEcole (par identifiant réel, confirmation intégrée) ──
+  window.deleteEcole = function (i) {
+    if (typeof canDelete === 'function' && !canDelete() && !sup()) { showNotif('🔒 Accès refusé', 'error'); return; }
+    var scope = (typeof getScopeEcoles === 'function') ? getScopeEcoles() : DB.ecoles;
+    var ec = (scope && scope[i]) || DB.ecoles[i];
+    if (!ec) { showNotif('École introuvable', 'error'); return; }
+    pgConfirm('Supprimer l\'école « ' + ec.nom + ' » ?', function () {
+      var real = DB.ecoles.indexOf(ec); if (real < 0) return;
+      if (window._firebaseReady && window._fb) window._fb.del('ecoles', ec.id).catch(function () {});
+      DB.ecoles.splice(real, 1);
+      if (typeof save === 'function') save('ecoles');
+      if (typeof renderEcoles === 'function') renderEcoles();
+      if (typeof updateStats === 'function') updateStats();
+      showNotif('🗑 École supprimée', 'info');
+    });
+  };
+
+  // ── deleteEleve (corbeille, confirmation intégrée) ──
+  window.deleteEleve = function (idx) {
+    if (typeof canDelete === 'function' && !canDelete() && !sup()) { showNotif('🔒 Accès refusé', 'error'); return; }
+    var eleve = DB.eleves[idx]; if (!eleve) { showNotif('Élève introuvable', 'error'); return; }
+    if (['instituteur', 'benevole'].indexOf(currentUser.role) !== -1) {
+      var u = DB.users.find(function (x) { return x.login === currentUser.login; });
+      if (!u || eleve.classe !== u.structure_val || eleve.ecole_id !== u.ecole_val) { showNotif('🔒 Suppression limitée à votre classe', 'error'); return; }
+    }
+    pgConfirm('Envoyer ' + eleve.nom + ' à la corbeille ?\n(Récupérable depuis Menu → Corbeille)', function () {
+      var notesEleve = DB.notes.filter(function (n) { return n.eleve_id === eleve.id; });
+      var entry = Object.assign({}, eleve, { _supprime_le: new Date().toLocaleDateString('fr-FR'), _notes: notesEleve });
+      DB.corbeille.push(entry);
+      var real = DB.eleves.indexOf(eleve); if (real >= 0) DB.eleves.splice(real, 1);
+      DB.notes = DB.notes.filter(function (n) { return n.eleve_id !== eleve.id; });
+      save('eleves'); save('notes'); save('corbeille');
+      if (window._firebaseReady && window._fb) {
+        window._fb.del('eleves', eleve.id).catch(function () {});
+        notesEleve.forEach(function (n) { window._fb.del('notes', n.id).catch(function () {}); });
+        window._fb.set('corbeille', eleve.id, entry).catch(function () {});
+      }
+      if (typeof updateStats === 'function') updateStats();
+      if (typeof renderEleves === 'function') renderEleves();
+      if (typeof renderDashboard === 'function') renderDashboard();
+      var b = document.getElementById('badge-corbeille'); if (b) { b.textContent = DB.corbeille.length; b.style.display = 'inline-block'; }
+      showNotif('🗑 ' + eleve.nom + ' déplacé en corbeille', 'info');
+    });
+  };
+
+  // ── deleteCompte (confirmation intégrée) ──
+  window.deleteCompte = function (login) {
+    if (login === (currentUser && currentUser.login)) { showNotif('Impossible de supprimer votre propre compte', 'error'); return; }
+    var admins = DB.users.filter(function (u) { return u.role === 'admin'; });
+    var cible = DB.users.find(function (u) { return u.login === login; });
+    if (admins.length === 1 && cible && cible.role === 'admin') { showNotif('Impossible de supprimer le dernier admin', 'error'); return; }
+    pgConfirm('Supprimer le compte « ' + login + ' » ?', function () {
+      DB.users = DB.users.filter(function (u) { return u.login !== login; });
+      if (typeof save === 'function') save('users');
+      if (window._firebaseReady && window._fb) window._fb.del('users', login).catch(function () {});
+      if (typeof renderUsersList === 'function') renderUsersList();
+      showNotif('🗑 Compte supprimé', 'info');
+    });
+  };
+})();
+
+</script>
+
 </body>
 </html>
