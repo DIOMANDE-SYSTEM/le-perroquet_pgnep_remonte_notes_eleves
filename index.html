@@ -2104,6 +2104,18 @@ tr:hover td{background:#F9FAFB;}
       </div>
 
       <div id="page-guide" class="page">
+        <!-- [pgnep-guide-av] Barre d'outils : PDF + narration audio -->
+        <div class="gtoolbar">
+          <div class="gtoolbar-title">📘 Guide d'utilisation — écoute &amp; PDF</div>
+          <div class="gtoolbar-actions">
+            <button id="ga-play" class="btn-guide" onclick="guidePlay()">▶️ Écouter le guide</button>
+            <button id="ga-pause" class="btn-guide" style="display:none;" onclick="guidePause()">⏸️ Pause</button>
+            <button id="ga-stop" class="btn-guide btn-guide-stop" disabled onclick="guideStopAudio()">⏹️ Stop</button>
+            <button class="btn-guide btn-guide-pdf" onclick="guidePrintPDF()">📄 Télécharger / Imprimer (PDF)</button>
+            <span id="ga-status" class="ga-status"></span>
+          </div>
+        </div>
+
         <div style="display:grid;grid-template-columns:240px 1fr;gap:20px;align-items:start;">
 
           <!-- Sommaire latéral -->
@@ -4002,6 +4014,7 @@ function saveEleve() {
   if(drena)    memoriserChamp('drena', drena);
   if(iepp)     memoriserChamp('iepp',  iepp);
   if(nomEcole) memoriserChamp('ecole', nomEcole);
+  if(typeof resolveEcoleId==='function' && ecole_id){ ecole_id = resolveEcoleId(ecole_id); }
   const rec = { nom, prenoms, matricule:matric||genId('CI-2025'), sexe, ddn, lieu, classe, ecole_id, drena, iepp, nom_ecole:nomEcole };
   if (editingEleveIdx !== null) {
     DB.eleves[editingEleveIdx] = { ...DB.eleves[editingEleveIdx], ...rec };
@@ -5069,7 +5082,7 @@ function resolveEcole(val) {
   // Pour instituteur/benevole : forcer leur école
   if (currentUser && ['instituteur','benevole'].includes(currentUser.role)) {
     const u = DB.users.find(x=>x.login===currentUser.login);
-    if (u && u.ecole_val) return u.ecole_val;
+    if (u && u.ecole_val) return (typeof resolveEcoleId==='function')?resolveEcoleId(u.ecole_val):u.ecole_val;
   }
   if (!val) return '';
   const v = val.toLowerCase().trim();
@@ -5300,7 +5313,7 @@ function saveImport() {
 function exportElevesCSV() {
   const keys=['matricule','nom','prenoms','sexe','ddn','lieu','classe','ecole_id'];
   let csv='Matricule;Nom;Prénoms;Sexe;Date naiss.;Lieu naiss.;Classe;École\n';
-  DB.eleves.forEach(e => {
+  getScopeEleves().forEach(e => {
     const ec=DB.ecoles.find(x=>x.id===e.ecole_id);
     csv += `"${e.matricule}";"${e.nom}";"${e.prenoms}";"${e.sexe}";"${e.ddn||''}";"${e.lieu||''}";"${e.classe}";"${ec?ec.nom:''}"
 `;
@@ -5311,7 +5324,7 @@ function exportElevesCSV() {
 
 function exportResultatsCSV() {
   let csv='Élève;Classe;École;Évaluation;Total;Barème;Moyenne;Mention\n';
-  DB.notes.forEach(n => {
+  getNotesFiltrees().forEach(n => {
     const el=DB.eleves.find(e=>e.id===n.eleve_id);
     const ec=DB.ecoles.find(x=>x.id===el?.ecole_id);
     const {total,bareme,moy,maxMoy}=calcNote(n);
@@ -9559,32 +9572,2532 @@ try{ if(typeof PAGE_LABELS!=='undefined') PAGE_LABELS['stats-global']='📊 Stat
 
 /* ---------- Modèles officiels d'emploi du temps (MENA / DPFC) ---------- */
 var AFF_EDT_MODELES = {
- CP1:{
-  Lundi:[['7h45-8h00','Salut aux couleurs','15'],['8h05-8h35','Lecture 1','30'],['8h38-9h18','Mathématiques (Acquisition systématique)','40'],['9h18-9h58','Lecture 2','40'],['9h58-10h15','Poésie','25'],['','RÉCRÉATION',''],['10h15-10h55','Expression orale 1','40'],['10h55-11h20','Mathématiques (Renforcement)','25'],['11h20-11h40','Lecture 3','20'],['11h40-11h55','EDHC','15'],['','APRÈS-MIDI',''],['14h30-14h55','Lecture (Activités de soutien)','25'],['14h55-15h35','Mathématiques (Évaluation)','40'],['15h35-15h55','Expression orale 2','20'],['','RÉCRÉATION',''],['16h15-16h40','Expression écrite (Exercice)','25'],['16h40-17h05','Expression orale 3','25'],['17h05-17h30','Mathématiques (Fixation / approfondissement)','25']],
-  Mardi:[['7h45-8h25','EPS','40'],['8h28-9h13','Mathématiques (Acquisition systématique)','45'],['9h15-9h45','Lecture 4','30'],['9h45-10h00','Dictée préparée 1','15'],['','RÉCRÉATION',''],['10h15-10h45','Lecture 5','30'],['10h45-11h25','Mathématiques (Renforcement)','40'],['11h25-11h55','Lecture récréative','30'],['11h55-12h15','Écriture (Exercices dans cahier)','20'],['','APRÈS-MIDI',''],['14h30-15h00','Mathématiques (Évaluation)','30'],['15h00-15h30','Expression orale 4','30'],['15h30-16h00','AEC','30'],['','RÉCRÉATION',''],['16h15-16h50','Mathématiques (Fixation / approfondissement)','35'],['16h50-17h15','Expression orale 5','25'],['17h15-17h30','Lecture (Activités de soutien)','15']],
-  Jeudi:[['7h45-8h15','Lecture 1','30'],['8h20-9h05','Mathématiques (Acquisition systématique)','45'],['9h05-9h30','Expression orale 6','25'],['9h30-10h00','Lecture 2','30'],['','RÉCRÉATION',''],['10h15-10h35','Dictée (administration)','20'],['10h35-11h15','Mathématiques (Renforcement)','40'],['11h15-11h45','Lecture 3','30'],['11h45-12h15','Expression orale 7','30'],['','APRÈS-MIDI',''],['14h30-15h00','Lecture (Activités de soutien)','30'],['15h00-15h40','Mathématiques (Évaluation)','40'],['15h40-16h00','Chant','20'],['','RÉCRÉATION',''],['16h15-16h35','Poésie','20'],['16h35-17h10','Mathématiques (Fixation / approfondissement)','35'],['17h10-17h30','Lecture (Activités de soutien)','20']],
-  Vendredi:[['7h45-8h10','Expression écrite (Exercices)','25'],['8h10-8h50','Mathématiques (Activités de soutien)','40'],['8h50-9h20','Lecture 4','30'],['9h20-9h45','Expression orale 9','25'],['9h45-10h00','Lecture (Activités de soutien)','15'],['','RÉCRÉATION',''],['10h15-10h55','Lecture 5','40'],['10h55-11h20','Mathématiques (Évaluation)','25'],['11h20-11h40','Écriture (Exercice)','20'],['11h40-12h15','Mots utiles / Lettres muettes','35'],['','APRÈS-MIDI',''],['14h30-14h55','Lecture récréative','25'],['14h55-15h35','Mathématiques (Activités de soutien)','40'],['15h35-16h00','Expression orale 10','25'],['','RÉCRÉATION',''],['16h15-16h40','Expression orale 10','25'],['16h40-17h20','Activités entrepreneuriales','40'],['17h20-17h30','Salut aux couleurs','10']]
+ "CP1": {
+  "Lundi": [
+   [
+    "7h45-8h00",
+    "Salut aux couleurs",
+    "15"
+   ],
+   [
+    "8h00-8h05",
+    "Transition",
+    "5"
+   ],
+   [
+    "8h05-8h50",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h50-9h25",
+    "EDHC",
+    "35"
+   ],
+   [
+    "9h25-10h00",
+    "Mathématiques (Renforcement)",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-10h40",
+    "Lecture 1",
+    "25"
+   ],
+   [
+    "10h40-11h20",
+    "Mathématiques (Évaluation)",
+    "40"
+   ],
+   [
+    "11h20-11h45",
+    "Expression orale 1",
+    "25"
+   ],
+   [
+    "11h45-12h15",
+    "Lecture 2",
+    "30"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-14h55",
+    "Expression orale 2",
+    "25"
+   ],
+   [
+    "14h55-15h35",
+    "Mathématiques (Exercices de fixation et d'approfondissement)",
+    "40"
+   ],
+   [
+    "15h35-16h00",
+    "Lecture (mots outils/lettres muettes)",
+    "25"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h45",
+    "Lecture 3",
+    "30"
+   ],
+   [
+    "16h45-17h10",
+    "Expression orale 3",
+    "25"
+   ],
+   [
+    "17h10-17h30",
+    "Poésie 1-3",
+    "20"
+   ]
+  ],
+  "Mardi": [
+   [
+    "7h45-8h10",
+    "Lecture 4",
+    "25"
+   ],
+   [
+    "8h10-8h55",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h55-9h25",
+    "Lecture récréative",
+    "30"
+   ],
+   [
+    "9h25-10h00",
+    "Mathématiques (Renforcement)",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-10h40",
+    "Expression orale 4",
+    "25"
+   ],
+   [
+    "10h40-11h10",
+    "Lecture 5",
+    "30"
+   ],
+   [
+    "11h10-11h50",
+    "Mathématiques (Évaluation)",
+    "40"
+   ],
+   [
+    "11h50-12h15",
+    "Expression orale 5",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Expression écrite 1",
+    "30"
+   ],
+   [
+    "15h00-15h40",
+    "Mathématiques (Exercices de fixation et d'approfondissement)",
+    "40"
+   ],
+   [
+    "15h40-16h00",
+    "Écriture",
+    "20"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h45",
+    "EPS",
+    "30"
+   ],
+   [
+    "16h45-16h50",
+    "Transition",
+    "5"
+   ],
+   [
+    "16h50-17h10",
+    "Lecture (Activités de soutien)",
+    "20"
+   ],
+   [
+    "17h10-17h30",
+    "Poésie 2-4",
+    "20"
+   ]
+  ],
+  "Jeudi": [
+   [
+    "7h45-8h10",
+    "Lecture 1",
+    "25"
+   ],
+   [
+    "8h10-8h55",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h55-9h25",
+    "Lecture 2",
+    "30"
+   ],
+   [
+    "9h25-10h00",
+    "Mathématiques (Renforcement)",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-10h40",
+    "Expression orale 6",
+    "25"
+   ],
+   [
+    "10h40-11h10",
+    "Lecture 3",
+    "30"
+   ],
+   [
+    "11h10-11h50",
+    "Mathématiques (Évaluation)",
+    "40"
+   ],
+   [
+    "11h50-12h15",
+    "Expression orale 7",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-14h55",
+    "Lecture (Activités de soutien)",
+    "25"
+   ],
+   [
+    "14h55-15h15",
+    "Dictée 1 (Préparation)",
+    "20"
+   ],
+   [
+    "15h15-15h35",
+    "Chant",
+    "20"
+   ],
+   [
+    "15h35-16h00",
+    "Expression orale 8",
+    "25"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h55",
+    "Mathématiques (Exercices de fixation et d'approfondissement)",
+    "40"
+   ],
+   [
+    "16h55-17h30",
+    "Activités coopératives",
+    "35"
+   ]
+  ],
+  "Vendredi": [
+   [
+    "7h45-8h15",
+    "Expression écrite 2",
+    "30"
+   ],
+   [
+    "8h15-8h55",
+    "Mathématiques (Récupération séance 1)",
+    "40"
+   ],
+   [
+    "8h55-9h25",
+    "AEC",
+    "30"
+   ],
+   [
+    "9h25-10h00",
+    "Mathématiques (Récupération séance 2)",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-10h40",
+    "Lecture 4",
+    "25"
+   ],
+   [
+    "10h40-11h10",
+    "Mathématiques (Récupération séance 3)",
+    "30"
+   ],
+   [
+    "11h10-11h35",
+    "Expression orale 9",
+    "25"
+   ],
+   [
+    "11h35-11h55",
+    "Dictée 2 (Administration)",
+    "20"
+   ],
+   [
+    "11h55-12h15",
+    "Lecture récréative",
+    "20"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Lecture 5",
+    "30"
+   ],
+   [
+    "15h00-15h35",
+    "Mathématiques (Évaluation Hebdo.)",
+    "35"
+   ],
+   [
+    "15h35-16h00",
+    "Expression orale 10",
+    "25"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h35",
+    "Écriture",
+    "20"
+   ],
+   [
+    "16h35-17h15",
+    "Exercices écrits (en autonomie)",
+    "40"
+   ],
+   [
+    "17h15-17h30",
+    "Salut aux couleurs",
+    "15"
+   ]
+  ]
  },
- CE1:{
-  Lundi:[['7h45-8h00','Salut aux couleurs','15'],['8h05-8h35','Expression orale 1','30'],['8h37-9h17','Mathématiques (Acquisition)','40'],['9h20-10h00','Lecture 1','40'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation lecture-écriture','45'],['11h00-11h20','Mathématiques (Renforcement)','20'],['11h20-12h00','Expression écrite 1','40'],['12h00-12h15','Écriture','15'],['','APRÈS-MIDI',''],['14h30-15h05','Lecture 2','35'],['15h10-15h40','Mathématiques (Exercices)','30'],['15h40-16h00','Lecture (Animation)','20'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','EDHC / AEC','30']],
-  Mardi:[['7h45-8h25','Mathématiques (Acquisition)','40'],['8h27-8h52','Exploitation de texte 1 (vocabulaire)','25'],['8h55-9h35','Sciences et technologie','40'],['9h35-10h00','Exploitation de texte 1 (orthographe)','25'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation lecture-écriture','45'],['11h00-11h40','Mathématiques (Renforcement)','40'],['11h40-12h00','Poésie','20'],['12h00-12h15','Français (soutien pédagogique)','15'],['','APRÈS-MIDI',''],['14h30-15h00','Expression orale 2','30'],['15h00-15h30','Mathématiques (Exercices)','30'],['15h30-16h00','Expression écrite 2','30'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','EPS','30']],
-  Jeudi:[['7h45-8h15','Expression écrite 3','30'],['8h17-8h57','Mathématiques (Acquisition)','40'],['9h00-9h40','Lecture 1','40'],['9h40-10h00','Poésie','20'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation lecture-écriture','45'],['11h00-11h30','Mathématiques (Exercices)','30'],['11h30-11h45','Écriture','15'],['11h45-12h15','Sciences et technologie','30'],['','APRÈS-MIDI',''],['14h30-14h55','Dictée (préparation)','25'],['14h55-15h10','Chant','15'],['15h10-15h30','Sciences et technologie (Exercice)','20'],['15h30-16h00','Lecture 2','30'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','Expression orale 3','30']],
-  Vendredi:[['7h45-8h10','Exploitation de texte 2 (grammaire)','25'],['8h10-8h50','Mathématiques (Acquisition 1)','40'],['8h50-9h15','Exploitation de texte 2 (conjugaison)','25'],['9h15-9h45','Histoire / Géographie','30'],['9h45-10h00','Animation lecture','15'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation lecture-écriture','45'],['11h00-11h20','Mathématiques (Exercices)','20'],['11h20-11h50','Lecture 1 et 2 (Renforcement)','30'],['11h50-12h15','Sciences et technologie (soutien)','25'],['','APRÈS-MIDI',''],['14h30-15h05','Dictée 2 (Administration)','35'],['15h05-15h30','Expression écrite 4','25'],['15h30-16h00','Activités coopératives / entrepreneuriales','30'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h15','Lecture animation','15'],['17h15-17h30','Salut aux couleurs','15']]
+ "CP2": {
+  "Lundi": [
+   [
+    "7h45-8h00",
+    "Salut aux couleurs",
+    "15"
+   ],
+   [
+    "8h00-8h05",
+    "Transition",
+    "5"
+   ],
+   [
+    "8h05-8h50",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h50-9h25",
+    "EDHC",
+    "35"
+   ],
+   [
+    "9h25-10h00",
+    "Mathématiques (Renforcement)",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-10h40",
+    "Lecture 1",
+    "25"
+   ],
+   [
+    "10h40-11h20",
+    "Mathématiques (Évaluation)",
+    "40"
+   ],
+   [
+    "11h20-11h45",
+    "Expression orale 1",
+    "25"
+   ],
+   [
+    "11h45-12h15",
+    "Lecture 2",
+    "30"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-14h55",
+    "Expression orale 2",
+    "25"
+   ],
+   [
+    "14h55-15h35",
+    "Mathématiques (Exercices de fixation et d'approfondissement)",
+    "40"
+   ],
+   [
+    "15h35-16h00",
+    "Lecture (mots outils/lettres muettes)",
+    "25"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h45",
+    "Lecture 3",
+    "30"
+   ],
+   [
+    "16h45-17h10",
+    "Expression orale 3",
+    "25"
+   ],
+   [
+    "17h10-17h30",
+    "Poésie 1-3",
+    "20"
+   ]
+  ],
+  "Mardi": [
+   [
+    "7h45-8h10",
+    "Lecture 4",
+    "25"
+   ],
+   [
+    "8h10-8h55",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h55-9h25",
+    "Lecture récréative",
+    "30"
+   ],
+   [
+    "9h25-10h00",
+    "Mathématiques (Renforcement)",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-10h40",
+    "Expression orale 4",
+    "25"
+   ],
+   [
+    "10h40-11h10",
+    "Lecture 5",
+    "30"
+   ],
+   [
+    "11h10-11h50",
+    "Mathématiques (Évaluation)",
+    "40"
+   ],
+   [
+    "11h50-12h15",
+    "Expression orale 5",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Expression écrite 1",
+    "30"
+   ],
+   [
+    "15h00-15h40",
+    "Mathématiques (Exercices de fixation et d'approfondissement)",
+    "40"
+   ],
+   [
+    "15h40-16h00",
+    "Écriture",
+    "20"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h35",
+    "Lecture (Activités de soutien)",
+    "20"
+   ],
+   [
+    "16h35-16h55",
+    "Poésie 2-4",
+    "20"
+   ],
+   [
+    "16h55-17h30",
+    "EPS",
+    "35"
+   ]
+  ],
+  "Jeudi": [
+   [
+    "7h45-8h10",
+    "Lecture 1",
+    "25"
+   ],
+   [
+    "8h10-8h55",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h55-9h25",
+    "Lecture 2",
+    "30"
+   ],
+   [
+    "9h25-10h00",
+    "Mathématiques (Renforcement)",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-10h40",
+    "Expression orale 6",
+    "25"
+   ],
+   [
+    "10h40-11h10",
+    "Lecture 3",
+    "30"
+   ],
+   [
+    "11h10-11h50",
+    "Mathématiques (Évaluation)",
+    "40"
+   ],
+   [
+    "11h50-12h15",
+    "Expression orale 7",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-14h55",
+    "Lecture (Activités de soutien)",
+    "25"
+   ],
+   [
+    "14h55-15h15",
+    "Dictée 1 (Préparation)",
+    "20"
+   ],
+   [
+    "15h15-15h35",
+    "Chant",
+    "20"
+   ],
+   [
+    "15h35-16h00",
+    "Expression orale 8",
+    "25"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h55",
+    "Mathématiques (Exercices de fixation et d'approfondissement)",
+    "40"
+   ],
+   [
+    "16h55-17h30",
+    "Activités coopératives",
+    "35"
+   ]
+  ],
+  "Vendredi": [
+   [
+    "7h45-8h15",
+    "Expression écrite 2",
+    "30"
+   ],
+   [
+    "8h15-8h55",
+    "Mathématiques (Récupération séance 1)",
+    "40"
+   ],
+   [
+    "8h55-9h25",
+    "AEC",
+    "30"
+   ],
+   [
+    "9h25-10h00",
+    "Mathématiques (Récupération séance 2)",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-10h40",
+    "Lecture 4",
+    "25"
+   ],
+   [
+    "10h40-11h10",
+    "Mathématiques (Récupération séance 3)",
+    "30"
+   ],
+   [
+    "11h10-11h35",
+    "Expression orale 9",
+    "25"
+   ],
+   [
+    "11h35-11h55",
+    "Dictée 2 (Administration)",
+    "20"
+   ],
+   [
+    "11h55-12h15",
+    "Lecture récréative",
+    "20"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Lecture 5",
+    "30"
+   ],
+   [
+    "15h00-15h35",
+    "Mathématiques (Évaluation Hebdo.)",
+    "35"
+   ],
+   [
+    "15h35-16h00",
+    "Expression orale 10",
+    "25"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h35",
+    "Écriture",
+    "20"
+   ],
+   [
+    "16h35-17h15",
+    "Exercices écrits (en autonomie)",
+    "40"
+   ],
+   [
+    "17h15-17h30",
+    "Salut aux couleurs",
+    "15"
+   ]
+  ]
  },
- CM1:{
-  Lundi:[['7h45-8h00','Salut aux couleurs','15'],['8h05-8h35','Lecture 1','30'],['8h40-9h25','Mathématiques (Acquisition)','45'],['9h25-10h00','Expression orale 1','35'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation Français','45'],['11h00-11h30','Lecture 2','30'],['11h30-11h55','Chant','25'],['11h55-12h15','Écriture','20'],['','APRÈS-MIDI',''],['14h30-15h10','Histoire / Géographie','40'],['15h10-15h30','Mathématiques (Exercices)','20'],['15h30-16h00','Expression écrite 1','30'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','EDHC / AEC','30']],
-  Mardi:[['7h45-8h10','Exploitation de texte 1 (vocabulaire)','25'],['8h15-9h00','Mathématiques (Acquisition)','45'],['9h00-9h30','Expression orale 2','30'],['9h30-10h00','Expression écrite 2','30'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation français','45'],['11h00-11h25','Exploitation de texte 1 (orthographe)','25'],['11h25-11h45','Poésie','20'],['11h45-12h15','Mathématiques exercices','30'],['','APRÈS-MIDI',''],['14h30-15h15','Sciences et technologie','45'],['15h15-15h40','Lecture 1 & 2 (Renforcement)','25'],['15h40-16h00','Exploitation de texte (Renforcement)','20'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','Sciences et technologie (Renforcement)','30']],
-  Jeudi:[['7h45-8h25','EPS','40'],['8h30-9h15','Mathématiques (Acquisition)','45'],['9h20-10h00','Sciences et technologie','40'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation français','45'],['11h05-11h40','Mathématiques exercices','35'],['11h40-12h15','Lecture 1','35'],['','APRÈS-MIDI',''],['14h30-15h00','Lecture 2','30'],['15h00-15h30','Dictée (préparation)','30'],['15h30-16h00','Expression orale','30'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h30','Expression écrite 3','30']],
-  Vendredi:[['7h45-8h10','Exploitation de texte 2 (grammaire)','25'],['8h15-9h00','Mathématiques (Acquisition)','45'],['9h00-9h25','Exploitation de texte 2 (conjugaison)','25'],['9h25-10h00','Sciences et technologie (Renforcement)','35'],['','RÉCRÉATION',''],['10h15-11h00','Remédiation français','45'],['11h00-11h25','Écriture','25'],['11h25-11h55','Dictée 2 (Administration)','30'],['11h55-12h15','Mathématiques (Exercices)','20'],['','APRÈS-MIDI',''],['14h30-15h10','Sciences et technologie (soutien)','40'],['15h10-15h35','Poésie','25'],['15h35-16h00','Animation lecture','25'],['','RÉCRÉATION',''],['16h15-17h00','Remédiation Mathématiques','45'],['17h00-17h20','Activités entrepreneuriales','20'],['17h20-17h30','Salut aux couleurs','10']]
+ "CE1": {
+  "Lundi": [
+   [
+    "7h45-8h00",
+    "Salut aux couleurs",
+    "15"
+   ],
+   [
+    "8h00-8h05",
+    "Transition",
+    "5"
+   ],
+   [
+    "8h05-8h50",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h50-9h25",
+    "Lecture 1",
+    "35"
+   ],
+   [
+    "9h25-10h00",
+    "Sciences et Technologie",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h25",
+    "Expression orale 1",
+    "25"
+   ],
+   [
+    "11h25-11h50",
+    "Mathématiques (Renforcement)",
+    "25"
+   ],
+   [
+    "11h50-12h15",
+    "Poésie 1-3",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Histoire-Géographie",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "Lecture 2",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Expression écrite 1",
+    "30"
+   ]
+  ],
+  "Mardi": [
+   [
+    "7h45-8h10",
+    "Vocabulaire",
+    "25"
+   ],
+   [
+    "8h10-8h35",
+    "Expression Orale 2",
+    "25"
+   ],
+   [
+    "8h35-9h20",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "9h20-9h40",
+    "Poésie 2-4",
+    "20"
+   ],
+   [
+    "9h40-10h00",
+    "Écriture 1",
+    "20"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h20",
+    "Dictée 1 (Préparation)",
+    "20"
+   ],
+   [
+    "11h20-11h45",
+    "Mathématiques (Renforcement)",
+    "25"
+   ],
+   [
+    "11h45-12h15",
+    "Expression écrite 2",
+    "30"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h05",
+    "Sciences et Technologie",
+    "35"
+   ],
+   [
+    "15h05-15h30",
+    "Orthographe",
+    "25"
+   ],
+   [
+    "15h30-16h00",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Lecture Animation",
+    "30"
+   ]
+  ],
+  "Jeudi": [
+   [
+    "7h45-8h20",
+    "Lecture 1",
+    "35"
+   ],
+   [
+    "8h20-9h05",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "9h05-9h30",
+    "Dictée 2 (Administration)",
+    "25"
+   ],
+   [
+    "9h30-10h00",
+    "Vocabulaire/orthographe (Renforcement)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h25",
+    "Mathématiques (Renforcement)",
+    "25"
+   ],
+   [
+    "11h25-11h50",
+    "Expression orale 3",
+    "25"
+   ],
+   [
+    "11h50-12h15",
+    "Chant",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Lecture 2",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "Expression écrite 3",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Activités coopératives",
+    "30"
+   ]
+  ],
+  "Vendredi": [
+   [
+    "7h45-8h20",
+    "EPS",
+    "35"
+   ],
+   [
+    "8h20-8h25",
+    "Transition",
+    "5"
+   ],
+   [
+    "8h25-8h55",
+    "Mathématiques (Récupération séance 1)",
+    "30"
+   ],
+   [
+    "8h55-9h30",
+    "AEC/EDHC",
+    "35"
+   ],
+   [
+    "9h30-10h00",
+    "Mathématiques (Récupération séance 2)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Remédiation (Lecture/Mathématiques)",
+    "45"
+   ],
+   [
+    "11h00-11h25",
+    "Grammaire",
+    "25"
+   ],
+   [
+    "11h25-11h50",
+    "Sciences et technologie (exercices)",
+    "25"
+   ],
+   [
+    "11h50-12h15",
+    "Conjugaison",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Grammaire/conjugaison (Renforcement)",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Mathématiques (Récupération séance 3)",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "Lecture Animation",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h35",
+    "Écriture 2",
+    "20"
+   ],
+   [
+    "16h35-17h15",
+    "Exercices écrits (en autonomie)",
+    "40"
+   ],
+   [
+    "17h15-17h30",
+    "Salut aux couleurs",
+    "15"
+   ]
+  ]
+ },
+ "CE2": {
+  "Lundi": [
+   [
+    "7h45-8h00",
+    "Salut aux couleurs",
+    "15"
+   ],
+   [
+    "8h00-8h05",
+    "Transition",
+    "5"
+   ],
+   [
+    "8h05-8h50",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h50-9h25",
+    "Lecture 1",
+    "35"
+   ],
+   [
+    "9h25-10h00",
+    "Sciences et Technologie",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h25",
+    "Expression orale 1-4",
+    "25"
+   ],
+   [
+    "11h25-11h50",
+    "Mathématiques (Renforcement)",
+    "25"
+   ],
+   [
+    "11h50-12h15",
+    "Vocabulaire",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Histoire-Géographie",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "Expression écrite 1-4",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Activités coopératives",
+    "30"
+   ]
+  ],
+  "Mardi": [
+   [
+    "7h45-8h10",
+    "Orthographe",
+    "25"
+   ],
+   [
+    "8h10-8h55",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h55-9h20",
+    "Expression Orale 2-5",
+    "25"
+   ],
+   [
+    "9h20-9h40",
+    "Dictée 1 (Préparation)",
+    "20"
+   ],
+   [
+    "9h40-10h00",
+    "Écriture 1",
+    "20"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h25",
+    "Mathématiques (Renforcement)",
+    "25"
+   ],
+   [
+    "11h25-11h55",
+    "Lecture 2",
+    "30"
+   ],
+   [
+    "11h55-12h15",
+    "Poésie 1-3",
+    "20"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Expression écrite 2-5",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "Vocabulaire/orthographe (Renforcement)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Lecture 3",
+    "30"
+   ]
+  ],
+  "Jeudi": [
+   [
+    "7h45-8h20",
+    "Lecture 4",
+    "35"
+   ],
+   [
+    "8h20-9h05",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "9h05-9h30",
+    "Dictée 2 (Administration)",
+    "25"
+   ],
+   [
+    "9h30-10h00",
+    "Lecture Animation",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h25",
+    "Mathématiques (Renforcement)",
+    "25"
+   ],
+   [
+    "11h25-11h50",
+    "Expression orale 3-6",
+    "25"
+   ],
+   [
+    "11h50-12h15",
+    "Chant",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h05",
+    "Sciences et Technologie",
+    "35"
+   ],
+   [
+    "15h05-15h30",
+    "Grammaire",
+    "25"
+   ],
+   [
+    "15h30-16h00",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Expression écrite 3-6",
+    "30"
+   ]
+  ],
+  "Vendredi": [
+   [
+    "7h45-8h15",
+    "Mathématiques (Récupération séance 1)",
+    "30"
+   ],
+   [
+    "8h15-8h45",
+    "AEC/EDHC",
+    "30"
+   ],
+   [
+    "8h45-9h25",
+    "EPS",
+    "40"
+   ],
+   [
+    "9h25-9h30",
+    "Transition",
+    "5"
+   ],
+   [
+    "9h30-10h00",
+    "Mathématiques (Récupération séance 2)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Remédiation (Lecture/Mathématiques)",
+    "45"
+   ],
+   [
+    "11h00-11h25",
+    "Conjugaison",
+    "25"
+   ],
+   [
+    "11h25-11h50",
+    "Sciences et technologie (Exercices)",
+    "25"
+   ],
+   [
+    "11h50-12h15",
+    "Poésie 2-4",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Grammaire/conjugaison (Renforcement)",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Mathématiques (Récupération séance 3)",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "Lecture Animation",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h35",
+    "Écriture 2",
+    "20"
+   ],
+   [
+    "16h35-17h15",
+    "Exercices écrits (en autonomie)",
+    "40"
+   ],
+   [
+    "17h15-17h30",
+    "Salut aux couleurs",
+    "15"
+   ]
+  ]
+ },
+ "CM1": {
+  "Lundi": [
+   [
+    "7h45-8h00",
+    "Salut aux couleurs",
+    "15"
+   ],
+   [
+    "8h00-8h05",
+    "Transition",
+    "5"
+   ],
+   [
+    "8h05-8h30",
+    "Expression orale 1",
+    "25"
+   ],
+   [
+    "8h30-9h00",
+    "Lecture 1",
+    "30"
+   ],
+   [
+    "9h00-9h25",
+    "Poésie",
+    "25"
+   ],
+   [
+    "9h25-10h00",
+    "AEC",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h45",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "11h45-12h15",
+    "Lecture 2",
+    "30"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Mathématiques (Renforcement)",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Expression Écrite 1",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Activités coopératives",
+    "30"
+   ]
+  ],
+  "Mardi": [
+   [
+    "7h45-8h10",
+    "Expression Orale 2",
+    "25"
+   ],
+   [
+    "8h10-8h55",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h55-9h30",
+    "Expression Écrite 2",
+    "35"
+   ],
+   [
+    "9h30-10h00",
+    "Mathématiques (Renforcement)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h25",
+    "Vocabulaire",
+    "25"
+   ],
+   [
+    "11h25-11h50",
+    "Dictée 1 (Préparation)",
+    "25"
+   ],
+   [
+    "11h50-12h15",
+    "Orthographe",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h05",
+    "Sciences et Technologie",
+    "35"
+   ],
+   [
+    "15h05-15h30",
+    "Vocabulaire/Orthographe",
+    "25"
+   ],
+   [
+    "15h30-16h00",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Lecture Animation",
+    "30"
+   ]
+  ],
+  "Jeudi": [
+   [
+    "7h45-8h20",
+    "EPS",
+    "35"
+   ],
+   [
+    "8h20-8h25",
+    "Transition",
+    "5"
+   ],
+   [
+    "8h25-8h50",
+    "Expression orale 3",
+    "25"
+   ],
+   [
+    "8h50-9h25",
+    "Sciences et Technologie",
+    "35"
+   ],
+   [
+    "9h25-10h00",
+    "Expression Écrite 3",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h45",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "11h45-12h15",
+    "Lecture 1",
+    "30"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Mathématiques (Renforcement)",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Dictée 2 (Administration)",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Lecture 2",
+    "30"
+   ]
+  ],
+  "Vendredi": [
+   [
+    "7h45-8h10",
+    "Grammaire",
+    "25"
+   ],
+   [
+    "8h10-8h40",
+    "Mathématiques (Récupération séance 1)",
+    "30"
+   ],
+   [
+    "8h40-9h05",
+    "Conjugaison",
+    "25"
+   ],
+   [
+    "9h05-9h35",
+    "Sciences et technologie (Renforcement)",
+    "30"
+   ],
+   [
+    "9h35-10h00",
+    "Grammaire/conjugaison (Renforcement)",
+    "25"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Remédiation (Lecture/Mathématiques)",
+    "45"
+   ],
+   [
+    "11h00-11h45",
+    "Mathématiques (Récupération séance 2)",
+    "45"
+   ],
+   [
+    "11h45-12h15",
+    "Chant",
+    "30"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h30-15h00",
+    "Histoire-Géographie",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Mathématiques (Récupération séance 3)",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "EDHC",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h35",
+    "Poésie",
+    "20"
+   ],
+   [
+    "16h35-17h15",
+    "Exercices écrits (en autonomie)",
+    "40"
+   ],
+   [
+    "17h15-17h30",
+    "Salut aux couleurs",
+    "15"
+   ]
+  ]
+ },
+ "CM2": {
+  "Lundi": [
+   [
+    "7h30-7h45",
+    "Études Surveillées",
+    "15"
+   ],
+   [
+    "7h45-8h00",
+    "Salut aux couleurs",
+    "15"
+   ],
+   [
+    "8h00-8h05",
+    "Transition",
+    "5"
+   ],
+   [
+    "8h05-8h30",
+    "Expression orale 1",
+    "25"
+   ],
+   [
+    "8h30-9h00",
+    "Lecture 1",
+    "30"
+   ],
+   [
+    "9h00-9h25",
+    "Poésie",
+    "25"
+   ],
+   [
+    "9h25-10h00",
+    "AEC",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h45",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "11h45-12h15",
+    "Lecture 2",
+    "30"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h00-14h30",
+    "Études Surveillées",
+    "30"
+   ],
+   [
+    "14h30-15h00",
+    "Mathématiques (Renforcement)",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Expression Écrite 1",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Activités coopératives",
+    "30"
+   ]
+  ],
+  "Mardi": [
+   [
+    "7h30-7h45",
+    "Études Surveillées",
+    "15"
+   ],
+   [
+    "7h45-8h10",
+    "Expression Orale 2",
+    "25"
+   ],
+   [
+    "8h10-8h55",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "8h55-9h30",
+    "Expression Écrite 2",
+    "35"
+   ],
+   [
+    "9h30-10h00",
+    "Mathématiques (Renforcement)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h25",
+    "Vocabulaire",
+    "25"
+   ],
+   [
+    "11h25-11h50",
+    "Dictée 1 (Préparation)",
+    "25"
+   ],
+   [
+    "11h50-12h15",
+    "Orthographe",
+    "25"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h00-14h30",
+    "Études Surveillées",
+    "30"
+   ],
+   [
+    "14h30-15h05",
+    "Sciences et Technologie",
+    "35"
+   ],
+   [
+    "15h05-15h30",
+    "Vocabulaire/Orthographe",
+    "25"
+   ],
+   [
+    "15h30-16h00",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Lecture Animation",
+    "30"
+   ]
+  ],
+  "Jeudi": [
+   [
+    "7h30-7h45",
+    "Études Surveillées",
+    "15"
+   ],
+   [
+    "7h45-8h20",
+    "EPS",
+    "35"
+   ],
+   [
+    "8h20-8h25",
+    "Transition",
+    "5"
+   ],
+   [
+    "8h25-8h50",
+    "Expression orale 3",
+    "25"
+   ],
+   [
+    "8h50-9h25",
+    "Sciences et Technologie",
+    "35"
+   ],
+   [
+    "9h25-10h00",
+    "Expression Écrite 3",
+    "35"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Lecture (Remédiation)",
+    "45"
+   ],
+   [
+    "11h00-11h45",
+    "Mathématiques (Acquisition)",
+    "45"
+   ],
+   [
+    "11h45-12h15",
+    "Lecture 1",
+    "30"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h00-14h30",
+    "Études Surveillées",
+    "30"
+   ],
+   [
+    "14h30-15h00",
+    "Mathématiques (Renforcement)",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Dictée 2 (Administration)",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "Mathématiques (Évaluation)",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-17h00",
+    "Mathématiques (Remédiation)",
+    "45"
+   ],
+   [
+    "17h00-17h30",
+    "Lecture 2",
+    "30"
+   ]
+  ],
+  "Vendredi": [
+   [
+    "7h30-7h45",
+    "Études Surveillées",
+    "15"
+   ],
+   [
+    "7h45-8h10",
+    "Grammaire",
+    "25"
+   ],
+   [
+    "8h10-8h40",
+    "Mathématiques (Récupération séance 1)",
+    "30"
+   ],
+   [
+    "8h40-9h05",
+    "Conjugaison",
+    "25"
+   ],
+   [
+    "9h05-9h35",
+    "Sciences et technologie (Renforcement)",
+    "30"
+   ],
+   [
+    "9h35-10h00",
+    "Grammaire/conjugaison (Renforcement)",
+    "25"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "10h15-11h00",
+    "Remédiation (Lecture/Mathématiques)",
+    "45"
+   ],
+   [
+    "11h00-11h45",
+    "Mathématiques (Récupération séance 2)",
+    "45"
+   ],
+   [
+    "11h45-12h15",
+    "Chant",
+    "30"
+   ],
+   [
+    "",
+    "APRÈS-MIDI",
+    ""
+   ],
+   [
+    "14h00-14h30",
+    "Études Surveillées",
+    "30"
+   ],
+   [
+    "14h30-15h00",
+    "Histoire-Géographie",
+    "30"
+   ],
+   [
+    "15h00-15h30",
+    "Mathématiques (Récupération séance 3)",
+    "30"
+   ],
+   [
+    "15h30-16h00",
+    "EDHC",
+    "30"
+   ],
+   [
+    "",
+    "RÉCRÉATION",
+    ""
+   ],
+   [
+    "16h15-16h35",
+    "Poésie",
+    "20"
+   ],
+   [
+    "16h35-17h15",
+    "Exercices écrits (en autonomie)",
+    "40"
+   ],
+   [
+    "17h15-17h30",
+    "Salut aux couleurs",
+    "15"
+   ]
+  ]
  }
 };
-/* CP2 identique à CP1 ; CE2 identique à CE1 ; CM2 = CM1 + études surveillées */
-AFF_EDT_MODELES.CP2 = JSON.parse(JSON.stringify(AFF_EDT_MODELES.CP1));
-AFF_EDT_MODELES.CE2 = JSON.parse(JSON.stringify(AFF_EDT_MODELES.CE1));
-AFF_EDT_MODELES.CM2 = JSON.parse(JSON.stringify(AFF_EDT_MODELES.CM1));
-['Lundi','Mardi','Jeudi','Vendredi'].forEach(function(j){
-  AFF_EDT_MODELES.CM2[j].unshift(['7h30-7h45','Études surveillées','15']);
-});
+AFF_EDT_MODELES.CP1_S1 = {
+ "Lundi": [
+  [
+   "7h45-8h00",
+   "Salut aux couleurs",
+   "15"
+  ],
+  [
+   "8h00-8h05",
+   "Transition",
+   "5"
+  ],
+  [
+   "8h05-8h25",
+   "Discrimination auditive",
+   "20"
+  ],
+  [
+   "8h25-9h10",
+   "Mathématiques (Acquisition)",
+   "45"
+  ],
+  [
+   "9h10-9h35",
+   "Discrimination visuelle",
+   "25"
+  ],
+  [
+   "9h35-10h00",
+   "Expression orale 1",
+   "25"
+  ],
+  [
+   "",
+   "RÉCRÉATION",
+   ""
+  ],
+  [
+   "10h15-10h45",
+   "Pré-lecture (Activités de soutien)",
+   "30"
+  ],
+  [
+   "10h45-11h25",
+   "Mathématiques (Renforcement)",
+   "40"
+  ],
+  [
+   "11h25-11h50",
+   "Enrichissement du vocabulaire",
+   "25"
+  ],
+  [
+   "11h50-12h15",
+   "Expression orale 2",
+   "25"
+  ],
+  [
+   "",
+   "APRÈS-MIDI",
+   ""
+  ],
+  [
+   "14h30-14h55",
+   "Graphisme",
+   "25"
+  ],
+  [
+   "14h55-15h35",
+   "Mathématiques (Évaluation)",
+   "40"
+  ],
+  [
+   "15h35-16h00",
+   "Expression orale 3",
+   "25"
+  ],
+  [
+   "",
+   "RÉCRÉATION",
+   ""
+  ],
+  [
+   "16h15-16h50",
+   "Mathématiques (Exercices de fixation et d'approfondissement)",
+   "35"
+  ],
+  [
+   "16h50-17h15",
+   "Pré-lecture (Activités de soutien)",
+   "25"
+  ],
+  [
+   "17h15-17h30",
+   "Comptine",
+   "15"
+  ]
+ ],
+ "Mardi": [
+  [
+   "7h45-8h25",
+   "EPS",
+   "40"
+  ],
+  [
+   "8h25-8h30",
+   "Transition",
+   "5"
+  ],
+  [
+   "8h30-8h50",
+   "Discrimination auditive",
+   "20"
+  ],
+  [
+   "8h50-9h35",
+   "Mathématiques (Acquisition)",
+   "45"
+  ],
+  [
+   "9h35-10h00",
+   "Discrimination visuelle",
+   "25"
+  ],
+  [
+   "",
+   "RÉCRÉATION",
+   ""
+  ],
+  [
+   "10h15-10h40",
+   "Expression orale 4",
+   "25"
+  ],
+  [
+   "10h40-11h20",
+   "Mathématiques (Renforcement)",
+   "40"
+  ],
+  [
+   "11h20-11h50",
+   "Pré-lecture (Activités de soutien)",
+   "30"
+  ],
+  [
+   "11h50-12h15",
+   "Expression orale 5",
+   "25"
+  ],
+  [
+   "",
+   "APRÈS-MIDI",
+   ""
+  ],
+  [
+   "14h30-14h55",
+   "Graphisme",
+   "25"
+  ],
+  [
+   "14h55-15h35",
+   "Mathématiques (Évaluation)",
+   "40"
+  ],
+  [
+   "15h35-16h00",
+   "Enrichissement du vocabulaire",
+   "25"
+  ],
+  [
+   "",
+   "RÉCRÉATION",
+   ""
+  ],
+  [
+   "16h15-16h50",
+   "Mathématiques (Exercices de fixation et d'approfondissement)",
+   "35"
+  ],
+  [
+   "16h50-17h15",
+   "Pré-lecture (Activités de soutien)",
+   "25"
+  ],
+  [
+   "17h15-17h30",
+   "Chant",
+   "15"
+  ]
+ ],
+ "Jeudi": [
+  [
+   "7h45-8h00",
+   "Comptine",
+   "15"
+  ],
+  [
+   "8h00-8h25",
+   "Graphisme",
+   "25"
+  ],
+  [
+   "8h25-9h10",
+   "Mathématiques (Acquisition)",
+   "45"
+  ],
+  [
+   "9h10-9h35",
+   "Enrichissement du vocabulaire",
+   "25"
+  ],
+  [
+   "9h35-10h00",
+   "Expression orale 6",
+   "25"
+  ],
+  [
+   "",
+   "RÉCRÉATION",
+   ""
+  ],
+  [
+   "10h15-10h45",
+   "Pré-lecture (Activités de soutien)",
+   "30"
+  ],
+  [
+   "10h45-11h25",
+   "Mathématiques (Renforcement)",
+   "40"
+  ],
+  [
+   "11h25-11h45",
+   "Discrimination auditive",
+   "20"
+  ],
+  [
+   "11h45-12h15",
+   "AEC",
+   "30"
+  ],
+  [
+   "",
+   "APRÈS-MIDI",
+   ""
+  ],
+  [
+   "14h30-14h55",
+   "Discrimination visuelle",
+   "25"
+  ],
+  [
+   "14h55-15h35",
+   "Mathématiques (Évaluation)",
+   "40"
+  ],
+  [
+   "15h35-16h00",
+   "Expression orale 7",
+   "25"
+  ],
+  [
+   "",
+   "RÉCRÉATION",
+   ""
+  ],
+  [
+   "16h15-16h50",
+   "Mathématiques (Exercices de fixation et d'approfondissement)",
+   "35"
+  ],
+  [
+   "16h50-17h15",
+   "Pré-lecture (Activités de soutien)",
+   "25"
+  ],
+  [
+   "17h15-17h30",
+   "Chant",
+   "15"
+  ]
+ ],
+ "Vendredi": [
+  [
+   "7h45-8h05",
+   "Discrimination auditive",
+   "20"
+  ],
+  [
+   "8h05-8h40",
+   "Mathématiques (Récupération séance 1)",
+   "35"
+  ],
+  [
+   "8h40-9h00",
+   "Discrimination visuelle",
+   "20"
+  ],
+  [
+   "9h00-9h30",
+   "EDHC",
+   "30"
+  ],
+  [
+   "9h30-10h00",
+   "Mathématiques (Récupération séance 2)",
+   "30"
+  ],
+  [
+   "",
+   "RÉCRÉATION",
+   ""
+  ],
+  [
+   "10h15-10h35",
+   "Pré-lecture (Activités de soutien)",
+   "20"
+  ],
+  [
+   "10h35-11h00",
+   "Expression orale 8",
+   "25"
+  ],
+  [
+   "11h00-11h30",
+   "Mathématiques (Récupération séance 3)",
+   "30"
+  ],
+  [
+   "11h30-11h50",
+   "Enrichissement du vocabulaire",
+   "20"
+  ],
+  [
+   "11h50-12h15",
+   "Expression orale 9",
+   "25"
+  ],
+  [
+   "",
+   "APRÈS-MIDI",
+   ""
+  ],
+  [
+   "14h30-14h55",
+   "Graphisme",
+   "25"
+  ],
+  [
+   "14h55-15h20",
+   "Expression orale 10",
+   "25"
+  ],
+  [
+   "15h20-16h00",
+   "Mathématiques (Évaluation hebdo.)",
+   "40"
+  ],
+  [
+   "",
+   "RÉCRÉATION",
+   ""
+  ],
+  [
+   "16h15-16h35",
+   "Pré-lecture (Activités de soutien)",
+   "20"
+  ],
+  [
+   "16h35-17h15",
+   "Exercices écrits (en autonomie)",
+   "40"
+  ],
+  [
+   "17h15-17h30",
+   "Salut aux couleurs",
+   "15"
+  ]
+ ]
+};
 
 /* ---------- Matières par défaut de la répartition mensuelle ---------- */
 var AFF_REP_MAT = {
@@ -9598,13 +12111,18 @@ var AFF_SUB = { maitre:'presences', directeur:'presences' };
 var AFF_DIR_CL = 'CP1';
 var AFF_EDT_NIV = { maitre:null, directeur:null }; /* niveau d'emploi du temps consulté */
 function affEdtNiveau(scope){ return AFF_EDT_NIV[scope] || affClasse(scope) || 'CP1'; }
-function affEdtKeyN(scope){ return (affEcoleId(scope)||'x')+'__'+affEdtNiveau(scope); }
+var AFF_EDT_CP1VAR = { maitre:'S2', directeur:'S2' }; /* S1 = semaines 1-8 ; S2 = semaines 9-32 */
+function affEdtModelKey(scope){ var n=affEdtNiveau(scope); return (n==='CP1' && AFF_EDT_CP1VAR[scope]==='S1') ? 'CP1_S1' : n; }
+function affEdtCp1Label(scope){ return AFF_EDT_CP1VAR[scope]==='S1' ? 'Semaine 1-8' : 'Semaine 9-32'; }
+function affSetEdtCp1Var(scope,v){ AFF_EDT_CP1VAR[scope]=v; affRenderBoard(scope); }
+function affEdtKeyN(scope){ return (affEcoleId(scope)||'x')+'__'+affEdtModelKey(scope); }
 function affSetEdtNiv(scope,niv){ AFF_EDT_NIV[scope]=niv; affRenderBoard(scope); }
 var AFF_SUBTABS = [
   {id:'presences',   icon:'📋', label:'Présences & effectifs'},
   {id:'edt',         icon:'🕒', label:'Emploi du temps'},
   {id:'recap',       icon:'📊', label:'Tableau récapitulatif'},
-  {id:'repartition', icon:'📅', label:'Répartition mensuelle'}
+  {id:'repartition', icon:'📅', label:'Répartition mensuelle'},
+  {id:'calendrier',  icon:'📆', label:'Calendrier / Congés'}
 ];
 
 /* ---------- Contexte (classe / école / élèves) selon l'espace ---------- */
@@ -9640,6 +12158,7 @@ function affRenderBoard(scope){
   else if(sub==='edt')         panel=affPanelEdt(scope);
   else if(sub==='recap')       panel=affPanelRecap(scope,eleves);
   else if(sub==='repartition') panel=affPanelRepartition(scope);
+  else if(sub==='calendrier')  panel=affPanelCalendrier(scope);
 
   box.innerHTML=clSel+tabbar+'<div class="aff-panel-body">'+panel+'</div>';
 
@@ -9668,16 +12187,18 @@ function affEdtStoreKey(scope){ return 'pgnep_edt_off'; }
 function affEdtGet(scope){
   var all=espLsGet('pgnep_edt_off',{}); var k=affEdtKeyN(scope);
   if(all[k]) return all[k];
-  var cl=affEdtNiveau(scope); var mod=AFF_EDT_MODELES[cl];
+  var cl=affEdtModelKey(scope); var mod=AFF_EDT_MODELES[cl];
   return mod ? JSON.parse(JSON.stringify(mod)) : {Lundi:[],Mardi:[],Jeudi:[],Vendredi:[]};
 }
 function affEdtSetData(scope,data){ var all=espLsGet('pgnep_edt_off',{}); all[affEdtKeyN(scope)]=data; espLsSet('pgnep_edt_off',all); }
 
 function affPanelEdt(scope){
   var niv=affEdtNiveau(scope);
+  var vlabel=(niv==='CP1')?(' · '+affEdtCp1Label(scope)):'';
+  var cp1bar=(niv==='CP1')?('<div class="aff-nivbar" style="margin-top:-8px;"><span class="aff-nivbar-lbl">Période CP1 :</span>'+[['S1','Semaine 1-8'],['S2','Semaine 9-32']].map(function(p){return '<button class="aff-niv-chip'+(AFF_EDT_CP1VAR[scope]===p[0]?' active':'')+'" onclick="affSetEdtCp1Var(\''+scope+'\',\''+p[0]+'\')">'+p[1]+'</button>';}).join('')+'</div>'):'';
   var nivbar='<div class="aff-nivbar"><span class="aff-nivbar-lbl">Niveau :</span>'+
     ESP_ORD.map(function(c){return '<button class="aff-niv-chip'+(c===niv?' active':'')+'" onclick="affSetEdtNiv(\''+scope+'\',\''+c+'\')">'+c+'</button>';}).join('')+
-    '<button class="btn btn-primary aff-niv-apply" onclick="affEdtApplyModele(\''+scope+'\')">📥 Charger le modèle officiel '+niv+'</button></div>'+
+    '<button class="btn btn-primary aff-niv-apply" onclick="affEdtApplyModele(\''+scope+'\')">📥 Charger le modèle officiel '+niv+vlabel+'</button></div>'+
     '<div class="aff-note" style="margin:-6px 0 12px;">Chaque niveau (CP1 → CM2) possède son propre emploi du temps, consultable, modifiable et exportable séparément.</div>';
   var tools='<button class="btn btn-secondary" onclick="affEdtExportWord(\''+scope+'\')">📄 Word</button>'+
     '<button class="btn btn-secondary" onclick="affEdtExportExcel(\''+scope+'\')">📊 Excel</button>'+
@@ -9686,7 +12207,7 @@ function affPanelEdt(scope){
     '<button class="btn btn-secondary" onclick="affEdtImportExcel(\''+scope+'\')">📥 Importer Excel</button>'+
     '<button class="btn btn-secondary" onclick="affScanFor(\''+scope+'\',\'edt\')">📷 Scanner / Photo</button>';
   var scans=affScanGallery(scope,'edt');
-  return espCard('🕒 Emploi du temps · Niveau '+niv, tools, nivbar+'<div id="aff-edt-mount-'+scope+'"></div>'+
+  return espCard('🕒 Emploi du temps · Niveau '+niv+vlabel, tools, nivbar+cp1bar+'<div id="aff-edt-mount-'+scope+'"></div>'+
     '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-primary" onclick="affEdtSave(\''+scope+'\')">💾 Enregistrer l\'emploi du temps</button></div>')+
     (scans?('<div style="height:16px;"></div>'+espCard('📷 Modèles scannés / importés (images)','',scans)):'');
 }
@@ -9731,9 +12252,10 @@ function affEdtReadDOM(scope){
 }
 function affEdtSave(scope){ affEdtSetData(scope,affEdtReadDOM(scope)); alert('✅ Emploi du temps enregistré.'); }
 function affEdtApplyModele(scope){
-  var cl=affEdtNiveau(scope);
-  var mod=AFF_EDT_MODELES[cl]; if(!mod){ alert('Aucun modèle pour '+cl+'.'); return; }
-  if(!confirm('Charger le modèle officiel '+cl+' ? Les créneaux actuellement affichés seront remplacés (pensez à enregistrer avant si besoin).')) return;
+  var cl=affEdtModelKey(scope);
+  var disp=affEdtNiveau(scope)+(affEdtNiveau(scope)==='CP1'?(' · '+affEdtCp1Label(scope)):'');
+  var mod=AFF_EDT_MODELES[cl]; if(!mod){ alert('Aucun modèle pour '+disp+'.'); return; }
+  if(!confirm('Charger le modèle officiel '+disp+' ? Les créneaux actuellement affichés seront remplacés (pensez à enregistrer avant si besoin).')) return;
   affEdtSetData(scope, JSON.parse(JSON.stringify(mod))); affEdtMount(scope);
 }
 function affEdtModeleExcel(){ espDownloadModele(['Jour','Horaires','Activités','Durée'], ['Lundi','7h45-8h00','Salut aux couleurs','15'], 'modele_emploi_du_temps'); }
@@ -9862,7 +12384,7 @@ function affRepKey(scope){ return affKey(scope)+'__'+(AFF_REP_MOIS[scope]||affRe
 function affRepDefault(scope){
   var cl=affClasse(scope); var mats=AFF_REP_MAT[affCycle(cl)];
   var u=espCU()||{};
-  return {
+  var __RETd={
     entete:{ drena:'', iepp:'', ecole:espEcoleNom(affEcoleId(scope)), classe:cl,
              mois:(AFF_REP_MOIS[scope]||affRepMoisCourant()), annee:(typeof ANNEE_SCOLAIRE!=='undefined'?ANNEE_SCOLAIRE:'2025 - 2026'),
              maitre:(u.nom_complet||u.nom||''), directeur:'' },
@@ -9870,6 +12392,8 @@ function affRepDefault(scope){
     matieres:mats.slice(),
     cells:{} /* clé "row_col" -> texte */
   };
+  try{ if(typeof affRepApplyPreconcu==='function') affRepApplyPreconcu(__RETd,cl); }catch(e){}
+  return __RETd;
 }
 function affRepGet(scope){ var all=espLsGet('pgnep_repartition',{}); var k=affRepKey(scope); return all[k]?all[k]:affRepDefault(scope); }
 function affRepSetData(scope,data){ var all=espLsGet('pgnep_repartition',{}); all[affRepKey(scope)]=data; espLsSet('pgnep_repartition',all); }
@@ -12308,7 +14832,8 @@ if ('serviceWorker' in navigator) {
     var valEcole=(document.getElementById('new-ecole-user')||{}).value||''; valEcole=(valEcole||'').trim();
     var valClasse=(document.getElementById('new-classe-user')||{}).value||'';
     var valTel=(document.getElementById('new-telephone')||{}).value||''; valTel=(valTel||'').trim();
-    var me=_me();
+    var me=_me() || currentUser;
+    if(!me){ err('Session invalide — veuillez vous reconnecter.'); return; }
 
     /* ── Restrictions selon le rôle du créateur ── */
     if(currentUser.role==='directeur'){
@@ -13878,6 +16403,457 @@ if ('serviceWorker' in navigator) {
   };
 })();
 
+</script>
+
+<!-- ═══ CORRECTIF ADDITIF Manuels 2026-2027 par niveau + libellé Année scolaire (aucune ligne existante modifiée) ═══ -->
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CORRECTIF ADDITIF — Manuels 2026-2027 par niveau (cahier journal)
+   + libellé « Année scolaire 2026–2027 » dans le badge du haut.
+   Source : listes officielles MENAET 2026-2027 (CP1→CM2).
+   Additif : enrobage de cjDefault / cjMount, aucune ligne modifiée.
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var MANUELS_2026 = {
+    CP1: "FRANÇAIS : Livre de Lecture décodable (NEI/CEDA) · Livret d'exercices décodable (Tabala Editions) · MATHS : Livre de Mathématiques déchiffrable (Éditions Eburnie) · Livret d'exercices déchiffrable (JD Editions) · EDHC (FP Editions) · AEC : Dessin éducatif (NEI/CEDA)",
+    CP2: "FRANÇAIS : Livre de Lecture décodable (FRAT/MAT) · Livret d'exercices décodable (Supernova) · MATHS : Livre de Mathématiques déchiffrable (Les Classiques Ivoiriens) · Livret d'exercices déchiffrable (VALLESSE) · EDHC (Les Classiques Ivoiriens) · AEC : Dessin éducatif (NEI/CEDA)",
+    CE1: "FRANÇAIS : Livre de Français (Mouna Editions) · Livret d'exercices (FRAT/MAT) · MATHS : Livre de Mathématiques (Massaya Editions) · Livret d'exercices (ARE) · EDHC (Les Classiques Ivoiriens) · Sciences et Technologie (Les Classiques Ivoiriens) · Histoire-Géographie (Les Classiques Ivoiriens)",
+    CE2: "FRANÇAIS : Livre de Français (Supernova) · Livret d'exercices (JD Editions) · MATHS : Livre de Mathématiques (Tabala Editions) · Livret d'exercices (VALLESSE) · EDHC (Les Classiques Ivoiriens) · Sciences et Technologie (Les Classiques Ivoiriens) · Histoire-Géographie (Les Classiques Ivoiriens)",
+    CM1: "FRANÇAIS (Tabala Editions) · MATHS : Manuel de Mathématiques (Éditions MATRICE) · EDHC CM1 (Les Classiques Ivoiriens) · Sciences et Technologie CM1 (Editions Eburnie) · Histoire-Géographie (Les Classiques Ivoiriens)",
+    CM2: "FRANÇAIS : Je lis et j'écris (Les Classiques Ivoiriens) · MATHS : Mon livre de Mathématiques (Supernova) · EDHC (Les Classiques Ivoiriens) · Sciences et Technologie CM2 (Editions Eburnie) · Histoire-Géographie CM2 (FRAT/MAT)"
+  };
+  window.MANUELS_2026 = MANUELS_2026;
+  var OLD_DEFAULT = "FRANÇAIS : École, Nation et Développement (NEI-CEDA) · MATHS : École, Nation et Développement (NEI-CEDA) · EDHC : Citoyen de demain (Les Classiques Ivoiriens)";
+
+  function classeKey() {
+    var cl = '';
+    try { if (typeof cjClasse === 'function') cl = cjClasse(); } catch (e) {}
+    return String(cl || '').toUpperCase().replace(/\s+/g, '');
+  }
+
+  // 1) L'exemple/défaut du cahier journal reçoit les manuels du bon niveau
+  try {
+    if (typeof window.cjDefault === 'function') {
+      var origDefault = window.cjDefault;
+      window.cjDefault = function () {
+        var d = origDefault.apply(this, arguments);
+        try {
+          var k = classeKey() || (d && d.entete && String(d.entete.classe || '').toUpperCase().replace(/\s+/g, ''));
+          if (d && d.entete && MANUELS_2026[k]) d.entete.manuels = MANUELS_2026[k];
+        } catch (e) {}
+        return d;
+      };
+    }
+  } catch (e) {}
+
+  // 2) Après rendu : remplacer l'ancien libellé de manuels par celui du niveau
+  function fixManuelsSpan() {
+    var span = document.querySelector('[data-ent="manuels"]');
+    if (!span) return;
+    var k = classeKey();
+    var m = MANUELS_2026[k];
+    if (!m) return;
+    var cur = (span.textContent || '').trim();
+    if (cur === '' || cur === OLD_DEFAULT) { if (cur !== m) span.textContent = m; }
+  }
+  try {
+    if (typeof window.cjMount === 'function') {
+      var origMount = window.cjMount;
+      window.cjMount = function () {
+        var r = origMount.apply(this, arguments);
+        try { fixManuelsSpan(); } catch (e) {}
+        return r;
+      };
+    }
+  } catch (e) {}
+
+  // 3) Badge du haut : « 2026–2027 » -> « Année scolaire 2026–2027 »
+  function fixYearBadge() {
+    var el = document.querySelector('.topbar-year');
+    if (!el) return;
+    var t = (el.textContent || '').trim();
+    if (t && t.indexOf('Année') !== 0) el.textContent = 'Année scolaire ' + t;
+  }
+  function boot() { fixYearBadge(); fixManuelsSpan(); }
+  if (document.readyState !== 'loading') boot(); else document.addEventListener('DOMContentLoaded', boot);
+  setInterval(function () { fixYearBadge(); }, 3000);
+})();
+
+</script>
+
+<style id="pgnep-guide-av-css">
+.gtoolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;background:var(--navy,#0D1B2A);color:#fff;border-radius:12px;padding:12px 16px;margin-bottom:16px;}
+.gtoolbar-title{font-weight:700;font-size:15px;}
+.gtoolbar-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.btn-guide{border:0;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#0D1B2A;}
+.btn-guide:hover{opacity:.9;}
+.btn-guide-stop{background:#e05555;color:#fff;}
+.btn-guide-stop:disabled{opacity:.45;cursor:default;}
+.btn-guide-pdf{background:var(--ci-orange,#F77F00);color:#fff;}
+.ga-status{font-size:12px;opacity:.92;margin-left:4px;}
+.gnav.playing{outline:2px solid var(--ci-orange,#F77F00);border-radius:6px;}
+@media(max-width:700px){.gtoolbar{flex-direction:column;align-items:stretch;}.gtoolbar-actions{justify-content:center;}}
+@media print{.sidebar,.topbar,.gtoolbar,#guide-nav{display:none!important;}.main{margin-left:0!important;}}
+</style>
+<script id="pgnep-guide-av">
+/* ==================================================================
+   [pgnep-guide-av] Narration audio du Guide (voix ENREGISTRÉE si le
+   dossier guide-audio/ est présent, sinon repli VOIX SYNTHÉTIQUE) +
+   génération PDF. Bloc 100% additif — ne modifie aucune fonction
+   existante (showPage est enveloppé, pas remplacé).
+   ================================================================== */
+(function(){
+  var ORDER = ['g-intro','g-install','g-acces','g-interface','g-eleves','g-saisie','g-resultats','g-bulletins','g-dfa','g-liste','g-stats','g-export','g-securite','g-faq'];
+  var NAR = {
+    "g-intro":"Bienvenue dans Le Perroquet, la plateforme numérique de gestion des notes des élèves du primaire en Côte d'Ivoire. Elle calcule automatiquement les moyennes selon les barèmes officiels, génère les bulletins et les décisions de fin d'année, et fonctionne aussi bien en ligne que hors connexion.",
+    "g-install":"Pour installer, ouvrez le fichier dans Chrome ou Edge, puis ajoutez la page à vos favoris. Une version installable existe aussi pour Windows et Android. L'application fonctionne hors connexion et vos données restent enregistrées sur l'appareil.",
+    "g-acces":"Chaque utilisateur se connecte avec un identifiant et un mot de passe. Le menu s'adapte à votre rôle et à votre périmètre. Après cinq tentatives échouées, le compte est bloqué quinze minutes, et la session expire après trente minutes d'inactivité.",
+    "g-interface":"À gauche se trouve le menu de navigation, avec l'armoirie, vos informations et le bouton de déconnexion. En haut, le titre de la page, l'année scolaire et l'horloge. Au centre s'affiche le contenu du module que vous avez choisi.",
+    "g-eleves":"Pour ajouter un élève, cliquez sur Ajouter, puis renseignez le nom, les prénoms, le sexe, la classe et l'école, et enregistrez. Vous pouvez aussi importer une liste d'élèves, modifier ou supprimer une fiche. Les élèves supprimés sont conservés dans la corbeille.",
+    "g-saisie":"La saisie des notes suit les barèmes officiels selon le niveau. Au cours préparatoire, la moyenne est sur dix ; du cours élémentaire au cours moyen, elle est sur vingt. Choisissez la classe, l'évaluation et l'élève, puis saisissez les notes par matière : la moyenne se calcule automatiquement.",
+    "g-resultats":"Les résultats affichent, pour chaque élève, la moyenne, la mention et le rang. Les mentions vont d'Insuffisant à Excellent. Le rang est calculé automatiquement en comparant tous les élèves de la classe.",
+    "g-bulletins":"Pour générer un bulletin, ouvrez Bulletins de notes, choisissez l'élève puis l'évaluation, et cliquez sur Imprimer. Le bulletin reprend les notes par matière, la moyenne, le rang, la mention et l'appréciation.",
+    "g-dfa":"La décision de fin d'année est calculée automatiquement à partir des compositions ; ce n'est pas une note à saisir. Du cours préparatoire au cours moyen première année, elle combine les quatre compositions. Au cours moyen deuxième année, elle intègre aussi l'examen blanc.",
+    "g-liste":"La liste de classe est disponible dans le tableau de bord pour l'instituteur, le directeur et le correspondant. Vous pouvez trier les élèves par ordre alphabétique ou par rang, puis imprimer la liste.",
+    "g-stats":"Les statistiques s'adaptent au rôle : l'instituteur voit sa classe, le directeur voit toutes les classes de son école, et le correspondant voit toute la circonscription. Vous y trouvez notamment le tableau des âges et les statistiques de fin d'année.",
+    "g-export":"Vous pouvez exporter les élèves et les résultats au format C S V, et réaliser une sauvegarde complète au format J S O N. L'import permet de restaurer ou d'ajouter des données. Pensez à sauvegarder régulièrement.",
+    "g-securite":"Les mots de passe sont chiffrés et irréversibles. Le compte se bloque après cinq tentatives, et la session se ferme après trente minutes d'inactivité. Chaque utilisateur ne voit que les données de son périmètre.",
+    "g-faq":"En cas de question, consultez la foire aux questions. Si une donnée n'apparaît pas, changez de menu ou lancez la synchronisation. En cas de suppression par erreur, retrouvez l'élément dans la corbeille."
+  };
+  var S = { audio:null, utter:null, playing:false, paused:false, mode:null, cur:null };
+
+  function btns(state){
+    var p=document.getElementById('ga-play'), pa=document.getElementById('ga-pause'), st=document.getElementById('ga-stop');
+    if(!p) return;
+    if(state==='playing'){ p.style.display='none'; pa.style.display=''; st.disabled=false; }
+    else if(state==='paused'){ p.style.display=''; p.innerHTML='▶️ Reprendre'; pa.style.display='none'; st.disabled=false; }
+    else { p.style.display=''; p.innerHTML='▶️ Écouter le guide'; pa.style.display='none'; st.disabled=true; }
+  }
+  function status(t){ var s=document.getElementById('ga-status'); if(s) s.textContent=t||''; }
+  function hi(id){
+    try{ document.querySelectorAll('.gnav').forEach(function(n){ n.classList.remove('playing'); }); }catch(e){}
+    try{ var l=document.querySelector('.gnav[onclick="showGuideSection(\''+id+'\')"]'); if(l) l.classList.add('playing'); }catch(e){}
+  }
+  function curSection(){
+    var a=document.querySelector('.gnav.active');
+    if(a){ var m=(a.getAttribute('onclick')||'').match(/g-[a-z]+/); if(m) return m[0]; }
+    return 'g-intro';
+  }
+  function pickFrVoice(){
+    try{
+      var vs=(window.speechSynthesis&&speechSynthesis.getVoices())||[];
+      var fr=vs.filter(function(v){ return /fr/i.test(v.lang||''); });
+      var fem=fr.filter(function(v){ return /(f[eé]m|female|am[eé]lie|audrey|virginie|julie|marie|c[eé]line|l[eé]a|google fran)/i.test(v.name||''); });
+      return fem[0]||fr[0]||null;
+    }catch(e){ return null; }
+  }
+  function speak(id, onend){
+    if(!('speechSynthesis' in window)){ stop(); status('Audio non disponible sur cet appareil.'); return; }
+    var u=new SpeechSynthesisUtterance(NAR[id]||''); u.lang='fr-FR'; u.rate=0.98; u.pitch=1.0;
+    var v=pickFrVoice(); if(v) u.voice=v;
+    u.onend=onend; u.onerror=onend;
+    S.utter=u; S.mode='tts';
+    try{ speechSynthesis.cancel(); }catch(e){}
+    speechSynthesis.speak(u);
+    S.playing=true; S.paused=false; btns('playing'); status('🗣️ Voix synthétique');
+  }
+  function playSection(id){
+    S.cur=id;
+    if(typeof showGuideSection==='function') showGuideSection(id);
+    hi(id);
+    var idx=ORDER.indexOf(id);
+    var advanced=false;
+    var advance=function(){ if(advanced) return; advanced=true; var n=ORDER[idx+1]; if(n){ playSection(n); } else { stop(); status('Lecture terminée ✓'); } };
+    var fell=false;
+    var toTts=function(){ if(fell) return; fell=true; S.audio=null; speak(id, advance); };
+    var a=new Audio('guide-audio/'+id+'.mp3');
+    S.audio=a; S.mode='rec';
+    a.onended=advance;
+    a.onerror=toTts;
+    var pr=a.play();
+    if(pr&&pr.then){ pr.then(function(){ if(fell) return; S.playing=true; S.paused=false; btns('playing'); status('🎧 Voix enregistrée'); })
+                      .catch(toTts); }
+    else { S.playing=true; S.paused=false; btns('playing'); status('🎧 Voix enregistrée'); }
+  }
+  function play(){
+    if(S.paused){ resume(); return; }
+    if(S.playing) return;
+    playSection(curSection());
+  }
+  function pause(){
+    if(!S.playing||S.paused) return;
+    if(S.mode==='rec'&&S.audio){ try{ S.audio.pause(); }catch(e){} }
+    else if(window.speechSynthesis){ try{ speechSynthesis.pause(); }catch(e){} }
+    S.paused=true; S.playing=false; btns('paused');
+  }
+  function resume(){
+    if(!S.paused) return;
+    if(S.mode==='rec'&&S.audio){ var p=S.audio.play(); if(p&&p.catch) p.catch(function(){}); }
+    else if(window.speechSynthesis){ try{ speechSynthesis.resume(); }catch(e){} }
+    S.paused=false; S.playing=true; btns('playing');
+  }
+  function stop(){
+    try{ if(S.audio){ S.audio.pause(); S.audio.onended=null; S.audio.onerror=null; S.audio=null; } }catch(e){}
+    try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(e){}
+    S.utter=null; S.playing=false; S.paused=false;
+    try{ document.querySelectorAll('.gnav').forEach(function(n){ n.classList.remove('playing'); }); }catch(e){}
+    btns('stopped'); status('');
+  }
+  function printPDF(){
+    var w=window.open('','_blank');
+    if(!w){ alert("Veuillez autoriser les fenêtres pop-up pour générer le PDF du guide."); return; }
+    var body='';
+    ORDER.forEach(function(id){
+      var el=document.getElementById(id);
+      if(el){ var c=el.cloneNode(true); c.style.display='block'; body+='<section class="gp-sec">'+c.innerHTML+'</section>'; }
+    });
+    var css="body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:22px;line-height:1.5;}"
+      +"h1.gp-title{color:#006B3F;border-bottom:3px solid #F77F00;padding-bottom:8px;font-size:22px;}"
+      +".gp-sec{page-break-inside:avoid;margin:0 0 20px;}"
+      +".gp-sec h2,.gp-sec h3{color:#0D1B2A;}"
+      +"table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12px;}"
+      +"th,td{border:1px solid #bbb;padding:5px 7px;text-align:left;vertical-align:top;}"
+      +"th{background:#f0faf5;}"
+      +"ul,ol{margin:6px 0 6px 18px;}"
+      +".gp-foot{margin-top:18px;font-size:11px;color:#666;text-align:center;border-top:1px solid #ddd;padding-top:8px;}";
+    var head='<h1 class="gp-title">📘 Guide d\'utilisation — Le Perroquet (PGNEP)</h1>';
+    var foot='<div class="gp-foot">MENAET · Côte d\'Ivoire — Guide d\'utilisation Le Perroquet · '+(new Date().getFullYear())+'</div>';
+    w.document.write('<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Guide Le Perroquet</title><style>'+css+'</style></head><body>'+head+body+foot+'</body></html>');
+    w.document.close();
+    setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 500);
+  }
+
+  // Exposer les commandes appelées par la barre d'outils
+  window.guidePlay=play; window.guidePause=pause; window.guideStopAudio=stop; window.guidePrintPDF=printPDF;
+
+  // Stopper la narration quand on quitte la page Guide (enveloppe showPage, sans le détruire)
+  function wrap(){
+    if(window.__gaWrapped) return;
+    if(typeof window.showPage==='function'){
+      var _sp=window.showPage;
+      window.showPage=function(n){ try{ if(n!=='guide') stop(); }catch(e){} return _sp.apply(this,arguments); };
+      window.__gaWrapped=true;
+    }
+  }
+  // Pré-chauffer la liste des voix (chargement asynchrone sur certains navigateurs)
+  try{ if(window.speechSynthesis){ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=function(){ pickFrVoice(); }; } }catch(e){}
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', wrap); } else { wrap(); }
+  setTimeout(wrap, 1500);
+})();
+</script>
+
+<script id="pgnep-aff-calendrier">
+/* ==================================================================
+   [pgnep-aff-calendrier] Sous-onglet « Calendrier / Congés » du
+   Tableau d'affichage — découpage officiel de l'année + congés
+   (MENAET, arrêté 2026-2027). Même contenu pour tous les niveaux.
+   100% additif : n'altère aucune fonction existante.
+   ================================================================== */
+var AFF_CAL_ANNEE = '2026-2027';
+var AFF_CAL_TRIM = [
+  { n:'Premier trimestre',  d:'du 14 septembre au 04 décembre 2026' },
+  { n:'Deuxième trimestre', d:'du 07 décembre 2026 au 12 mars 2027' },
+  { n:'Troisième trimestre',d:'du 15 mars au 11 juin 2027' }
+];
+var AFF_CAL_CONGES = [
+  { n:'Toussaint',        d:'du 23 octobre 2026 au 01 novembre 2026 inclus' },
+  { n:'Noël',             d:'du 18 décembre 2026 au 03 janvier 2027 inclus' },
+  { n:'Congé de février', d:'du 05 février 2027 au 14 février 2027 inclus' },
+  { n:'Pâques',           d:'du 19 mars 2027 au 04 avril 2027 inclus' },
+  { n:'Grandes vacances', d:'du 30 juillet 2027 au 12 septembre 2027 inclus' }
+];
+function affCalHTML(inner){
+  var esc = (typeof espEsc==='function') ? espEsc : function(s){return String(s==null?'':s);};
+  var trim = AFF_CAL_TRIM.map(function(t,i){
+    return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;">'
+      +'<div style="color:#F77F00;font-weight:700;text-transform:uppercase;font-size:13px;">'+esc(t.n)+'</div>'
+      +'<div style="border-top:1px dashed #F77F00;margin:6px 0;"></div>'
+      +'<div style="font-size:14px;">'+esc(t.d)+'</div></div>';
+  }).join('');
+  var cong = AFF_CAL_CONGES.map(function(c){
+    return '<tr><td style="color:#006B3F;font-weight:700;text-transform:uppercase;padding:8px 10px;border-bottom:1px dashed #bcd;white-space:nowrap;vertical-align:top;">'+esc(c.n)+'</td>'
+      +'<td style="padding:8px 10px;border-bottom:1px dashed #bcd;">'+esc(c.d)+'</td></tr>';
+  }).join('');
+  return ''
+    +'<div class="cal-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">'
+    +'  <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">'
+    +'    <div style="background:#006B3F;color:#fff;font-weight:700;padding:10px 12px;">Découpage de l\'année scolaire '+AFF_CAL_ANNEE+'</div>'
+    +'    <div style="padding:12px;">'+trim+'</div>'
+    +'  </div>'
+    +'  <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">'
+    +'    <div style="background:#F77F00;color:#fff;font-weight:700;padding:10px 12px;">Dates des congés scolaires '+AFF_CAL_ANNEE+'</div>'
+    +'    <table style="width:100%;border-collapse:collapse;font-size:14px;">'+cong+'</table>'
+    +'  </div>'
+    +'</div>';
+}
+function affPanelCalendrier(scope){
+  var tools='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">'
+    +'<button class="btn btn-secondary" onclick="affCalPrint()">🖨️ Imprimer / PDF</button>'
+    +'<span style="align-self:center;font-size:12px;color:#64748b;">Calendrier officiel MENAET — identique pour tous les niveaux (CP1 → CM2).</span>'
+    +'</div>';
+  var body = '<div id="aff-cal-'+scope+'">'+affCalHTML()+'</div>';
+  if(typeof espCard==='function'){
+    return espCard('📆 Calendrier scolaire & congés '+AFF_CAL_ANNEE, tools, body);
+  }
+  return '<h3>📆 Calendrier scolaire & congés '+AFF_CAL_ANNEE+'</h3>'+tools+body;
+}
+function affCalPrint(){
+  var head='<h1 style="color:#006B3F;border-bottom:3px solid #F77F00;padding-bottom:8px;">Calendrier scolaire '+AFF_CAL_ANNEE+' — MENAET · Côte d\'Ivoire</h1>';
+  var html=head+affCalHTML();
+  if(typeof affPrintHTML==='function'){ affPrintHTML(html,'Calendrier scolaire '+AFF_CAL_ANNEE); return; }
+  var w=window.open('','_blank'); if(!w){ alert('Autorisez les fenêtres pop-up pour imprimer.'); return; }
+  w.document.write('<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Calendrier '+AFF_CAL_ANNEE+'</title></head><body style="font-family:Arial,sans-serif;margin:24px;">'+html+'</body></html>');
+  w.document.close(); setTimeout(function(){ try{w.focus();w.print();}catch(e){} },400);
+}
+window.affPanelCalendrier=affPanelCalendrier; window.affCalPrint=affCalPrint;
+</script>
+
+<script id="pgnep-rep-preconcu">
+/* ==================================================================
+   [pgnep-rep-preconcu] Répartition mensuelle PRÉ-CONÇUE à partir des
+   programmes éducatifs officiels (MENA/DPFC). Les cases se remplissent
+   automatiquement à l'ouverture d'un mois si aucune saisie n'existe ;
+   tout reste modifiable par l'enseignant. 100% additif.
+   Remplissage progressif, niveau par niveau / matière par matière.
+   ================================================================== */
+var AFF_REP_PRECONCU = {
+  /* ---------- CP1 ---------- */
+  "CP1": {
+    "Septembre": { "MATHÉMATIQUES": ["Le repérage dans un milieu","Le repérage dans un milieu","Le repérage dans un milieu","Séances de régulation"] },
+    "Octobre":   { "MATHÉMATIQUES": ["Les lignes","Séances de régulation","Le tri et le classement","Séances de régulation"] },
+    "Novembre":  { "MATHÉMATIQUES": ["Le rangement","Séances de régulation","La correspondance","La correspondance"] },
+    "Décembre":  { "MATHÉMATIQUES": ["La correspondance","Séances de régulation","Séances de régulation",""] },
+    "Janvier":   { "MATHÉMATIQUES": ["Les nombres de 0 à 20","Les nombres de 0 à 20","Les nombres de 0 à 20","Les nombres de 0 à 20"] },
+    "Février":   { "MATHÉMATIQUES": ["Les nombres de 0 à 20","Séances de régulation","Le rangement des nombres de 0 à 20","Le rangement des nombres de 0 à 20"] },
+    "Mars":      { "MATHÉMATIQUES": ["Séances de régulation","L'addition","L'addition","L'addition"] },
+    "Avril":     { "MATHÉMATIQUES": ["L'addition","L'addition","Séances de régulation",""] },
+    "Mai":       { "MATHÉMATIQUES": ["Révision","Révision","",""] },
+    "Juin":      { "MATHÉMATIQUES": ["Révision","","",""] }
+  }
+};
+function affRepApplyPreconcu(d, cl){
+  try{
+    var mois = d && d.entete && d.entete.mois; if(!mois) return;
+    var lvl = AFF_REP_PRECONCU[cl]; if(!lvl) return;
+    var pre = lvl[mois]; if(!pre) return;
+    (d.matieres||[]).forEach(function(m, ri){
+      var arr = pre[m]; if(!arr) return;
+      for(var ci=0; ci<d.semaines.length && ci<arr.length; ci++){
+        if(arr[ci] && !d.cells[ri+'_'+ci]) d.cells[ri+'_'+ci] = arr[ci];
+      }
+    });
+  }catch(e){}
+}
+window.AFF_REP_PRECONCU = AFF_REP_PRECONCU;
+window.affRepApplyPreconcu = affRepApplyPreconcu;
+</script>
+
+<script id="pgnep-fix-savecompte">
+/* [pgnep-fix-savecompte] Empêche l'échec silencieux du bouton Enregistrer :
+   toute exception dans saveCompte affiche désormais un message clair.
+   100% additif — enveloppe la fonction sans la remplacer. */
+(function(){
+  if(typeof saveCompte!=='function') return;
+  var _orig=saveCompte;
+  saveCompte=function(){
+    try{ return _orig.apply(this,arguments); }
+    catch(e){
+      var msg='Erreur : '+((e&&e.message)||e);
+      try{ var el=document.getElementById('compte-error'); if(el){ el.textContent=msg; el.style.display='block'; } else if(typeof showNotif==='function'){ showNotif(msg,'error'); } }catch(_){ }
+      try{ console.error('saveCompte:', e); }catch(_){ }
+    }
+  };
+})();
+</script>
+<script id="pgnep-sa-ecole-add">
+/* [pgnep-sa-ecole-add] Dialogue « Créer / programmer un compte » :
+   - École devient un champ « choisir OU saisir une nouvelle école »
+     (création automatique de l'école si elle n'existe pas, avec sa DRENAET/IEPP).
+   - DRENAET et IEPP (déjà « saisir ou choisir ») s'affichent aussi pour
+     Directeur/Instituteur afin de renseigner une nouvelle école.
+   100% additif : enveloppe les fonctions existantes sans les remplacer. */
+(function(){
+  function patch(){
+    if(window.__saEcoleAddPatched) return true;
+    if(typeof window.openSaCompteModal!=='function' || typeof window.saveSaCompte!=='function' || typeof window.saTypeChange!=='function') return false;
+    window.__saEcoleAddPatched = true;
+
+    var ecoles = function(){
+      try{ return (typeof ecolesAll==='function') ? ecolesAll() : ((typeof DB!=='undefined' && DB.ecoles) || []); }
+      catch(e){ return (typeof DB!=='undefined' && DB.ecoles) || []; }
+    };
+
+    /* DRENAET + IEPP visibles aussi pour les rôles rattachés à une école */
+    var _tc = window.saTypeChange;
+    window.saTypeChange = function(){
+      _tc.apply(this, arguments);
+      try{
+        var t=(document.getElementById('sa-type')||{}).value;
+        var ecoleRole=(t==='directeur'||t==='instituteur'||t==='benevole');
+        var sh=function(id,on){ var e=document.getElementById(id); if(e) e.style.display=on?'':'none'; };
+        if(ecoleRole){ sh('sa-field-drena',true); sh('sa-field-iepp',true); }
+      }catch(e){}
+    };
+
+    /* À l'ouverture : convertir le menu École en champ combo + remplir la liste */
+    var _open = window.openSaCompteModal;
+    window.openSaCompteModal = function(){
+      _open.apply(this, arguments);
+      try{
+        var sel = document.getElementById('sa-ecole');
+        if (sel && sel.tagName === 'SELECT'){
+          var inp = document.createElement('input');
+          inp.type='text'; inp.id='sa-ecole'; inp.setAttribute('list','sa-ecole-list');
+          inp.placeholder='École — choisir ou saisir une nouvelle';
+          inp.style.width='100%';
+          var dl = document.createElement('datalist'); dl.id='sa-ecole-list';
+          sel.parentNode.replaceChild(inp, sel);
+          inp.parentNode.appendChild(dl);
+        }
+        var dl2 = document.getElementById('sa-ecole-list');
+        if (dl2) dl2.innerHTML = ecoles().map(function(e){
+          return '<option value="'+String(e.nom||e.id).replace(/"/g,'&quot;')+'">';
+        }).join('');
+        var ei = document.getElementById('sa-ecole'); if(ei) ei.value='';
+        window.saTypeChange();
+      }catch(e){ try{console.warn(e);}catch(_){} }
+    };
+
+    /* À l'enregistrement : si l'école saisie n'existe pas, la créer, puis passer son id */
+    var _save = window.saveSaCompte;
+    window.saveSaCompte = function(){
+      try{
+        var role=(document.getElementById('sa-type')||{}).value;
+        if(role==='directeur'||role==='instituteur'||role==='benevole'){
+          var ei=document.getElementById('sa-ecole');
+          var raw=((ei&&ei.value)||'').trim();
+          if(raw){
+            var all=ecoles(), id=null;
+            var byId=all.find(function(e){return e.id===raw;}); if(byId) id=byId.id;
+            if(!id){ var rid=(typeof resolveEcoleId==='function')?resolveEcoleId(raw):raw; var f=all.find(function(e){return e.id===rid;}); if(f) id=f.id; }
+            if(!id){
+              var newId='ec_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+              var drena=((document.getElementById('sa-drena')||{}).value||'').trim();
+              var iepp=((document.getElementById('sa-iepp')||{}).value||'').trim();
+              var rec={id:newId, nom:raw, drena:drena, iepp:iepp};
+              DB.ecoles.push(rec);
+              if(window._firebaseReady && window._fb) window._fb.set('ecoles',newId,rec).catch(function(){});
+              if(typeof save==='function'){ try{ save('ecoles'); }catch(_){} }
+              try{ if(typeof showNotif==='function') showNotif('🏫 Nouvelle école créée : '+raw,'success'); }catch(_){}
+              id=newId;
+            }
+            ei.value=id; /* saveSaCompte original lira l'id de l'école */
+          }
+        }
+      }catch(e){ try{console.warn(e);}catch(_){} }
+      return _save.apply(this, arguments);
+    };
+    return true;
+  }
+  if(!patch()){ document.addEventListener('DOMContentLoaded', patch); setTimeout(patch, 1500); }
+})();
 </script>
 
 </body>
