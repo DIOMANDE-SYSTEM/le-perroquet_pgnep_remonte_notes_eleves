@@ -16198,17 +16198,19 @@ if ('serviceWorker' in navigator) {
   // Injecter le bouton sur la page de connexion
   function injectBtn() {
     if (isStandalone()) return; // déjà installée : inutile
-    var body = document.querySelector('#login-screen .login-body');
-    if (!body || document.getElementById('btn-install-perroquet')) return;
+    if (document.getElementById('btn-install-perroquet')) return;
+    var loginBtn0 = document.querySelector('.login-btn');
+    var body = document.querySelector('#login-screen .login-body') || (loginBtn0 && loginBtn0.parentNode);
+    if (!body) return;
     var b = document.createElement('button');
     b.id = 'btn-install-perroquet';
     b.type = 'button';
-    b.textContent = '📥 Installer';
+    b.textContent = '\uD83D\uDCF2 Installer l\'application';
     b.setAttribute('onclick', 'installPerroquet()');
-    b.style.cssText = 'width:100%;margin-top:10px;padding:11px;border-radius:10px;border:1px solid rgba(255,255,255,.28);'
-      + 'background:rgba(255,255,255,.10);color:#fff;font-weight:700;font-size:13.5px;cursor:pointer;transition:background .15s;';
-    b.onmouseover = function () { b.style.background = 'rgba(255,255,255,.18)'; };
-    b.onmouseout = function () { b.style.background = 'rgba(255,255,255,.10)'; };
+    b.style.cssText = 'width:100%;margin-top:10px;padding:12px;border-radius:10px;border:0;'
+      + 'background:linear-gradient(135deg,#006B3F,#00843D);color:#fff;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,107,63,.35);transition:filter .15s;';
+    b.onmouseover = function () { b.style.filter = 'brightness(1.08)'; };
+    b.onmouseout = function () { b.style.filter = 'none'; };
     var loginBtn = body.querySelector('.login-btn');
     if (loginBtn && loginBtn.parentNode) loginBtn.parentNode.insertBefore(b, loginBtn.nextSibling);
     else body.appendChild(b);
@@ -16769,90 +16771,264 @@ window.affRepApplyPreconcu = affRepApplyPreconcu;
 </script>
 <script id="pgnep-sa-ecole-add">
 /* [pgnep-sa-ecole-add] Dialogue « Créer / programmer un compte » :
-   - École devient un champ « choisir OU saisir une nouvelle école »
-     (création automatique de l'école si elle n'existe pas, avec sa DRENAET/IEPP).
-   - DRENAET et IEPP (déjà « saisir ou choisir ») s'affichent aussi pour
-     Directeur/Instituteur afin de renseigner une nouvelle école.
-   100% additif : enveloppe les fonctions existantes sans les remplacer. */
+   - École = champ « choisir OU saisir » + champ « Code école (E…) ».
+   - Le CODE ÉCOLE (ex. E015693) devient la CLÉ UNIQUE : l'id de la fiche
+     école EST le code → directeur, adjoints et élèves se rattachent tous
+     à la MÊME école par ce code. Création automatique si absente.
+   - DRENAET/IEPP affichés aussi pour renseigner une nouvelle école.
+   100% additif : enveloppe les fonctions existantes. */
 (function(){
   function patch(){
     if(window.__saEcoleAddPatched) return true;
     if(typeof window.openSaCompteModal!=='function' || typeof window.saveSaCompte!=='function' || typeof window.saTypeChange!=='function') return false;
     window.__saEcoleAddPatched = true;
 
-    var ecoles = function(){
-      try{ return (typeof ecolesAll==='function') ? ecolesAll() : ((typeof DB!=='undefined' && DB.ecoles) || []); }
-      catch(e){ return (typeof DB!=='undefined' && DB.ecoles) || []; }
+    var ecoles=function(){ try{ return (typeof ecolesAll==='function')?ecolesAll():((typeof DB!=='undefined'&&DB.ecoles)||[]); }catch(e){ return (typeof DB!=='undefined'&&DB.ecoles)||[]; } };
+    var norm=function(s){ return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(); };
+    var findEcole=function(name, code){
+      var all=ecoles(); code=(code||'').trim();
+      if(code){ var byCode=all.find(function(e){ return norm(e.code)===norm(code) || e.id===code; }); if(byCode) return byCode; }
+      var nm=(name||'').trim();
+      if(nm){ var rid=(typeof resolveEcoleId==='function')?resolveEcoleId(nm):nm; var f=all.find(function(e){ return e.id===rid || norm(e.nom)===norm(nm); }); if(f) return f; }
+      return null;
     };
 
-    /* DRENAET + IEPP visibles aussi pour les rôles rattachés à une école */
-    var _tc = window.saTypeChange;
-    window.saTypeChange = function(){
-      _tc.apply(this, arguments);
+    var _tc=window.saTypeChange;
+    window.saTypeChange=function(){
+      _tc.apply(this,arguments);
       try{
         var t=(document.getElementById('sa-type')||{}).value;
         var ecoleRole=(t==='directeur'||t==='instituteur'||t==='benevole');
         var sh=function(id,on){ var e=document.getElementById(id); if(e) e.style.display=on?'':'none'; };
         if(ecoleRole){ sh('sa-field-drena',true); sh('sa-field-iepp',true); }
+        sh('sa-field-ecole-code', ecoleRole);
       }catch(e){}
     };
 
-    /* À l'ouverture : convertir le menu École en champ combo + remplir la liste */
-    var _open = window.openSaCompteModal;
-    window.openSaCompteModal = function(){
-      _open.apply(this, arguments);
+    function ensureCodeField(){
+      if(document.getElementById('sa-field-ecole-code')) return;
+      var ecoleField=document.getElementById('sa-field-ecole');
+      if(!ecoleField) return;
+      var g=document.createElement('div');
+      g.className='form-group'; g.id='sa-field-ecole-code';
+      g.innerHTML='<label class="form-field"><label>Code école (E…)</label><input type="text" id="sa-ecole-code" placeholder="E015693"></label>';
+      ecoleField.parentNode.insertBefore(g, ecoleField.nextSibling);
+    }
+
+    var _open=window.openSaCompteModal;
+    window.openSaCompteModal=function(){
+      _open.apply(this,arguments);
       try{
-        var sel = document.getElementById('sa-ecole');
-        if (sel && sel.tagName === 'SELECT'){
-          var inp = document.createElement('input');
+        var sel=document.getElementById('sa-ecole');
+        if(sel && sel.tagName==='SELECT'){
+          var inp=document.createElement('input');
           inp.type='text'; inp.id='sa-ecole'; inp.setAttribute('list','sa-ecole-list');
-          inp.placeholder='École — choisir ou saisir une nouvelle';
-          inp.style.width='100%';
-          var dl = document.createElement('datalist'); dl.id='sa-ecole-list';
-          sel.parentNode.replaceChild(inp, sel);
-          inp.parentNode.appendChild(dl);
+          inp.placeholder='École — choisir ou saisir une nouvelle'; inp.style.width='100%';
+          var dl=document.createElement('datalist'); dl.id='sa-ecole-list';
+          sel.parentNode.replaceChild(inp,sel); inp.parentNode.appendChild(dl);
         }
-        var dl2 = document.getElementById('sa-ecole-list');
-        if (dl2) dl2.innerHTML = ecoles().map(function(e){
-          return '<option value="'+String(e.nom||e.id).replace(/"/g,'&quot;')+'">';
-        }).join('');
-        var ei = document.getElementById('sa-ecole'); if(ei) ei.value='';
+        ensureCodeField();
+        var dl2=document.getElementById('sa-ecole-list');
+        if(dl2) dl2.innerHTML=ecoles().map(function(e){ return '<option value="'+String(e.nom||e.id).replace(/"/g,'&quot;')+'">'+(e.code||'')+'</option>'; }).join('');
+        var ei=document.getElementById('sa-ecole'); if(ei) ei.value='';
+        var cc=document.getElementById('sa-ecole-code'); if(cc) cc.value='';
+        if(ei && !ei.__codeBound){ ei.__codeBound=true; ei.addEventListener('change', function(){ var f=findEcole(ei.value,''); var c=document.getElementById('sa-ecole-code'); if(f && c && !c.value) c.value=f.code||f.id||''; }); }
         window.saTypeChange();
       }catch(e){ try{console.warn(e);}catch(_){} }
     };
 
-    /* À l'enregistrement : si l'école saisie n'existe pas, la créer, puis passer son id */
-    var _save = window.saveSaCompte;
-    window.saveSaCompte = function(){
+    var _save=window.saveSaCompte;
+    window.saveSaCompte=function(){
       try{
         var role=(document.getElementById('sa-type')||{}).value;
         if(role==='directeur'||role==='instituteur'||role==='benevole'){
           var ei=document.getElementById('sa-ecole');
-          var raw=((ei&&ei.value)||'').trim();
-          if(raw){
-            var all=ecoles(), id=null;
-            var byId=all.find(function(e){return e.id===raw;}); if(byId) id=byId.id;
-            if(!id){ var rid=(typeof resolveEcoleId==='function')?resolveEcoleId(raw):raw; var f=all.find(function(e){return e.id===rid;}); if(f) id=f.id; }
-            if(!id){
-              var newId='ec_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+          var name=((ei&&ei.value)||'').trim();
+          var code=((document.getElementById('sa-ecole-code')||{}).value||'').trim();
+          var __er=document.getElementById('sa-error');
+          var __failCode=function(msg){ if(__er){ __er.textContent=msg; __er.style.display='block'; } else if(typeof showNotif==='function'){ showNotif(msg,'error'); } else alert(msg); };
+          if(role==='directeur' && !code){ __failCode('\u26d4 Le code \u00e9cole (E\u2026) est obligatoire pour cr\u00e9er un directeur.'); return; }
+          if(!findEcole(name,code) && !code){ __failCode('\u26d4 Nouvelle \u00e9cole : le code \u00e9cole (E\u2026) est obligatoire.'); return; }
+          if(name||code){
+            var found=findEcole(name,code), id;
+            if(found){
+              id=found.id;
+              if(code && !found.code){ found.code=code; if(window._firebaseReady&&window._fb) window._fb.set('ecoles',found.id,found).catch(function(){}); if(typeof save==='function'){try{save('ecoles');}catch(_){}} }
+            } else {
+              id = code || ('ec_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
               var drena=((document.getElementById('sa-drena')||{}).value||'').trim();
               var iepp=((document.getElementById('sa-iepp')||{}).value||'').trim();
-              var rec={id:newId, nom:raw, drena:drena, iepp:iepp};
+              var rec={ id:id, code:(code||id), nom:(name||code), drena:drena, iepp:iepp };
               DB.ecoles.push(rec);
-              if(window._firebaseReady && window._fb) window._fb.set('ecoles',newId,rec).catch(function(){});
-              if(typeof save==='function'){ try{ save('ecoles'); }catch(_){} }
-              try{ if(typeof showNotif==='function') showNotif('🏫 Nouvelle école créée : '+raw,'success'); }catch(_){}
-              id=newId;
+              if(window._firebaseReady&&window._fb) window._fb.set('ecoles',id,rec).catch(function(){});
+              if(typeof save==='function'){ try{save('ecoles');}catch(_){} }
+              try{ if(typeof showNotif==='function') showNotif('🏫 École créée : '+(name||code)+' — code '+(code||id),'success'); }catch(_){}
             }
-            ei.value=id; /* saveSaCompte original lira l'id de l'école */
+            ei.value=id; /* structure_val (directeur) / ecole_val (adjoint) = code école */
           }
         }
       }catch(e){ try{console.warn(e);}catch(_){} }
-      return _save.apply(this, arguments);
+      return _save.apply(this,arguments);
     };
     return true;
   }
-  if(!patch()){ document.addEventListener('DOMContentLoaded', patch); setTimeout(patch, 1500); }
+  if(!patch()){ document.addEventListener('DOMContentLoaded',patch); setTimeout(patch,1500); }
+})();
+</script>
+
+<script id="pgnep-ensure-ecole">
+/* [pgnep-ensure-ecole] Garantit que l'école de l'utilisateur connecté
+   (directeur / instituteur) existe comme FICHE dans la base. Corrige
+   « ÉCOLES : 0 » et fiabilise le cloisonnement (chaque école = une fiche
+   avec un id canonique). Ne touche QUE l'école de l'utilisateur courant —
+   aucune donnée d'une autre école n'est créée ni partagée. 100% additif. */
+(function(){
+  function ensureOwnEcole(){
+    try{
+      if(typeof DB==='undefined' || !DB.ecoles) return;
+      var u=(typeof getCurrentUserData==='function')?getCurrentUserData():null;
+      if(!u) return;
+      var key = (u.role==='directeur') ? u.structure_val
+              : ((u.role==='instituteur'||u.role==='benevole') ? u.ecole_val : null);
+      if(!key) return;
+      var rid = (typeof resolveEcoleId==='function') ? resolveEcoleId(key) : key;
+      var exists = DB.ecoles.some(function(e){ return e.id===rid || e.id===key; });
+      if(exists) return;
+      // Récupérer un libellé + DRENAET/IEPP depuis un élève de l'école si possible
+      var samp = (DB.eleves||[]).find(function(e){ return e.ecole_id===key || e.ecole_id===rid; }) || {};
+      var nom  = u.nom_ecole || samp.nom_ecole || u.ecole_nom || key;
+      var rec  = { id:key, nom:nom, drena:(samp.drena||u.drena||''), iepp:(samp.iepp||u.iepp||'') };
+      DB.ecoles.push(rec);
+      if(window._firebaseReady && window._fb) window._fb.set('ecoles', rec.id, rec).catch(function(){});
+      if(typeof save==='function'){ try{ save('ecoles'); }catch(_){ } }
+    }catch(e){ try{console.warn(e);}catch(_){ } }
+  }
+  function hook(){
+    if(window.__ensureEcoleHooked) return true;
+    if(typeof window.renderDashboard!=='function') return false;
+    window.__ensureEcoleHooked=true;
+    var _rd=window.renderDashboard;
+    window.renderDashboard=function(){ ensureOwnEcole(); return _rd.apply(this,arguments); };
+    ensureOwnEcole(); /* au cas où le tableau de bord est déjà affiché */
+    return true;
+  }
+  if(!hook()){ document.addEventListener('DOMContentLoaded',hook); setTimeout(hook,1500); }
+})();
+</script>
+
+<script id="pgnep-normaliser-rattachement">
+/* [pgnep-normaliser-rattachement] Outil (directeur/admin) : rattache tous
+   les élèves du périmètre + les adjoints à l'école par son CODE (E…),
+   et crée/complète la fiche école (nom, IEPP, DRENAET). Corrige les cas
+   où les élèves n'apparaissent pas dans la classe à cause d'un rattachement
+   incohérent. 100% additif. À utiliser après une sauvegarde .json. */
+(function(){
+  function cu(){ try{ return (typeof getCurrentUserData==='function')?getCurrentUserData():null; }catch(e){ return null; } }
+  function ecoles(){ try{ return (typeof ecolesAll==='function')?ecolesAll():((typeof DB!=='undefined'&&DB.ecoles)||[]); }catch(e){ return (typeof DB!=='undefined'&&DB.ecoles)||[]; } }
+
+  function ensureBtn(){
+    var u=cu();
+    var ok = u && (u.role==='directeur'||u.role==='admin'||u.login==='diomande');
+    var ex=document.getElementById('pg-norm-btn');
+    if(!ok){ if(ex) ex.remove(); return; }
+    if(ex) return;
+    var b=document.createElement('button');
+    b.id='pg-norm-btn'; b.type='button'; b.textContent='🔧 Rattacher mes élèves';
+    b.style.cssText='position:fixed;right:16px;bottom:16px;z-index:9999;background:#0D1B2A;color:#fff;border:0;border-radius:24px;padding:12px 16px;font-weight:700;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;';
+    b.onclick=openModal;
+    document.body.appendChild(b);
+  }
+
+  function openModal(){
+    var u=cu(); if(!u){ alert('Session invalide, reconnectez-vous.'); return; }
+    var key=(u.role==='directeur')?u.structure_val:u.ecole_val;
+    var rid=(typeof resolveEcoleId==='function')?resolveEcoleId(key):key;
+    var rec=ecoles().find(function(e){ return e.id===rid||e.id===key; });
+    var samp=((typeof DB!=='undefined'&&DB.eleves)||[]).find(function(e){ return e.ecole_id===key||e.ecole_id===rid; })||{};
+    var code=(rec&&rec.code)||(String(key||'').match(/^E\d+/)?key:'')||(rec&&rec.id)||'';
+    var nom=(rec&&rec.nom)||samp.nom_ecole||'';
+    var iepp=(rec&&rec.iepp)||samp.iepp||'';
+    var drena=(rec&&rec.drena)||samp.drena||'';
+    var m=document.getElementById('pg-norm-modal');
+    if(!m){
+      m=document.createElement('div'); m.id='pg-norm-modal';
+      m.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;';
+      m.innerHTML='<div style="background:#fff;border-radius:14px;max-width:460px;width:100%;padding:20px;">'
+        +'<h3 style="margin:0 0 4px;">🔧 Rattacher mes élèves à mon école</h3>'
+        +'<p style="font-size:12px;color:#64748b;margin:0 0 14px;">Tous les élèves de votre périmètre et vos adjoints seront rattachés à cette école, par son <b>code</b>. Faites d\'abord une sauvegarde .json.</p>'
+        +'<div style="display:grid;gap:8px;">'
+        +'<label style="font-size:12px;font-weight:700;">Code école (E…)<input id="pgn-code" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;" placeholder="E015693"></label>'
+        +'<label style="font-size:12px;font-weight:700;">Nom de l\'école<input id="pgn-nom" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;" placeholder="EPP PEKAHA"></label>'
+        +'<label style="font-size:12px;font-weight:700;">IEPP<input id="pgn-iepp" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;" placeholder="NIAKARA"></label>'
+        +'<label style="font-size:12px;font-weight:700;">DRENAET<input id="pgn-drena" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;" placeholder="KATIOLA"></label>'
+        +'<div id="pgn-info" style="font-size:12px;color:#0D1B2A;font-weight:700;"></div>'
+        +'</div>'
+        +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">'
+        +'<button id="pgn-cancel" style="padding:9px 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer;">Annuler</button>'
+        +'<button id="pgn-ok" style="padding:9px 14px;border:0;border-radius:8px;background:#006B3F;color:#fff;font-weight:700;cursor:pointer;">Rattacher</button>'
+        +'</div></div>';
+      document.body.appendChild(m);
+      m.addEventListener('click',function(e){ if(e.target===m) m.style.display='none'; });
+      m.querySelector('#pgn-cancel').onclick=function(){ m.style.display='none'; };
+      m.querySelector('#pgn-ok').onclick=doNormalize;
+    }
+    document.getElementById('pgn-code').value=code;
+    document.getElementById('pgn-nom').value=nom;
+    document.getElementById('pgn-iepp').value=iepp;
+    document.getElementById('pgn-drena').value=drena;
+    var nb=(typeof getScopeEleves==='function')?getScopeEleves().length:0;
+    document.getElementById('pgn-info').textContent=nb+' élève(s) de votre périmètre seront rattachés.';
+    m.style.display='flex';
+  }
+
+  function doNormalize(){
+    try{
+      var u=cu(); if(!u){ alert('Session invalide.'); return; }
+      var code=(document.getElementById('pgn-code').value||'').trim();
+      var nom=(document.getElementById('pgn-nom').value||'').trim();
+      var iepp=(document.getElementById('pgn-iepp').value||'').trim();
+      var drena=(document.getElementById('pgn-drena').value||'').trim();
+      if(!code){ alert('Le code école (E…) est obligatoire.'); return; }
+      if(!confirm('Rattacher tous vos élèves à « '+(nom||code)+' » (code '+code+') ?\nPensez à avoir fait une sauvegarde .json.')) return;
+
+      var rec=ecoles().find(function(e){ return e.id===code || (e.code&&e.code===code); });
+      if(rec){ rec.code=code; if(nom) rec.nom=nom; if(iepp) rec.iepp=iepp; if(drena) rec.drena=drena; }
+      else { rec={id:code,code:code,nom:nom||code,iepp:iepp,drena:drena}; DB.ecoles.push(rec); }
+      if(window._firebaseReady&&window._fb) window._fb.set('ecoles',rec.id,rec).catch(function(){});
+
+      var scope=(typeof getScopeEleves==='function')?getScopeEleves():[];
+      var ids={}; scope.forEach(function(e){ ids[e.id]=1; });
+      var nE=0;
+      DB.eleves.forEach(function(e){ if(ids[e.id]){ if(e.ecole_id!==code){ e.ecole_id=code; nE++; } if(nom) e.nom_ecole=nom; }});
+
+      if(u.role==='directeur'){ var d=DB.users.find(function(x){return x.login===u.login;}); if(d) d.structure_val=code; }
+      var adj=(typeof getScopeUsers==='function')?getScopeUsers():[];
+      var nU=0;
+      adj.forEach(function(a){ if(['instituteur','benevole'].indexOf(a.role)!==-1){ var ru=DB.users.find(function(x){return x.login===a.login;}); if(ru && ru.ecole_val!==code){ ru.ecole_val=code; nU++; } }});
+
+      if(typeof save==='function'){ try{save('ecoles');}catch(_){} try{save('eleves');}catch(_){} try{save('users');}catch(_){} }
+      if(window._firebaseReady&&window._fb){
+        DB.eleves.forEach(function(e){ if(ids[e.id]) window._fb.set('eleves',e.id,e).catch(function(){}); });
+        DB.users.forEach(function(x){ if((x.role==='directeur'&&x.login===u.login) || (['instituteur','benevole'].indexOf(x.role)!==-1 && x.ecole_val===code)) window._fb.set('users',x.login,x).catch(function(){}); });
+      }
+
+      document.getElementById('pg-norm-modal').style.display='none';
+      if(typeof showNotif==='function') showNotif('✅ '+nE+' élève(s) et '+nU+' adjoint(s) rattachés à '+(nom||code),'success');
+      if(typeof renderDashboard==='function'){ try{ renderDashboard(); }catch(_){} }
+    }catch(e){ alert('Erreur : '+((e&&e.message)||e)); }
+  }
+
+  function hook(){
+    if(window.__pgNormHooked) return true;
+    if(typeof window.renderDashboard!=='function') return false;
+    window.__pgNormHooked=true;
+    var _rd=window.renderDashboard;
+    window.renderDashboard=function(){ var r=_rd.apply(this,arguments); try{ ensureBtn(); }catch(_){} return r; };
+    try{ ensureBtn(); }catch(_){}
+    return true;
+  }
+  if(!hook()){ document.addEventListener('DOMContentLoaded',hook); setTimeout(hook,1500); }
+  window.pgnepNormaliser=openModal;
 })();
 </script>
 
