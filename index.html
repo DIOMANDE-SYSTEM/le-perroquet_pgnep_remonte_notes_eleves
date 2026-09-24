@@ -1673,7 +1673,7 @@ tr:hover td{background:#F9FAFB;}
             <div class="pag-btns" id="pag-btns-eleves"></div>
           </div>
         </div>
-        <input type="file" id="csv-input" style="display:none" accept=".csv,.xlsx,.xlsm,.xls" onchange="handleImportFile(this)">
+        <input type="file" id="csv-input" style="display:none" accept=".csv,.xlsx,.xlsm,.xls,.docx,.doc" onchange="handleImportFile(this)">
       </div>
 
       <!-- ══ SAISIE DES NOTES ════════════════════════════════ -->
@@ -1962,7 +1962,7 @@ tr:hover td{background:#F9FAFB;}
               <!-- 📚 Import avec matières détaillées -->
               <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px;">
                 <div style="font-size:11px;font-weight:700;color:var(--ci-orange);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">📚 Import avec matières détaillées</div>
-                <input type="file" id="import-matieres-file" accept=".csv,.xlsx,.xls" style="display:none;" onchange="importMatieres(this)">
+                <input type="file" id="import-matieres-file" accept=".csv,.xlsx,.xls,.docx,.doc" style="display:none;" onchange="importMatieres(this)">
                 <button class="btn btn-secondary" style="justify-content:flex-start;width:100%;" onclick="document.getElementById('import-matieres-file').click()">
                   📚 Charger notes avec matières (.csv / .xlsx)
                 </button>
@@ -3116,8 +3116,8 @@ function getScopeEleves() {
   if(u.role==='coordinateur') { const ids=getScopeEcoles().map(ec=>ec.id); return DB.eleves.filter(e=>ids.includes(e.ecole_id)); }
   if(u.role==='correspondant') { const ids=getScopeEcoles().map(ec=>ec.id); return DB.eleves.filter(e=>ids.includes(e.ecole_id)); }
   if(u.role==='cppp') { const ids=getScopeEcoles().map(ec=>ec.id); return DB.eleves.filter(e=>ids.includes(e.ecole_id)); }
-  if(u.role==='directeur') { const sv=(typeof resolveEcoleId==='function')?resolveEcoleId(u.structure_val):u.structure_val; return DB.eleves.filter(e=>e.ecole_id===sv); }
-  if(u.role==='instituteur'||u.role==='benevole') { const ev=(typeof resolveEcoleId==='function')?resolveEcoleId(u.ecole_val):u.ecole_val; return DB.eleves.filter(e=>e.ecole_id===ev && e.classe===u.structure_val); }
+  if(u.role==='directeur') { const sv=(typeof resolveEcoleId==='function')?resolveEcoleId(u.structure_val):u.structure_val; return DB.eleves.filter(e=>e.ecole_id===sv || ((typeof resolveEcoleId==='function'?resolveEcoleId(e.ecole_id):e.ecole_id)===sv)); }
+  if(u.role==='instituteur'||u.role==='benevole') { const ev=(typeof resolveEcoleId==='function')?resolveEcoleId(u.ecole_val):u.ecole_val; return DB.eleves.filter(e=>(e.ecole_id===ev || (typeof resolveEcoleId==='function'?resolveEcoleId(e.ecole_id):e.ecole_id)===ev) && e.classe===u.structure_val); }
   return [];
 }
 
@@ -3132,9 +3132,10 @@ function getScopeUsers() {
   if(u.role==='admin'||u.login==='diomande') return DB.users;
   // Directeur : voit tous les utilisateurs de son école SAUF admin/coordinateur/correspondant/cabinet
   if(u.role==='directeur') {
+    const myEc=(typeof resolveEcoleId==='function')?resolveEcoleId(u.structure_val):u.structure_val;
     return DB.users.filter(usr=>
       !['admin','coordinateur','correspondant','cabinet','lecteur','cppp'].includes(usr.role) &&
-      usr.ecole_val===u.structure_val
+      (usr.ecole_val===u.structure_val || ((typeof resolveEcoleId==='function'?resolveEcoleId(usr.ecole_val):usr.ecole_val)===myEc))
     );
   }
   // Correspondant IEPP : voit toutes les écoles de sa circonscription, SANS admin ni cabinet
@@ -3464,8 +3465,9 @@ function renderAdjoints() {
   if (!u || u.role !== 'directeur') return;
   const container = document.getElementById('section-adjoints');
   if (!container) return;
+  const _dirEc=(typeof resolveEcoleId==='function')?resolveEcoleId(u.structure_val):u.structure_val;
   const adjoints = DB.users.filter(x=>
-    ['instituteur','benevole'].includes(x.role) && x.ecole_val===u.structure_val
+    ['instituteur','benevole'].includes(x.role) && (x.ecole_val===u.structure_val || ((typeof resolveEcoleId==='function'?resolveEcoleId(x.ecole_val):x.ecole_val)===_dirEc))
   );
   if (!adjoints.length) {
     container.innerHTML='<p style="color:var(--text3);font-size:12px;padding:8px;">Aucun instituteur rattaché à votre école.</p>';
@@ -3806,7 +3808,7 @@ function renderEleves() {
     const rangTxt = formatRang(rangE);
     const rangColor = rangE&&rangE.rang===1?'#D97706':rangE&&rangE.rang<=3?'var(--ci-vert)':'var(--text3)';
     const passage = getStatutPassage(e.id, e.classe);
-    return `<tr>
+    return `<tr data-eleve-id="${e.id}">
       <td><code style="font-family:'JetBrains Mono',monospace;font-size:11px;">${e.matricule}</code></td>
       <td><strong>${e.nom}</strong> ${e.prenoms}</td>
       <td><span class="badge ${e.sexe==='F'?'badge-orange':'badge-bleu'}">${e.sexe==='F'?'F':'M'}</span></td>
@@ -4038,7 +4040,8 @@ function deleteEleve(idx) {
   const eleve = DB.eleves[idx];
   if (['instituteur','benevole'].includes(currentUser.role)) {
     const u = DB.users.find(x=>x.login===currentUser.login);
-    if (!u || eleve.classe!==u.structure_val || eleve.ecole_id!==u.ecole_val) {
+    var _rE=(typeof resolveEcoleId==='function')?resolveEcoleId:function(x){return x;};
+    if (!u || eleve.classe!==u.structure_val || _rE(eleve.ecole_id)!==_rE(u.ecole_val)) {
       showNotif('🔒 Suppression limitée à votre classe', 'error'); return;
     }
   }
@@ -4848,13 +4851,14 @@ function saveEcole() {
     closeModal('modal-ecole');
     showNotif('✅ École modifiée', 'success');
   } else {
-    const rec = { id:genId('ec'), nom, code, iepp, drena };
+    const rec = { id:(code||genId('ec')), code:code, nom, iepp, drena };
     DB.ecoles.push(rec);
     if(window._firebaseReady&&window._fb) window._fb.set('ecoles', rec.id, rec).catch(()=>{});
-    if (currentUser && ['instituteur','benevole'].includes(currentUser.role)) {
+    if (currentUser) {
       const u = DB.users.find(x=>x.login===currentUser.login);
       if (u) {
-        u.ecole_val = rec.id;
+        if (currentUser.role==='directeur') u.structure_val = rec.id;
+        else if (['instituteur','benevole'].includes(currentUser.role)) u.ecole_val = rec.id;
         save('users');
         if(window._firebaseReady&&window._fb) window._fb.set('users', u.login, u).catch(()=>{});
         const structEl = document.getElementById('user-structure-label');
@@ -4923,8 +4927,8 @@ const HEADERS_MAP_IMPORT = {
   'prenoms':'prenoms','prenoms':'prenoms','prenom':'prenoms','firstname':'prenoms',
   'matricule':'matricule','mat':'matricule','numero':'matricule',
   'sexe':'sexe','genre':'sexe','sex':'sexe',
-  'date_naissance':'ddn','ddn':'ddn','naissance':'ddn','date de naissance':'ddn',
-  'lieu_naissance':'lieu','lieu':'lieu','ville':'lieu','localite':'lieu',
+  'date_naissance':'ddn','ddn':'ddn','naissance':'ddn','date de naissance':'ddn','date_naiss':'ddn','datenaiss':'ddn','date_de_naissance':'ddn','ne_le':'ddn','nee_le':'ddn','dob':'ddn',
+  'lieu_naissance':'lieu','lieu':'lieu','ville':'lieu','localite':'lieu','lieu_naiss':'lieu','lieunaiss':'lieu','lieu_de_naissance':'lieu',
   'classe':'classe','level':'classe','niveau':'classe',
   'ecole':'ecole_id','etablissement':'ecole_id','school':'ecole_id',
 };
@@ -4952,6 +4956,7 @@ function parseImportFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   const preview = document.getElementById('import-result');
   const actions = document.getElementById('import-actions');
+  if(!preview){ if(typeof showPage==='function'){ showPage('export'); setTimeout(function(){ parseImportFile(file); }, 200); return; } alert('Ouvrez la page « Export / Synchro » pour importer.'); return; }
   preview.style.display='block';
   preview.innerHTML='<div style="padding:10px;font-size:13px;color:var(--text2);">⏳ Lecture en cours...</div>';
   if (actions) actions.style.display='none';
@@ -5857,7 +5862,7 @@ function exportElevesXLSX() {
     data.push([
       e.matricule, e.nom, e.prenoms, e.sexe,
       e.ddn||'', e.lieu||'', e.classe,
-      ec?ec.nom:'', ec?ec.iepp:'', ec?ec.drena:''
+      ecoleOfEleve(e).nom, ecoleOfEleve(e).iepp, ecoleOfEleve(e).drena
     ]);
   });
   const ws = XLSX.utils.aoa_to_sheet(data);
@@ -5907,7 +5912,7 @@ function exportCompletXLSX() {
   const dataEl = [['Matricule','Nom','Prénoms','Sexe','Date naiss.','Lieu naiss.','Classe','École','IEPP','DRENAET']];
   getScopeEleves().forEach(e => {
     const ec = DB.ecoles.find(x=>x.id===e.ecole_id);
-    dataEl.push([e.matricule,e.nom,e.prenoms,e.sexe,e.ddn||'',e.lieu||'',e.classe,ec?ec.nom:'',ec?ec.iepp:'',ec?ec.drena:'']);
+    dataEl.push([e.matricule,e.nom,e.prenoms,e.sexe,e.ddn||'',e.lieu||'',e.classe,ecoleOfEleve(e).nom,ecoleOfEleve(e).iepp,ecoleOfEleve(e).drena]);
   });
   const wsEl = XLSX.utils.aoa_to_sheet(dataEl);
   wsEl['!cols'] = [14,20,20,8,12,15,6,30,20,20].map(w=>({wch:w}));
@@ -7086,7 +7091,10 @@ function exportRapportXLSX() {
   showNotif('📊 Rapport Excel téléchargé', 'success');
 }
 
-function importElevesCSV() { document.getElementById('csv-input').click(); }
+function importElevesCSV() {
+  if(typeof showPage==='function'){ try{ showPage('export'); }catch(e){} }
+  setTimeout(function(){ var el=document.getElementById('import-file')||document.getElementById('csv-input'); if(el) el.click(); }, 150);
+}
 
 // Service Worker désactivé (fichier local)
 
@@ -8433,7 +8441,7 @@ function espSetMaitreSub(){ const el=document.getElementById('esp-maitre-sub'); 
 /* -- Cahier d'appel -- */
 function espSetPres(id,val){ const d=document.getElementById('esp-appel-date').value||espToday(); const m=espLsGet('pgnep_presences',{}); m[d+'__'+id]=val; espLsSet('pgnep_presences',m); espRenderAppel(); }
 function espToggleAbandon(id){ const ab=espLsGet('pgnep_abandons',[]); const i=ab.indexOf(id); if(i>=0)ab.splice(i,1); else ab.push(id); espLsSet('pgnep_abandons',ab); espRenderAppel(); }
-function espModeleAppel(){ espDownloadModele(['Nom','Prénoms','Sexe','Matricule'], ['BAMBA','Souleymane','M','MAT-001'], 'modele_liste_eleves'); }
+function espModeleAppel(){ espDownloadModele(['Nom','Prénoms','Sexe','Matricule','Date naiss.','Lieu naiss.'], ['BAMBA','Souleymane','M','MAT-001','2019-03-12','Korhogo'], 'modele_liste_eleves'); }
 function espImportAppel(){
   const cl=espMyClasse(), eid=espMyEcoleId();
   if(!cl||!eid){ alert('Classe ou école non déterminée pour ce compte.'); return; }
@@ -8442,9 +8450,11 @@ function espImportAppel(){
     let n=0;
     rows.forEach(r=>{
       const nom=espCol(r,'Nom'), pre=espCol(r,'Prénoms','Prenoms','Prénom','Prenom'), sx=espCol(r,'Sexe'), mat=espCol(r,'Matricule','Matric');
+      let ddnv=espCol(r,'Date naiss.','Date naiss','Date de naissance','Naissance','ddn'); if(ddnv instanceof Date) ddnv=ddnv.toISOString().slice(0,10); else ddnv=String(ddnv||'').trim();
+      const lieuv=String(espCol(r,'Lieu naiss.','Lieu naiss','Lieu de naissance','Lieu','Ville')||'').trim();
       if(!nom && !pre) return;
       let sexe=String(sx||'').trim().toUpperCase(); sexe=(sexe.startsWith('F')?'F':(sexe.startsWith('M')?'M':''));
-      DB.eleves.push({ id:(typeof uid==='function'?uid():espUid()), nom:String(nom||'').trim(), prenoms:String(pre||'').trim(), sexe:sexe, matricule:String(mat||'').trim(), classe:cl, ecole_id:eid });
+      DB.eleves.push({ id:(typeof uid==='function'?uid():espUid()), nom:String(nom||'').trim(), prenoms:String(pre||'').trim(), sexe:sexe, matricule:String(mat||'').trim(), ddn:ddnv, lieu:lieuv, classe:cl, ecole_id:eid });
       n++;
     });
     if(typeof saveDB==='function') saveDB();
@@ -9295,10 +9305,26 @@ function espImportExcel(cb){
   let input=document.getElementById('esp-generic-import');
   if(!input){
     input=document.createElement('input'); input.type='file'; input.id='esp-generic-import';
-    input.accept='.xlsx,.xls,.csv'; input.style.display='none'; document.body.appendChild(input);
+    input.accept='.xlsx,.xls,.csv,.docx,.doc'; input.style.display='none'; document.body.appendChild(input);
   }
   input.onchange=function(){
     const f=this.files&&this.files[0]; if(!f){ return; }
+    const ext=(f.name.split('.').pop()||'').toLowerCase();
+    if(ext==='docx'||ext==='doc'){
+      if(typeof mammoth==='undefined'){ alert('Le module Word (Mammoth) n\'a pas pu être chargé. Réessayez dans un instant.'); return; }
+      const rd=new FileReader();
+      rd.onload=function(ev){
+        mammoth.extractRawText({arrayBuffer:ev.target.result}).then(function(res){
+          const lines=res.value.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+          const arr=lines.map(function(l){return l.split(/\t+|\s{2,}/).map(function(v){return v.trim();}).filter(Boolean);});
+          if(arr.length<2){ alert('Document Word : aucun tableau structuré détecté. Utilisez plutôt Excel (.xlsx) ou CSV.'); return; }
+          const hdr=arr[0], objs=[];
+          for(let i=1;i<arr.length;i++){ const o={}; hdr.forEach(function(h,j){ o[h]=arr[i][j]||''; }); objs.push(o); }
+          cb(objs);
+        }).catch(function(err){ alert('Impossible de lire ce fichier Word : '+err.message); });
+      };
+      rd.readAsArrayBuffer(f); return;
+    }
     const reader=new FileReader();
     reader.onload=function(ev){
       try{
@@ -12121,8 +12147,7 @@ var AFF_SUBTABS = [
   {id:'presences',   icon:'📋', label:'Présences & effectifs'},
   {id:'edt',         icon:'🕒', label:'Emploi du temps'},
   {id:'recap',       icon:'📊', label:'Tableau récapitulatif'},
-  {id:'repartition', icon:'📅', label:'Répartition mensuelle'},
-  {id:'calendrier',  icon:'📆', label:'Calendrier / Congés'}
+  {id:'repartition', icon:'📅', label:'Répartition mensuelle'}
 ];
 
 /* ---------- Contexte (classe / école / élèves) selon l'espace ---------- */
@@ -12158,7 +12183,6 @@ function affRenderBoard(scope){
   else if(sub==='edt')         panel=affPanelEdt(scope);
   else if(sub==='recap')       panel=affPanelRecap(scope,eleves);
   else if(sub==='repartition') panel=affPanelRepartition(scope);
-  else if(sub==='calendrier')  panel=affPanelCalendrier(scope);
 
   box.innerHTML=clSel+tabbar+'<div class="aff-panel-body">'+panel+'</div>';
 
@@ -14259,7 +14283,7 @@ function cjExportExcel(){
         try {
           localStorage.setItem(k, JSON.stringify(maj));
           total += avant - (localStorage.getItem(k) || '').length; n++;
-          console.info('[PGNEP_STORE] ' + k + ' allégé (' + Math.round((avant / 1048576) * 100) / 100 + ' Mo traités)');
+          (console.info||console.log)('[PGNEP_STORE] ' + k + ' allégé (' + Math.round((avant / 1048576) * 100) / 100 + ' Mo traités)');
         } catch (e) { console.warn('[PGNEP_STORE] réécriture ' + k, e); }
       });
     });
@@ -14325,7 +14349,7 @@ function cjExportExcel(){
     }
     if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(function () {}); }
     planifierSwap();
-    console.info('[PGNEP_STORE] actif — fichiers lourds stockés dans IndexedDB');
+    (console.info||console.log)('[PGNEP_STORE] actif — fichiers lourds stockés dans IndexedDB');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer);
@@ -15172,6 +15196,7 @@ if ('serviceWorker' in navigator) {
     var iepp  = (document.getElementById('ec-iepp').value  || '').trim();
     var drena = (document.getElementById('ec-drena').value || '').trim();
     if (!nom) { showNotif("Nom de l'école obligatoire", 'error'); return; }
+    if (!code && currentUser && currentUser.role === 'directeur') { showNotif("Le code d'ouverture (E\u2026) est obligatoire pour un directeur.", 'error'); return; }
 
     _savingEcole = true;
     var btn = document.querySelector('#modal-ecole .btn-primary');
@@ -15194,7 +15219,7 @@ if ('serviceWorker' in navigator) {
           existing.nom = nom; existing.code = code; existing.iepp = iepp; existing.drena = drena;
           rec = existing;
         } else {
-          rec = { id: genId('ec'), nom: nom, code: code, iepp: iepp, drena: drena };
+          rec = { id: (code || genId('ec')), nom: nom, code: code, iepp: iepp, drena: drena };
           DB.ecoles.push(rec);
         }
         // Rattachement instituteur/bénévole (identique à l'original)
@@ -15204,6 +15229,16 @@ if ('serviceWorker' in navigator) {
             u.ecole_val = rec.id; save('users');
             var structEl = document.getElementById('user-structure-label');
             if (structEl && typeof getStructureLabel === 'function') structEl.textContent = getStructureLabel(u);
+          }
+        }
+        // Rattachement DIRECTEUR à son école (clé = code d'ouverture)
+        if (currentUser && currentUser.role === 'directeur') {
+          var du = DB.users.find(function (x) { return x.login === currentUser.login; });
+          if (du) {
+            du.structure_val = rec.id; save('users');
+            if (window._firebaseReady && window._fb) window._fb.set('users', du.login, du).catch(function(){});
+            var sEl = document.getElementById('user-structure-label');
+            if (sEl && typeof getStructureLabel === 'function') sEl.textContent = getStructureLabel(du);
           }
         }
       }
@@ -17029,6 +17064,250 @@ window.affRepApplyPreconcu = affRepApplyPreconcu;
   }
   if(!hook()){ document.addEventListener('DOMContentLoaded',hook); setTimeout(hook,1500); }
   window.pgnepNormaliser=openModal;
+})();
+</script>
+
+<script id="pgnep-cal-officiel">
+/* [pgnep-cal-officiel] Intègre le calendrier officiel (découpage année +
+   congés 2026-2027) EN HAUT de l'onglet « Calendrier scolaire » du directeur.
+   Modifiable après une confirmation d'attention. 100% additif : enveloppe
+   espRenderCalendrier sans le détruire. */
+(function(){
+  var KEY='pgnep_calendrier_officiel';
+  function esc(s){ return (typeof espEsc==='function')?espEsc(s):String(s==null?'':s); }
+  function getData(){
+    var dT=(typeof AFF_CAL_TRIM!=='undefined')?AFF_CAL_TRIM:[];
+    var dC=(typeof AFF_CAL_CONGES!=='undefined')?AFF_CAL_CONGES:[];
+    var an=(typeof AFF_CAL_ANNEE!=='undefined')?AFF_CAL_ANNEE:'2026-2027';
+    try{ if(typeof espLsGet==='function'){ var s=espLsGet(KEY,null); if(s&&s.trim&&s.conges) return s; } }catch(e){}
+    return { annee:an, trim:dT.map(function(t){return {n:t.n,d:t.d};}), conges:dC.map(function(c){return {n:c.n,d:c.d};}) };
+  }
+  function setData(d){ try{ if(typeof espLsSet==='function') espLsSet(KEY,d); }catch(e){} }
+
+  function cardHTML(){
+    var d=getData(), edit=!!window.__calOffEdit;
+    var trimRows=d.trim.map(function(t,i){
+      var v=edit?('<input id="caloff-trim-'+i+'" value="'+esc(t.d).replace(/"/g,'&quot;')+'" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">'):esc(t.d);
+      return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;"><div style="color:#F77F00;font-weight:700;text-transform:uppercase;font-size:13px;">'+esc(t.n)+'</div><div style="border-top:1px dashed #F77F00;margin:6px 0;"></div><div style="font-size:14px;">'+v+'</div></div>';
+    }).join('');
+    var congRows=d.conges.map(function(c,i){
+      var v=edit?('<input id="caloff-cong-'+i+'" value="'+esc(c.d).replace(/"/g,'&quot;')+'" style="width:100%;padding:6px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">'):esc(c.d);
+      return '<tr><td style="color:#006B3F;font-weight:700;text-transform:uppercase;padding:8px 10px;border-bottom:1px dashed #bcd;white-space:nowrap;vertical-align:top;">'+esc(c.n)+'</td><td style="padding:8px 10px;border-bottom:1px dashed #bcd;">'+v+'</td></tr>';
+    }).join('');
+    var tools=edit
+      ? '<button class="btn btn-primary" onclick="calOffSave()">💾 Enregistrer</button> <button class="btn btn-secondary" onclick="calOffCancel()">Annuler</button>'
+      : '<button class="btn btn-secondary" onclick="calOffPrint()">🖨️ Imprimer / PDF</button> <button class="btn btn-secondary" onclick="calOffEdit()">✏️ Modifier</button>';
+    var grid='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">'
+      +'<div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#006B3F;color:#fff;font-weight:700;padding:10px 12px;">Découpage de l\'année scolaire '+esc(d.annee)+'</div><div style="padding:12px;">'+trimRows+'</div></div>'
+      +'<div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#F77F00;color:#fff;font-weight:700;padding:10px 12px;">Dates des congés scolaires '+esc(d.annee)+'</div><table style="width:100%;border-collapse:collapse;font-size:14px;">'+congRows+'</table></div></div>';
+    var sub=tools+' <span style="font-size:11px;color:#64748b;">Calendrier officiel MENAET — identique pour tous les niveaux.</span>';
+    if(typeof espCard==='function') return espCard('📆 Calendrier officiel & congés '+esc(d.annee), sub, grid);
+    return '<div style="margin-bottom:8px;">'+sub+'</div>'+grid;
+  }
+
+  function mount(){
+    var box=document.getElementById('esp-directeur-calendrier'); if(!box) return;
+    var ex=document.getElementById('caloff-block');
+    if(ex){ ex.innerHTML=cardHTML(); return; }
+    box.insertAdjacentHTML('afterbegin','<div id="caloff-block">'+cardHTML()+'</div><div style="height:16px;"></div>');
+  }
+
+  window.calOffEdit=function(){
+    if(!confirm('\u26a0\ufe0f Attention : vous allez modifier le CALENDRIER OFFICIEL (MENAET).\nNe le faites qu\'en cas de mise \u00e0 jour officielle des dates. Continuer ?')) return;
+    window.__calOffEdit=true; mount();
+  };
+  window.calOffCancel=function(){ window.__calOffEdit=false; mount(); };
+  window.calOffSave=function(){
+    var d=getData();
+    d.trim.forEach(function(t,i){ var el=document.getElementById('caloff-trim-'+i); if(el) t.d=el.value.trim(); });
+    d.conges.forEach(function(c,i){ var el=document.getElementById('caloff-cong-'+i); if(el) c.d=el.value.trim(); });
+    setData(d); window.__calOffEdit=false; mount();
+    if(typeof showNotif==='function') showNotif('\u2705 Calendrier officiel mis \u00e0 jour','success');
+  };
+  window.calOffPrint=function(){
+    var d=getData();
+    var head='<h1 style="color:#006B3F;border-bottom:3px solid #F77F00;padding-bottom:8px;">Calendrier scolaire '+esc(d.annee)+' \u2014 MENAET \u00b7 C\u00f4te d\'Ivoire</h1>';
+    var trim=d.trim.map(function(t){ return '<div style="margin:6px 0;"><b style="color:#F77F00;text-transform:uppercase;">'+esc(t.n)+'</b> : '+esc(t.d)+'</div>'; }).join('');
+    var cong=d.conges.map(function(c){ return '<tr><td style="color:#006B3F;font-weight:700;text-transform:uppercase;padding:4px 8px;border-bottom:1px dashed #bbb;">'+esc(c.n)+'</td><td style="padding:4px 8px;border-bottom:1px dashed #bbb;">'+esc(c.d)+'</td></tr>'; }).join('');
+    var html=head+'<h3>D\u00e9coupage de l\'ann\u00e9e</h3>'+trim+'<h3>Congés</h3><table style="border-collapse:collapse;width:100%;">'+cong+'</table>';
+    if(typeof affPrintHTML==='function'){ affPrintHTML(html,'Calendrier scolaire '+d.annee); return; }
+    var w=window.open('','_blank'); if(!w){ alert('Autorisez les pop-up pour imprimer.'); return; }
+    w.document.write('<!doctype html><meta charset="utf-8"><body style="font-family:Arial,sans-serif;margin:24px;">'+html+'</body>'); w.document.close(); setTimeout(function(){try{w.focus();w.print();}catch(e){}},400);
+  };
+
+  function hook(){
+    if(window.__calOffHooked) return true;
+    if(typeof window.espRenderCalendrier!=='function') return false;
+    window.__calOffHooked=true;
+    var _r=window.espRenderCalendrier;
+    window.espRenderCalendrier=function(){ var x=_r.apply(this,arguments); try{ window.__calOffEdit=false; mount(); }catch(e){} return x; };
+    return true;
+  }
+  if(!hook()){ document.addEventListener('DOMContentLoaded',hook); setTimeout(hook,1500); }
+})();
+</script>
+
+<script id="pgnep-export-fix">
+/* [pgnep-export-fix] Exports élèves rattachés à l'école (colonne École/IEPP/
+   DRENAET toujours remplie via résolution robuste), cloisonnés au périmètre
+   de l'utilisateur (+ filtre classe si sélectionné), sans doublons.
+   100% additif : définit des helpers + remplace exportElevesCSV. */
+(function(){
+  function ecoleOfEleve(e){
+    var empty={nom:'',iepp:'',drena:'',code:''};
+    try{
+      if(!e) return empty;
+      var rec=((typeof DB!=='undefined'&&DB.ecoles)||[]).find(function(x){return x.id===e.ecole_id;});
+      if(!rec && typeof resolveEcoleId==='function'){ var rid=resolveEcoleId(e.ecole_id); rec=(DB.ecoles||[]).find(function(x){return x.id===rid;}); }
+      if(rec) return {nom:rec.nom||e.nom_ecole||rec.code||e.ecole_id||'', iepp:rec.iepp||e.iepp||'', drena:rec.drena||e.drena||'', code:rec.code||rec.id||''};
+      return {nom:e.nom_ecole||e.ecole_id||'', iepp:e.iepp||'', drena:e.drena||'', code:''};
+    }catch(err){ return empty; }
+  }
+  window.ecoleOfEleve=ecoleOfEleve;
+  window.pgnepEcoleNom=function(e){ return ecoleOfEleve(e).nom; };
+
+  function scopedDedupEleves(){
+    var data;
+    try{ data=(typeof getElevesFiltres==='function')?getElevesFiltres():(typeof getScopeEleves==='function'?getScopeEleves():((typeof DB!=='undefined'&&DB.eleves)||[])); }
+    catch(e){ data=(typeof getScopeEleves==='function'?getScopeEleves():((typeof DB!=='undefined'&&DB.eleves)||[])); }
+    var seen={}, out=[];
+    (data||[]).forEach(function(e){
+      var k=((e.matricule||'').trim().toUpperCase())||((e.nom||'')+'|'+(e.prenoms||'')+'|'+(e.classe||'')).toUpperCase();
+      if(seen[k]) return; seen[k]=1; out.push(e);
+    });
+    return out;
+  }
+  window.pgnepScopedEleves=scopedDedupEleves;
+
+  function fileTag(){
+    try{
+      var u=(typeof getCurrentUserData==='function')?getCurrentUserData():null;
+      var eco='';
+      if(u){ var key=(u.role==='directeur')?u.structure_val:u.ecole_val; var rid=(typeof resolveEcoleId==='function')?resolveEcoleId(key):key; var rec=((DB&&DB.ecoles)||[]).find(function(x){return x.id===rid||x.id===key;}); eco=(rec&&(rec.nom||rec.code))||key||''; }
+      var cl=''; var fc=document.getElementById('filt-classe');
+      if(fc && fc.value) cl='_'+fc.value; else if(u&&(u.role==='instituteur'||u.role==='benevole')) cl='_'+(u.structure_val||'');
+      return (String(eco).replace(/[^\w-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40)||'ecole')+cl;
+    }catch(e){ return 'ecole'; }
+  }
+  window.pgnepFileTag=fileTag;
+
+  window.exportElevesCSV=function(){
+    var list=scopedDedupEleves();
+    var csv='Matricule;Nom;Prénoms;Sexe;Date naiss.;Lieu naiss.;Classe;École;IEPP;DRENAET\n';
+    list.forEach(function(e){
+      var eco=ecoleOfEleve(e);
+      csv += '"'+(e.matricule||'')+'";"'+(e.nom||'')+'";"'+(e.prenoms||'')+'";"'+(e.sexe||'')+'";"'+(e.ddn||'')+'";"'+(e.lieu||'')+'";"'+(e.classe||'')+'";"'+eco.nom+'";"'+eco.iepp+'";"'+eco.drena+'"\n';
+    });
+    if(typeof dlCSV==='function') dlCSV(csv, 'PGNEP_eleves_'+fileTag()+'_'+((typeof today==='function')?today():'')+'.csv');
+    if(typeof showNotif==='function') showNotif('⬇ Export ('+list.length+' élève(s)) — '+fileTag(),'success');
+  };
+})();
+</script>
+
+<script id="pgnep-bulk-delete">
+/* [pgnep-bulk-delete] Sélection multiple d'élèves + suppression groupée +
+   suppression des doublons. 100% additif : enveloppe renderEleves. */
+(function(){
+  var SEL = window.__elevesSel = window.__elevesSel || {};
+  function canDel(){ try{ return (typeof canDelete==='function')?canDelete():true; }catch(e){ return true; } }
+
+  function injectToolbar(){
+    var host=document.getElementById('table-eleves'); if(!host) return;
+    var table=host.closest ? host.closest('table') : null;
+    if(document.getElementById('pgnep-bulk-bar') || !table || !table.parentNode) return;
+    var bar=document.createElement('div'); bar.id='pgnep-bulk-bar';
+    bar.style.cssText='display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0;';
+    bar.innerHTML=''
+      +'<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;cursor:pointer;"><input type="checkbox" id="bulk-toggle" onchange="pgnepBulkToggle()"> Sélection multiple</label>'
+      +'<button class="btn btn-secondary btn-sm" id="bulk-selall" style="display:none;" onclick="pgnepBulkSelectAll()">Tout cocher (page)</button>'
+      +'<button class="btn btn-sm" id="bulk-del" style="display:none;background:#e05555;color:#fff;" onclick="pgnepBulkDelete()">🗑 Supprimer la sélection (<span id="bulk-count">0</span>)</button>'
+      +'<button class="btn btn-secondary btn-sm" id="bulk-dedup" onclick="pgnepDedupEleves()">🧹 Supprimer les doublons</button>';
+    table.parentNode.insertBefore(bar, table);
+  }
+
+  function decorateRows(){
+    if(!window.__bulkOn) return;
+    document.querySelectorAll('#table-eleves tr[data-eleve-id]').forEach(function(tr){
+      if(tr.querySelector('.bulk-cb')) return;
+      var id=tr.getAttribute('data-eleve-id');
+      var td=tr.querySelector('td'); if(!td) return;
+      var cb=document.createElement('input'); cb.type='checkbox'; cb.className='bulk-cb'; cb.style.marginRight='6px';
+      cb.checked=!!SEL[id];
+      cb.onchange=function(){ if(cb.checked)SEL[id]=1; else delete SEL[id]; updCount(); };
+      td.insertBefore(cb, td.firstChild);
+    });
+    updCount();
+  }
+  function updCount(){ var el=document.getElementById('bulk-count'); if(el) el.textContent=Object.keys(SEL).length; }
+
+  window.pgnepBulkToggle=function(){
+    var t=document.getElementById('bulk-toggle'); window.__bulkOn=t?t.checked:false;
+    var sa=document.getElementById('bulk-selall'), bd=document.getElementById('bulk-del');
+    if(sa) sa.style.display=window.__bulkOn?'':'none';
+    if(bd) bd.style.display=window.__bulkOn?'':'none';
+    if(!window.__bulkOn){ for(var k in SEL) delete SEL[k]; }
+    if(typeof renderEleves==='function') renderEleves();
+  };
+  window.pgnepBulkSelectAll=function(){
+    document.querySelectorAll('#table-eleves tr[data-eleve-id]').forEach(function(tr){ SEL[tr.getAttribute('data-eleve-id')]=1; var cb=tr.querySelector('.bulk-cb'); if(cb)cb.checked=true; });
+    updCount();
+  };
+  window.pgnepBulkDelete=function(){
+    if(!canDel()){ alert('Accès refusé (suppression non autorisée pour ce compte).'); return; }
+    var ids=Object.keys(SEL); if(!ids.length){ alert('Aucun élève sélectionné.'); return; }
+    if(!confirm('Envoyer '+ids.length+' élève(s) sélectionné(s) à la corbeille ?')) return;
+    var set={}; ids.forEach(function(i){set[i]=1;});
+    commitRemoval(function(e){ return !!set[e.id]; });
+    for(var k in SEL) delete SEL[k];
+  };
+  window.pgnepDedupEleves=function(){
+    if(!canDel()){ alert('Accès refusé (suppression non autorisée pour ce compte).'); return; }
+    var scope=(typeof getScopeEleves==='function')?getScopeEleves():((DB&&DB.eleves)||[]);
+    var seen={}, dup=new Set();
+    scope.forEach(function(e){
+      var k=((e.matricule||'').trim().toUpperCase())||((e.nom||'')+'|'+(e.prenoms||'')+'|'+(e.classe||'')).toUpperCase();
+      if(seen[k]) dup.add(e); else seen[k]=e;
+    });
+    if(!dup.size){ alert('Aucun doublon détecté dans votre périmètre.'); return; }
+    if(!confirm(dup.size+' doublon(s) détecté(s). On garde 1 exemplaire de chaque et on retire les autres. Continuer ?')) return;
+    commitRemoval(function(e){ return dup.has(e); });
+  };
+
+  function commitRemoval(pred){
+    if(typeof DB==='undefined'||!DB.eleves) return;
+    var removed=[], keep=[];
+    DB.eleves.forEach(function(e){ (pred(e)?removed:keep).push(e); });
+    if(!removed.length){ return; }
+    var keepIds={}; keep.forEach(function(e){ keepIds[e.id]=1; });
+    var d=new Date().toLocaleDateString('fr-FR'); var real=0;
+    removed.forEach(function(e){
+      if(keepIds[e.id]) return; /* doublon LOCAL du même enregistrement : juste retiré du tableau, on ne touche pas au cloud */
+      real++;
+      var notesE=((DB.notes)||[]).filter(function(n){return n.eleve_id===e.id;});
+      var entry=Object.assign({}, e, {_supprime_le:d, _notes:notesE});
+      if(DB.corbeille) DB.corbeille.push(entry);
+      if(window._firebaseReady&&window._fb){ window._fb.del('eleves',e.id).catch(function(){}); window._fb.set('corbeille',e.id,entry).catch(function(){}); notesE.forEach(function(n){ window._fb.del('notes',n.id).catch(function(){}); }); }
+    });
+    var gone={}; removed.forEach(function(e){ if(!keepIds[e.id]) gone[e.id]=1; });
+    DB.eleves=keep;
+    DB.notes=((DB.notes)||[]).filter(function(n){ return !gone[n.eleve_id]; });
+    if(typeof save==='function'){ try{save('eleves');}catch(_){} try{save('notes');}catch(_){} try{save('corbeille');}catch(_){} }
+    if(typeof updateStats==='function') updateStats();
+    if(typeof renderEleves==='function') renderEleves();
+    if(typeof renderDashboard==='function') renderDashboard();
+    var b=document.getElementById('badge-corbeille'); if(b && DB.corbeille){ b.textContent=DB.corbeille.length; b.style.display='inline-block'; }
+    if(typeof showNotif==='function') showNotif('🗑 '+removed.length+' retiré(s)'+(real?(' · '+real+' en corbeille'):''),'info');
+  }
+
+  function hook(){
+    if(window.__bulkHooked) return true;
+    if(typeof window.renderEleves!=='function') return false;
+    window.__bulkHooked=true;
+    var _r=window.renderEleves;
+    window.renderEleves=function(){ var x=_r.apply(this,arguments); try{ injectToolbar(); decorateRows(); }catch(e){} return x; };
+    return true;
+  }
+  if(!hook()){ document.addEventListener('DOMContentLoaded',hook); setTimeout(hook,1500); }
 })();
 </script>
 
