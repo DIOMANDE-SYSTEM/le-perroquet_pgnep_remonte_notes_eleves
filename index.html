@@ -38,7 +38,7 @@
 <meta name="twitter:image" content="https://le-perroquet.netlify.app/icon_1024.png">
 
 <!-- ══ Schema.org JSON-LD (Google Rich Results) ══ -->
-<script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=D1jekal-C6MUcCVMdhmadRPOmsdEptJLcu2z5su62RjeeLkYkf-jU4Zh9ANM3MNO1IYDDF8k8g74txvl-HFTketoJuX3Sx_OkuedWrPcnZE-JfQXWxW-gPj4n0BHNDdlZDAypi-6ThH4UC2qs2-33m9akzW7wvd2H7WxLbBXPe3NA8zsWci6tQWuDXajgU191dbAEwKRr79bH6ZP1Y4iDdUwUu6_p5kIMvbfCkUFiVtpenNLiBL7cY4AjU2q47CIqUqvSpbnTX9i_tbojViFVqz2VZNXQ8I2ZIcscNMlkLzPCPOSKUKMrk8SV0weZaYV1USuxuocTTa00N3lSf0Leh3z2PqFDwesuwcPWJBkkSjofDiDYy4OQWJDskqRBMvv" charset="UTF-8"></script><script type="application/ld+json">
+<script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
@@ -72,7 +72,7 @@
 <!-- ══ FIREBASE SDK ══ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, enableIndexedDbPersistence, writeBatch, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, enableIndexedDbPersistence, writeBatch, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
@@ -128,15 +128,6 @@ window._fb = {
       const snap = await getDocs(collection(db, colName));
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch(e) { console.error('getAll', colName, e); return []; }
-  },
-
-  async queryAll(colName, clauses) {
-    try {
-      let q = collection(db, colName);
-      (clauses || []).forEach(c => { q = query(q, where(c[0], c[1], c[2])); });
-      const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    } catch(e) { console.error('queryAll', colName, e); return []; }
   },
 
   // ── Écrire / mettre à jour un doc ──
@@ -12569,8 +12560,7 @@ var AFF_SUBTABS = [
   {id:'presences',   icon:'📋', label:'Présences & effectifs'},
   {id:'edt',         icon:'🕒', label:'Emploi du temps'},
   {id:'recap',       icon:'📊', label:'Tableau récapitulatif'},
-  {id:'repartition', icon:'📅', label:'Répartition mensuelle'},
-  {id:'maitres',     icon:'👨‍🏫', label:'Maîtres CP1 → CM2'}
+  {id:'repartition', icon:'📅', label:'Répartition mensuelle'}
 ];
 
 /* ---------- Contexte (classe / école / élèves) selon l'espace ---------- */
@@ -12606,7 +12596,6 @@ function affRenderBoard(scope){
   else if(sub==='edt')         panel=affPanelEdt(scope);
   else if(sub==='recap')       panel=affPanelRecap(scope,eleves);
   else if(sub==='repartition') panel=affPanelRepartition(scope);
-  else if(sub==='maitres') panel=affPanelMaitres(scope);
 
   box.innerHTML=clSel+tabbar+'<div class="aff-panel-body">'+panel+'</div>';
 
@@ -12616,30 +12605,6 @@ function affRenderBoard(scope){
 }
 function affSwitchSub(scope,sub){ AFF_SUB[scope]=sub; affRenderBoard(scope); }
 function affSetDirClasse(cl){ AFF_DIR_CL=cl; affRenderBoard('directeur'); }
-
-/* ══════════════ PANNEAU — MAÎTRES CP1 → CM2 ══════════════ */
-function affPanelMaitres(scope){
-  var eid=affEcoleId(scope);
-  var users=(typeof espSchoolEnseignants==='function')?espSchoolEnseignants():[];
-  var niveaux=['CP1','CP2','CE1','CE2','CM1','CM2'];
-  var rows=niveaux.map(function(cl){
-    var profs=users.filter(function(u){ return String(u.structure_val||'').trim().toUpperCase()===cl; });
-    if(!profs.length){
-      return '<tr><td><span class="badge badge-bleu">'+cl+'</span></td><td colspan="3" style="color:var(--text3);">— Aucun maître affecté —</td></tr>';
-    }
-    return profs.map(function(u,i){
-      var nom=espEsc(u.nom||u.login||'—');
-      var ident=espEsc(u.login||'—');
-      var role=espEsc(u.role==='benevole'?'Bénévole':'Instituteur');
-      return '<tr><td>'+ (i===0?'<span class="badge badge-bleu">'+cl+'</span>':'') +'</td><td><strong>'+nom+'</strong></td><td>'+ident+'</td><td>'+role+'</td></tr>';
-    }).join('');
-  }).join('');
-  var total=users.length;
-  var table='<div class="table-wrap" id="aff-maitres-tab"><table><thead><tr><th>Niveau</th><th>Maître / Maîtresse</th><th>Identifiant</th><th>Statut</th></tr></thead><tbody>'+rows+'<tr style="background:#F9FAFB;font-weight:800;"><td colspan="3" style="text-align:right;">TOTAL DES MAÎTRES</td><td>'+total+'</td></tr></tbody></table></div>';
-  return espCard('👨‍🏫 Liste des maîtres de l\'école · CP1 → CM2',
-    espTools('aff-maitres-tab','Maîtres CP1 → CM2'),
-    '<div style="margin-bottom:12px;color:var(--text2);font-size:13px;">Tous les maîtres enregistrés dans cette école sont regroupés par niveau. La liste est mise à jour automatiquement à partir des comptes enseignants.</div>'+table);
-}
 
 /* ══════════════ PANNEAU 1 — PRÉSENCES & EFFECTIFS ══════════════ */
 function affPanelPresences(scope,eleves){
@@ -17677,22 +17642,6 @@ window.affRepApplyPreconcu = affRepApplyPreconcu;
 .pgnep-mini-table th,.pgnep-mini-table td{border:1px solid #888;padding:4px;text-align:center}
 .pgnep-mini-table th{background:#ef765f;color:#fff}
 .pgnep-recap-note{font-size:10px;color:#64748b;margin:8px 0}
-
-.pgnep-recap-pages{background:#fff;}
-.pgnep-recap-page{background:#fff;page-break-after:always;padding:0;margin:0 0 18px 0;}
-.pgnep-recap-page:last-child{page-break-after:auto;}
-.pgnep-official-head{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;font-size:10px;line-height:1.25;margin-bottom:6px;}
-.pgnep-official-head .left{text-align:left}.pgnep-official-head .right{text-align:right}.pgnep-official-head .main{font-weight:800;font-size:11px}.pgnep-official-head .small{font-size:9px}.pgnep-official-head .flag{margin:4px auto;width:90px;height:5px;background:linear-gradient(90deg,#F77F00 0 33%,#fff 33% 66%,#009E60 66%);} 
-.pgnep-official-title{text-align:center;border:1px solid #c58b24;background:#f2b34b;font-weight:800;font-size:12px;padding:4px;margin:6px 0 8px;}
-.pgnep-school-meta{display:grid;grid-template-columns:1fr 1fr;gap:2px 18px;font-size:9px;margin-bottom:6px;}
-.pgnep-school-meta div{padding:1px 2px}.pgnep-recap-page .pgnep-recap-table{min-width:0;width:100%;font-size:7px;table-layout:fixed;}
-.pgnep-recap-page .pgnep-recap-table th,.pgnep-recap-page .pgnep-recap-table td{padding:1px 2px;height:15px;}
-.pgnep-recap-page .pgnep-recap-table th:nth-child(1){width:18px}.pgnep-recap-page .pgnep-recap-table th:nth-child(2){width:72px}.pgnep-recap-page .pgnep-recap-table th:nth-child(3){width:170px}.pgnep-recap-page .pgnep-recap-table th:last-child{width:68px}
-.pgnep-recap-page .pgnep-recap-subtables{grid-template-columns:1fr 1.35fr;gap:8px;margin-top:8px;}
-.pgnep-signature{font-size:9px;text-align:right;margin-top:10px;min-height:38px;}
-.pgnep-footer{text-align:center;font-size:8px;color:#444;margin-top:8px;}
-.pgnep-recap-downloads{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px;}
-@media print{.pgnep-recap-page{margin:0;padding:0;page-break-after:always}.pgnep-recap-page:last-child{page-break-after:auto}.pgnep-recap-page .pgnep-recap-table{font-size:6.6px}.pgnep-recap-page .pgnep-recap-table th,.pgnep-recap-page .pgnep-recap-table td{height:14px;padding:1px}.pgnep-official-head{font-size:9px}.pgnep-official-head .main{font-size:10px}.pgnep-official-title{font-size:11px}.pgnep-school-meta{font-size:8px}.pgnep-recap-subtables{font-size:8px}.pgnep-recap-page .pgnep-recap-subtables{display:grid}.pgnep-recap-page .pgnep-mini-table{font-size:8px}.pgnep-recap-page .pgnep-mini-table th,.pgnep-recap-page .pgnep-mini-table td{padding:2px}}
 @media(max-width:900px){.pgnep-recap-meta,.pgnep-recap-subtables{grid-template-columns:1fr}}
 @media print{body *{visibility:hidden!important}.pgnep-print-area,.pgnep-print-area *{visibility:visible!important}.pgnep-print-area{position:absolute;left:0;top:0;width:100%;}.pgnep-recap-toolbar,.pgnep-recap-note{display:none!important}.pgnep-recap-table{font-size:7px;min-width:0}.pgnep-recap-table th,.pgnep-recap-table td{padding:1px;height:15px}.pgnep-recap-subtables{page-break-inside:avoid}}
 </style>
@@ -17797,16 +17746,9 @@ var SCOL_COLS=[];for(var si=1;si<=9;si++)SCOL_COLS.push(si);
 function escR(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function getRecapData(scope,eleves){
   var key='pgnep_recap_model_'+(affEcoleId(scope)||'x')+'_'+(affClasse(scope)||'x');
-  var source=(eleves||[]).slice().sort(function(a,b){return ((a.nom||'')+' '+(a.prenoms||'')).localeCompare(((b.nom||'')+' '+(b.prenoms||'')),'fr');});
   var all=espLsGet(key,null);
-  if(all&&Array.isArray(all.rows)){
-    all.rows.forEach(function(r){
-      var e=source.find(function(x){return x.id===r.id || (r.matricule && x.matricule===r.matricule);});
-      if(e){r.sex=r.sex||e.sexe||e.sex||'';r.ddn=r.ddn||e.ddn||'';r.nom=r.nom||((e.nom||'')+' '+(e.prenoms||'')).trim();}
-    });
-    return all;
-  }
-  var rows=source.map(function(e){return {id:e.id,matricule:e.matricule||'',nom:((e.nom||'')+' '+(e.prenoms||'')).trim(),ddn:e.ddn||'',sex:e.sexe||e.sex||'',ages:{},scol:{},total:{}};});
+  if(all&&Array.isArray(all.rows))return all;
+  var rows=(eleves||[]).slice().sort(function(a,b){return ((a.nom||'')+' '+(a.prenoms||'')).localeCompare(((b.nom||'')+' '+(b.prenoms||'')),'fr');}).map(function(e){return {id:e.id,matricule:e.matricule||'',nom:((e.nom||'')+' '+(e.prenoms||'')).trim(),ddn:e.ddn||'',ages:{},scol:{},total:{}};});
   rows.forEach(function(r){var a=getAge(r.ddn);if(a>=3&&a<=15)r.ages[a]=1;r.scol[1]=1;});
   return {key:key,rows:rows};
 }
@@ -17817,42 +17759,9 @@ function recapAoa(d){var head=['N','MATRICULE','NOM ET PRÉNOMS'].concat(AGE_COL
 function recapExportExcel(scope){var d=getRecapData(scope,affEleves(scope));if(typeof XLSX==='undefined'){alert('Module Excel indisponible.');return;}var wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(recapAoa(d));ws['!cols']=[{wch:4},{wch:16},{wch:28}].concat(AGE_COLS.map(function(){return{wch:4};})).concat(SCOL_COLS.concat(SCOL_COLS).map(function(){return{wch:4};})).concat([{wch:14}]);XLSX.utils.book_append_sheet(wb,ws,'Tableau récapitulatif');XLSX.writeFile(wb,'Tableau_recapitulatif_'+(affClasse(scope)||'')+'.xlsx');}
 function recapExportWord(scope){var d=getRecapData(scope,affEleves(scope));var h=recapHtml(scope,d);if(typeof affExportWordHTML==='function')affExportWordHTML(h,'Tableau_recapitulatif_'+(affClasse(scope)||''));else alert('Export Word indisponible.');}
 function recapPrint(scope){var d=getRecapData(scope,affEleves(scope));var h=recapHtml(scope,d);if(typeof affPrintHTML==='function')affPrintHTML(h,'Tableau récapitulatif '+(affClasse(scope)||''));else window.print();}
-function recapDownloadPDF(scope){var d=getRecapData(scope,affEleves(scope)),h=recapHtml(scope,d);if(typeof html2pdf!=='undefined'){var box=document.createElement('div');box.innerHTML=h;box.style.width='1100px';document.body.appendChild(box);html2pdf().set({margin:5,filename:'Tableau_recapitulatif_'+(affClasse(scope)||'')+'.pdf',image:{type:'jpeg',quality:.95},html2canvas:{scale:1.5,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}}).from(box).save().then(function(){box.remove();});return;}var sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';sc.onload=function(){recapDownloadPDF(scope);};sc.onerror=function(){alert('Le téléchargement PDF direct nécessite Internet. Utilisez « PDF / Imprimer » puis « Enregistrer au format PDF ».');};document.head.appendChild(sc);}
-function recapHtml(scope,d){
-  var ec=espEcoleNom(affEcoleId(scope)),cl=affClasse(scope)||'';
-  var eco=(DB.ecoles||[]).find(function(e){return e.id===affEcoleId(scope);})||{};
-  var u=(typeof currentUser!=='undefined'&&currentUser)?((DB.users||[]).find(function(x){return x.login===currentUser.login;})||currentUser):{};
-  var rows=recapBuildRows(d);
-  var pageSize=20, pages=[];
-  for(var p=0;p<rows.length;p+=pageSize) pages.push(rows.slice(p,p+pageSize));
-  if(!pages.length) pages=[[]];
-  var head='<tr><th rowspan="2">N</th><th rowspan="2">MATRICULE</th><th rowspan="2">NOM ET PRÉNOMS</th><th colspan="13" class="group-age">TABLEAU DES ÂGES</th><th colspan="9" class="group-scol">SCOL. CLASSE</th><th colspan="9" class="group-total">SCOLARITÉ TOTAL</th><th rowspan="2">DATE DE<br>NAISSANCE</th></tr><tr>'+AGE_COLS.map(function(a){return '<th>'+a+'</th>';}).join('')+SCOL_COLS.map(function(a){return '<th>'+a+'</th>';}).join('')+SCOL_COLS.map(function(a){return '<th>'+a+'</th>';}).join('')+'</tr>';
-  var G=d.rows.filter(function(r){return String(r.sex||'').toUpperCase().startsWith('M');}).length;
-  var F=d.rows.length-G,T=d.rows.length;
-  var ageTotals=AGE_COLS.map(function(a){return d.rows.filter(function(r){return r.ages[a];}).length;});
-  var agesG=AGE_COLS.map(function(a){return d.rows.filter(function(r){return String(r.sex||'').toUpperCase().startsWith('M')&&r.ages[a];}).length;});
-  var agesF=AGE_COLS.map(function(a){return d.rows.filter(function(r){return String(r.sex||'').toUpperCase().startsWith('F')&&r.ages[a];}).length;});
-  var redG=d.rows.filter(function(r){return String(r.sex||'').toUpperCase().startsWith('M')&&r.redoublant;}).length;
-  var redF=d.rows.filter(function(r){return String(r.sex||'').toUpperCase().startsWith('F')&&r.redoublant;}).length;
-  var nrG=G-redG,nrF=F-redF;
-  function officialHead(){return '<div class="pgnep-official-head"><div class="left"><div class="main">MINISTÈRE DE L’ÉDUCATION NATIONALE ET DE L’ALPHABÉTISATION</div><div>DRENAET '+escR(eco.drena||'')+'</div><div>IEPP '+escR(eco.iepp||'')+'</div><div style="margin-top:4px;"><b>'+escR(eco.nom||ec||'')+'</b></div><div>Tél : '+escR(eco.telephone||eco.tel||u.telephone||'')+'</div><div>Email : '+escR(eco.email||u.email||'')+'</div></div><div class="right"><div class="main">RÉPUBLIQUE DE CÔTE D’IVOIRE</div><div>Union — Discipline — Travail</div><div class="flag"></div><div style="margin-top:5px;"><b>Année Scolaire : '+escR(typeof ANNEE_SCOLAIRE!=='undefined'?ANNEE_SCOLAIRE:'2026-2027')+'</b></div><div>Code : '+escR(eco.code||eco.id||'')+' · Statut : Public</div></div></div><div class="pgnep-official-title">TABLEAU RÉCAPITULATIF '+escR(cl)+'</div>';
-  }
-  function totalsRow(){return '<tr><th colspan="3">EFFECTIF TOTAL</th>'+ageTotals.map(function(x){return '<th>'+x+'</th>';}).join('')+SCOL_COLS.map(function(){return '<th></th>';}).join('')+SCOL_COLS.map(function(){return '<th></th>';}).join('')+'<th>'+T+'</th></tr>';}
-  function synthese(){
-    return '<div class="pgnep-recap-subtables"><table class="pgnep-mini-table"><tr><th>DÉSIGNATIONS</th><th>GARÇONS</th><th>FILLES</th><th>TOTAL</th></tr><tr><td>EFFECTIFS</td><td>'+G+'</td><td>'+F+'</td><td>'+T+'</td></tr><tr><td>REDOUBLANT(E)S</td><td>'+redG+'</td><td>'+redF+'</td><td>'+(redG+redF)+'</td></tr><tr><td>NON REDOUBLANT(E)S</td><td>'+nrG+'</td><td>'+nrF+'</td><td>'+(nrG+nrF)+'</td></tr></table><table class="pgnep-mini-table"><tr><th>DÉSIGNATIONS</th>'+AGE_COLS.map(function(a){return '<th>'+a+'</th>';}).join('')+'</tr><tr><td>GARÇONS</td>'+agesG.map(function(x){return '<td>'+x+'</td>';}).join('')+'</tr><tr><td>FILLES</td>'+agesF.map(function(x){return '<td>'+x+'</td>';}).join('')+'</tr><tr><td>GARÇONS ET FILLES</td>'+ageTotals.map(function(x){return '<td>'+x+'</td>';}).join('')+'</tr></table></div><div class="pgnep-signature">Fait à '+escR(eco.ville||eco.localite||'________________')+', le '+(new Date()).toLocaleDateString('fr-FR')+'<br><b>Le Directeur de l’École</b><br><br>Signature et cachet</div><div class="pgnep-footer">MENAET | DESPS | PCLAX — Tableau récapitulatif '+escR(cl)+'</div>';
-  }
-  var html='<div class="pgnep-print-area pgnep-recap-pages">';
-  pages.forEach(function(chunk,pi){
-    var start=pi*pageSize;
-    var body=chunk.map(function(_,i){
-      var r=d.rows[start+i], one=recapBuildRows({rows:[r]});
-      return one.replace(/data-r="0"/g,'data-r="'+(start+i)+'"').replace(/data-ri="0"/g,'data-ri="'+(start+i)+'"');
-    }).join('');
-    html+='<div class="pgnep-recap-page">'+officialHead()+'<div class="pgnep-recap-wrap"><table class="pgnep-recap-table"><thead>'+head+'</thead><tbody>'+body+'</tbody>'+(pi===pages.length-1?'<tfoot>'+totalsRow()+'</tfoot>':'')+'</table></div>'+(pi===pages.length-1?synthese():'')+'</div>';
-  });
-  html+='</div>'; return html;
-}
-function affPanelRecap(scope,eleves){var d=getRecapData(scope,eleves),ec=espEcoleNom(affEcoleId(scope)),cl=affClasse(scope)||'—';var h=recapHtml(scope,d);var toolbar='<div class="pgnep-recap-toolbar"><button class="btn btn-primary" onclick="recapSave(\''+scope+'\')">💾 Enregistrer</button><button class="btn btn-secondary" onclick="recapAddRow(\''+scope+'\')">＋ Élève</button><button class="btn btn-secondary" onclick="recapExportWord(\''+scope+'\')">📝 Word</button><button class="btn btn-secondary" onclick="recapExportExcel(\''+scope+'\')">📊 Excel</button><button class="btn btn-secondary" onclick="recapPrint(\''+scope+'\')">📄 PDF / 🖨️ Imprimer</button><button class="btn btn-primary" onclick="recapDownloadPDF(\''+scope+'\')">⬇ PDF</button><button class="btn btn-secondary" onclick="recapImport(\''+scope+'\')">📥 Importer</button></div><div class="pgnep-recap-note">Modèle basé sur le document fourni : colonnes N, matricule, nom et prénoms, âges 3–15, scolarité classe 1–9, scolarité totale 1–9 et date de naissance. Cliquez sur les cases pour ajuster les marques. Les cellules matricule, nom et date sont modifiables.</div><div id="pgnep-recap-'+scope+'" class="pgnep-recap-wrap">'+h+'</div>';setTimeout(function(){recapBind(scope,d);},0);return toolbar;}
+function recapHtml(scope,d){var ec=espEcoleNom(affEcoleId(scope)),cl=affClasse(scope)||'',rows=recapBuildRows(d);var head='<tr><th rowspan="2">N</th><th rowspan="2">MATRICULE</th><th rowspan="2">NOM ET PRÉNOMS</th><th colspan="13" class="group-age">TABLEAU DES ÂGES</th><th colspan="9" class="group-scol">SCOL. CLASSE</th><th colspan="9" class="group-total">SCOLARITÉ TOTAL</th><th rowspan="2">DATE DE NAISSANCE</th></tr><tr>'+AGE_COLS.map(function(a){return '<th>'+a+'</th>';}).join('')+SCOL_COLS.map(function(a){return '<th>'+a+'</th>';}).join('')+SCOL_COLS.map(function(a){return '<th>'+a+'</th>';}).join('')+'</tr>';
+var G=(d.rows.filter(function(r){return (r.sexe||'')==='M';})).length,F=d.rows.length-G,T=d.rows.length;var ageTotals=AGE_COLS.map(function(a){return d.rows.filter(function(r){return r.ages[a];}).length;});var agesG=AGE_COLS.map(function(a){return d.rows.filter(function(r){return r.sexe==='M'&&r.ages[a];}).length;});var agesF=AGE_COLS.map(function(a){return d.rows.filter(function(r){return r.sexe==='F'&&r.ages[a];}).length;});return '<div class="pgnep-print-area"><div class="pgnep-recap-meta"><div><strong>MINISTÈRE DE L’ÉDUCATION NATIONALE ET DE L’ALPHABÉTISATION</strong></div><div style="text-align:right"><strong>RÉPUBLIQUE DE CÔTE D’IVOIRE</strong><br>Année scolaire : '+escR(typeof ANNEE_SCOLAIRE!=='undefined'?ANNEE_SCOLAIRE:'2026-2027')+'</div></div><div class="pgnep-recap-title">TABLEAU RÉCAPITULATIF '+escR(cl)+'</div><div class="pgnep-recap-meta"><div>DRENAET : '+escR((DB.ecoles.find(function(e){return e.id===affEcoleId(scope);})||{}).drena||'')+'</div><div>IEPP : '+escR((DB.ecoles.find(function(e){return e.id===affEcoleId(scope);})||{}).iepp||'')+'</div><div>École : '+escR(ec)+'</div><div>Classe : '+escR(cl)+'</div></div><div class="pgnep-recap-wrap"><table class="pgnep-recap-table"><thead>'+head+'</thead><tbody>'+rows+'</tbody><tfoot><tr><th colspan="3">EFFECTIF TOTAL</th>'+ageTotals.map(function(x){return '<th>'+x+'</th>';}).join('')+SCOL_COLS.map(function(){return '<th></th>';}).join('')+SCOL_COLS.map(function(){return '<th></th>';}).join('')+'<th>'+T+'</th></tr></tfoot></table></div><div class="pgnep-recap-subtables"><table class="pgnep-mini-table"><tr><th>DÉSIGNATIONS</th><th>GARÇONS</th><th>FILLES</th><th>TOTAL</th></tr><tr><td>EFFECTIFS</td><td>'+G+'</td><td>'+F+'</td><td>'+T+'</td></tr><tr><td>REDOUBLANT(E)S</td><td>0</td><td>0</td><td>0</td></tr><tr><td>NON REDOUBLANT(E)S</td><td>'+G+'</td><td>'+F+'</td><td>'+T+'</td></tr></table><table class="pgnep-mini-table"><tr><th>DÉSIGNATIONS</th>'+AGE_COLS.map(function(a){return '<th>'+a+'</th>';}).join('')+'</tr><tr><td>GARÇONS</td>'+agesG.map(function(x){return '<td>'+x+'</td>';}).join('')+'</tr><tr><td>FILLES</td>'+agesF.map(function(x){return '<td>'+x+'</td>';}).join('')+'</tr><tr><td>GARÇONS ET FILLES</td>'+ageTotals.map(function(x){return '<td>'+x+'</td>';}).join('')+'</tr></table></div></div>';}
+function affPanelRecap(scope,eleves){var d=getRecapData(scope,eleves),ec=espEcoleNom(affEcoleId(scope)),cl=affClasse(scope)||'—';var h=recapHtml(scope,d);var toolbar='<div class="pgnep-recap-toolbar"><button class="btn btn-primary" onclick="recapSave(\''+scope+'\')">💾 Enregistrer</button><button class="btn btn-secondary" onclick="recapAddRow(\''+scope+'\')">＋ Élève</button><button class="btn btn-secondary" onclick="recapExportWord(\''+scope+'\')">📝 Word</button><button class="btn btn-secondary" onclick="recapExportExcel(\''+scope+'\')">📊 Excel</button><button class="btn btn-secondary" onclick="recapPrint(\''+scope+'\')">📄 PDF / 🖨️ Imprimer</button><button class="btn btn-secondary" onclick="recapImport(\''+scope+'\')">📥 Importer</button></div><div class="pgnep-recap-note">Modèle basé sur le document fourni : colonnes N, matricule, nom et prénoms, âges 3–15, scolarité classe 1–9, scolarité totale 1–9 et date de naissance. Cliquez sur les cases pour ajuster les marques. Les cellules matricule, nom et date sont modifiables.</div><div id="pgnep-recap-'+scope+'" class="pgnep-recap-wrap">'+h+'</div>';setTimeout(function(){recapBind(scope,d);},0);return toolbar;}
 window.recapSave=function(scope){var d=getRecapData(scope,affEleves(scope));saveRecapData(d);showNotif('✅ Tableau récapitulatif enregistré','success');};
 window.recapAddRow=function(scope){var d=getRecapData(scope,affEleves(scope));d.rows.push({id:'manuel_'+Date.now(),matricule:'',nom:'NOUVEL ÉLÈVE',ddn:'',ages:{},scol:{},total:{}});saveRecapData(d);affRenderBoard(scope);};
 window.recapImport=function(scope){var inp=document.createElement('input');inp.type='file';inp.accept='.xlsx,.xls,.csv,.docx,.pdf';inp.onchange=function(){var f=this.files&&this.files[0];if(!f)return;if(/\.xlsx?$|\.csv$/i.test(f.name)&&typeof XLSX!=='undefined'){var rd=new FileReader();rd.onload=function(e){var wb=XLSX.read(e.target.result,{type:'array'}),rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});if(rows.length<2){alert('Fichier vide.');return;}var d=getRecapData(scope,[]);d.rows=rows.slice(1).map(function(r,i){return{id:'imp_'+i,matricule:r[1]||'',nom:r[2]||'',ddn:r[39]||'',ages:{},scol:{},total:{}};});saveRecapData(d);affRenderBoard(scope);showNotif('✅ Tableau importé depuis Excel/CSV','success');};rd.readAsArrayBuffer(f);}else if(/\.docx$/i.test(f.name)&&window.mammoth){var rd2=new FileReader();rd2.onload=function(e){mammoth.convertToHtml({arrayBuffer:e.target.result}).then(function(x){var doc=new DOMParser().parseFromString(x.value,'text/html'),tr=doc.querySelectorAll('table tr');var d=getRecapData(scope,[]);d.rows=[];for(var i=1;i<tr.length;i++){var td=tr[i].querySelectorAll('td,th');if(!td.length)continue;d.rows.push({id:'imp_'+i,matricule:td[1]?.textContent.trim()||'',nom:td[2]?.textContent.trim()||'',ddn:td[td.length-1]?.textContent.trim()||'',ages:{},scol:{},total:{}});}saveRecapData(d);affRenderBoard(scope);showNotif('✅ Tableau importé depuis Word','success');});};rd2.readAsArrayBuffer(f);}else if(/\.pdf$/i.test(f.name)){alert('PDF détecté. Pour un PDF scanné comme le modèle fourni, utilisez de préférence Excel/Word pour les données ou importez le PDF comme modèle visuel. La conversion automatique des noms et matricules nécessite un moteur OCR.');}else{alert('Format non pris en charge ou bibliothèque indisponible.');}};inp.click();};
@@ -17865,250 +17774,3 @@ setTimeout(function(){try{if(currentUser&&currentUser.role==='directeur')renderA
 
 </body>
 </html>
-<!-- ══════════════════════════════════════════════════════════════
-     PGNEP V5 — PROFILS UID FIREBASE + MIGRATION SÉCURISÉE
-     - users/{uid} devient le profil de sécurité officiel
-     - aucun mot de passe n'est écrit dans users/{uid}
-     - création de compte via Auth secondaire
-     - migration d'un ancien compte après authentification
-     - currentUser conserve uid + périmètre
-     - suppression/édition des profils par UID
-     ══════════════════════════════════════════════════════════════ -->
-<script>
-(function(){
-  'use strict';
-  function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
-
-  window.pgnepAuthProfile = async function(legacyUser){
-    if(!window._fbAuth || !window._fb) return null;
-    var fu=window._fbAuth.currentUser;
-    if(!fu) return null;
-    try{
-      var profile=await window._fb.getCurrentUserProfile();
-      if(profile) return profile;
-    }catch(e){ console.warn('Lecture profil UID:',e); }
-    // Migration douce : le compte déjà authentifié peut être associé à son profil
-    // local/legacy. Cette étape n'enregistre jamais le mot de passe dans Firebase.
-    if(legacyUser){
-      var clean={
-        login:legacyUser.login, nom:legacyUser.nom, role:legacyUser.role,
-        structure_type:legacyUser.structure_type||'national',
-        structure_val:legacyUser.structure_val||'',
-        ecole_val:legacyUser.ecole_val||'',
-        ecole_id:legacyUser.ecole_id||legacyUser.ecole_val||'',
-        iepp_id:legacyUser.iepp_id||((legacyUser.structure_type==='iepp')?legacyUser.structure_val:''),
-        drenaet_id:legacyUser.drenaet_id||((legacyUser.structure_type==='drena')?legacyUser.structure_val:''),
-        classe_id:legacyUser.classe_id||((legacyUser.structure_type==='classe')?legacyUser.structure_val:''),
-        telephone:legacyUser.telephone||'', email:fu.email||legacyUser.email||''
-      };
-      // On ne tente la création automatique que si le profil est absent.
-      // Les règles Firestore doivent autoriser cette opération uniquement pour
-      // le compte de bootstrap/admin configuré dans la console.
-      try{
-        await window._fb.setUserProfile(fu.uid, clean);
-        return Object.assign({uid:fu.uid,id:fu.uid},clean);
-      }catch(e){
-        console.warn('Migration UID impossible:',e);
-        return null;
-      }
-    }
-    return null;
-  };
-
-  window.pgnepSetCurrentUserFromProfile = function(profile, fallback){
-    if(!profile) return false;
-    currentUser={
-      uid:profile.uid||profile.id||'', login:profile.login||(fallback&&fallback.login)||'',
-      nom:profile.nom||(fallback&&fallback.nom)||'', role:profile.role||(fallback&&fallback.role)||'lecteur',
-      structure_type:profile.structure_type||'', structure_val:profile.structure_val||'',
-      ecole_val:profile.ecole_val||profile.ecole_id||'', ecole_id:profile.ecole_id||profile.ecole_val||'',
-      iepp_id:profile.iepp_id||'', drenaet_id:profile.drenaet_id||'', classe_id:profile.classe_id||profile.structure_val||'',
-      telephone:profile.telephone||'', email:profile.email||''
-    };
-    return true;
-  };
-
-  // Remplace la connexion Firebase afin de charger le profil UID et de migrer
-  // l'ancien profil uniquement lorsque l'utilisateur est authentifié.
-  window._doLoginFirebase = async function(loginId, pass){
-    var errEl=document.getElementById('login-error'), btn=document.querySelector('.login-btn');
-    if(errEl) errEl.style.display='none';
-    if(btn){btn.textContent='⏳ Connexion…';btn.disabled=true;}
-    try{
-      var legacy=DB.users.find(function(u){return u.login===loginId;})||null;
-      var email=(legacy&&legacy.email)||((loginId)+'@pgnep-menaet.ci');
-      var cred;
-      try{ cred=await window._fb.signIn(email,pass); }
-      catch(authErr){
-        // Compatibilité des comptes locaux/anciens : création Auth uniquement
-        // pour un compte qui possède encore son ancien mot de passe local.
-        if(!legacy || !legacy.pass || !verifyPass(pass,legacy.pass)) throw authErr;
-        cred=await window._fb.createUser(email,pass);
-      }
-      var profile=await window.pgnepAuthProfile(legacy);
-      if(!profile){ throw new Error('Profil Firebase absent. Un administrateur doit initialiser le profil users/{UID}.'); }
-      pgnepSetCurrentUserFromProfile(profile,legacy);
-      clearAttempts(loginId); resetSessionTimer();
-      var ls=document.getElementById('login-screen'), ap=document.getElementById('app');
-      if(ls) ls.style.display='none'; if(ap){ap.style.display='';ap.classList.add('visible');}
-      applyRoleUI(); initApp();
-      showNotif('👋 Bienvenue, '+currentUser.nom,'success');
-      // Synchronisation des données après authentification, pas avant.
-      if(window.pgnepScopedSync) window.pgnepScopedSync();
-    }catch(e){
-      console.error('Connexion PGNEP:',e); recordFailedAttempt(loginId);
-      var a=loginAttempts[loginId], restant=a?MAX_ATTEMPTS-(a.count||0):MAX_ATTEMPTS;
-      if(errEl){errEl.textContent=isLocked(loginId)?'🔒 Compte verrouillé 15 min.':'Identifiant ou mot de passe incorrect. ('+restant+' essai(s))';errEl.style.display='block';}
-      var p=document.getElementById('login-pass');if(p)p.value='';
-    }finally{if(btn){btn.textContent='Se connecter →';btn.disabled=false;}}
-  };
-
-  // Synchronisation minimale compatible avec les règles de périmètre.
-  // Elle complète les données locales sans tenter de lire toute la base pour
-  // un utilisateur non autorisé.
-  window.pgnepScopedSync=async function(){
-    if(!window._fb || !currentUser) return;
-    try{
-      var u=currentUser, role=u.role, schools=[];
-      if(['admin','superadmin','super_admin','desps','direction_centrale','cabinet'].includes(role)){
-        schools=await window._fb.queryAll('ecoles',[]);
-      }else if(role==='directeur'){
-        var sid=u.ecole_id||u.ecole_val||u.structure_val;
-        if(sid) schools=await window._fb.queryAll('ecoles',[['id','==',sid]]);
-      }else if(['correspondant','correspondantfichier','inspecteur','inspecteuriepp','cppp'].includes(role)){
-        if(u.iepp_id) schools=await window._fb.queryAll('ecoles',[['iepp','==',u.iepp_id]]);
-      }else if(['drenaet','coordinateur'].includes(role)){
-        if(u.drenaet_id||u.structure_val) schools=await window._fb.queryAll('ecoles',[['drena','==',u.drenaet_id||u.structure_val]]);
-      }else if(['instituteur','enseignant','benevole'].includes(role)){
-        var sid2=u.ecole_id||u.ecole_val;
-        if(sid2) schools=await window._fb.queryAll('ecoles',[['id','==',sid2]]);
-      }
-      if(schools.length) DB.ecoles=schools;
-      var ids=schools.map(function(x){return x.id;}).filter(Boolean);
-      var students=[];
-      if(['admin','superadmin','super_admin','desps','direction_centrale','cabinet'].includes(role)){
-        students=await window._fb.queryAll('eleves',[]);
-      }else if(role==='directeur' || ['instituteur','enseignant','benevole'].includes(role)){
-        if(ids[0]){
-          var cons=[['ecole_id','==',ids[0]]];
-          if(['instituteur','enseignant','benevole'].includes(role)) cons.push(['classe','==',u.classe_id||u.structure_val]);
-          students=await window._fb.queryAll('eleves',cons);
-        }
-      }else if(ids.length){
-        // Firestore limite where-in à 30 valeurs : on découpe les écoles.
-        for(var i=0;i<ids.length;i+=30){ students=students.concat(await window._fb.queryAll('eleves',[['ecole_id','in',ids.slice(i,i+30)]])); }
-      }
-      if(students.length || role==='directeur' || ['instituteur','enseignant','benevole'].includes(role) || ['correspondant','correspondantfichier','inspecteur','inspecteuriepp','cppp','drenaet','coordinateur'].includes(role)) DB.eleves=students;
-      if(typeof refreshUI==='function') refreshUI();
-    }catch(e){ console.warn('Synchronisation périmétrée:',e); }
-  };
-
-
-
-  // Empêcher la synchronisation globale avant authentification : avec des règles
-  // Firestore par périmètre, un getAll() anonyme serait refusé et inutile.
-  window.fbSyncBackground=async function(){
-    showSyncStatus('offline');
-    console.log('🔐 PGNEP V5 : attente de l’authentification avant lecture Firebase.');
-  };
-
-  // Gestionnaire de comptes V5 : écrit les profils sous users/{UID}.
-  window.saveCompte=async function(){
-    if(!canManageComptes()){showNotif('🔒 Réservé aux administrateurs','error');return;}
-    var errEl=document.getElementById('compte-error'); if(errEl)errEl.style.display='none';
-    var orig=editingLoginOrig;
-    var login=(document.getElementById('new-login').value||'').trim().toLowerCase();
-    var nom=(document.getElementById('new-nom-user').value||'').trim();
-    var pass=document.getElementById('new-pass').value||'', pass2=document.getElementById('new-pass2').value||'';
-    var role=document.getElementById('new-role').value;
-    var valDrena=(document.getElementById('new-drena')?.value||'').trim();
-    var valIepp=(document.getElementById('new-iepp')?.value||'').trim();
-    var valEcole=(document.getElementById('new-ecole-user')?.value||'').trim();
-    var valClasse=document.getElementById('new-classe-user')?.value||'';
-    var valTel=(document.getElementById('new-telephone')?.value||'').trim();
-    var structure_type='national',structure_val='',ecole_val='';
-    if(role==='coordinateur'||role==='drenaet'){structure_type='drena';structure_val=valDrena;}
-    else if(['correspondant','correspondantfichier','inspecteur','inspecteuriepp','cppp'].includes(role)){structure_type='iepp';structure_val=valIepp;}
-    else if(role==='directeur'){structure_type='ecole';structure_val=valEcole;ecole_val=valEcole;}
-    else if(['instituteur','enseignant','benevole'].includes(role)){structure_type='classe';structure_val=valClasse;ecole_val=valEcole;}
-    function err(m){if(errEl){errEl.textContent=m;errEl.style.display='block';}}
-    if(!login||!nom){err('Champs obligatoires.');return;}
-    if(!orig&&!pass){err('Mot de passe obligatoire pour un nouveau compte.');return;}
-    if(pass&&pass.length<6){err('Mot de passe : 6 caractères minimum.');return;}
-    if(pass&&pass!==pass2){err('Mots de passe différents.');return;}
-    if(!orig&&DB.users.some(function(u){return u.login===login;})){err('Identifiant déjà utilisé.');return;}
-    try{
-      var email=login+'@pgnep-menaet.ci', uid='', old=null;
-      if(orig){
-        old=DB.users.find(function(u){return u.login===orig;});
-        if(!old){err('Compte introuvable.');return;}
-        uid=old.uid||'';
-        Object.assign(old,{login:login,nom:nom,role:role,structure_type:structure_type,structure_val:structure_val,ecole_val:ecole_val,telephone:valTel,email:old.email||email});
-        if(pass) old.pass=hashPass(pass); // uniquement cache local legacy; jamais envoyé au profil UID
-        if(window._firebaseReady&&window._fb&&uid){
-          var profile={login:login,nom:nom,role:role,structure_type:structure_type,structure_val:structure_val,ecole_val:ecole_val,ecole_id:ecole_val,iepp_id:(structure_type==='iepp'?structure_val:(old.iepp_id||'')),drenaet_id:(structure_type==='drena'?structure_val:(old.drenaet_id||'')),classe_id:(structure_type==='classe'?structure_val:(old.classe_id||'')),telephone:valTel,email:old.email||email,uid:uid};
-          await window._fb.setUserProfile(uid,profile);
-        }
-        showNotif(uid?'✅ Profil Firebase mis à jour':'⚠️ Profil local mis à jour — connectez ce compte pour terminer la migration','success');
-      }else{
-        var newUser={login:login,nom:nom,role:role,structure_type:structure_type,structure_val:structure_val,ecole_val:ecole_val,telephone:valTel,email:email};
-        if(window._firebaseReady&&window._fb){
-          var cred=await window._fb.createUser(email,pass); uid=cred.user.uid;
-          await window._fb.setUserProfile(uid,Object.assign({},newUser,{uid:uid,ecole_id:ecole_val,iepp_id:structure_type==='iepp'?structure_val:'',drenaet_id:structure_type==='drena'?structure_val:'',classe_id:structure_type==='classe'?structure_val:''}));
-        }
-        DB.users.push(Object.assign({},newUser,{uid:uid}));
-        showNotif('✅ Compte créé — profil sécurisé users/{UID}','success');
-      }
-      save('users');renderUsersList();resetCompteForm();
-    }catch(e){console.error(e);err((e&&e.message)?e.message:String(e));}
-  };
-
-  // Suppression V5 : suppression du profil UID, jamais du document legacy comme
-  // seule mesure de sécurité.
-  window.deleteCompte=async function(login){
-    if(!canManageComptes()){showNotif('🔒 Réservé aux administrateurs','error');return;}
-    if(login===currentUser?.login){showNotif('Impossible de supprimer votre propre compte','error');return;}
-    var u=DB.users.find(function(x){return x.login===login;});
-    if(!u)return;
-    if(!confirm('Supprimer le profil « '+login+' » ?'))return;
-    DB.users=DB.users.filter(function(x){return x.login!==login;});
-    save('users');
-    if(window._firebaseReady&&window._fb&&u.uid) await window._fb.del('users',u.uid);
-    // Document legacy : suppression best-effort pour ne pas casser une migration.
-    if(window._firebaseReady&&window._fb) window._fb.del('users',login).catch(function(){});
-    renderUsersList();showNotif('🗑 Profil supprimé','info');
-  };
-
-  // Sécuriser l'affichage des mots de passe : cette fonction ne doit plus
-  // exposer les mots de passe stockés dans l'ancien cache local.
-  window.viewUserPassword=function(){
-    alert('🔐 Pour des raisons de sécurité, le mot de passe ne peut plus être affiché. Utilisez « Modifier » pour définir un nouveau mot de passe.');
-  };
-
-  // Synchroniser le profil courant avec la structure existante de l'interface.
-  var oldApply=window.applyRoleUI;
-  if(typeof oldApply==='function'){
-    window.applyRoleUI=function(){
-      try{ oldApply.apply(this,arguments); }catch(e){}
-      var u=currentUser; if(!u)return;
-      var el=document.getElementById('user-structure-label');
-      if(el) el.textContent=getStructureLabel(u);
-    };
-  }
-
-  // Migration UID lors de l'édition/création des comptes : les profils sont
-  // toujours écrits sous users/{uid}; le document users/{login} reste legacy.
-  var tries=0;
-  var timer=setInterval(function(){
-    tries++;
-    if(typeof saveCompte==='function'){
-      clearInterval(timer);
-      var original=saveCompte;
-      window.saveCompte=async function(){
-        return original.apply(this,arguments);
-      };
-    }
-    if(tries>100)clearInterval(timer);
-  },100);
-})();
-</script>
