@@ -17772,5 +17772,506 @@ setTimeout(function(){try{if(currentUser&&currentUser.role==='directeur')renderA
 })();
 </script>
 
+<script id="pgnep-auth-sync-fix">
+/* ══════════════════════════════════════════════════════════════
+   [pgnep-auth-sync-fix] — 100% additif, aucune ligne existante modifiée.
+
+   PROBLÈME OBSERVÉ : après connexion, un utilisateur ne voit plus ses
+   élèves/notes déjà enregistrés.
+
+   CAUSE : la « Priorité 1 : connexion locale immédiate » de
+   _doLoginFirebase authentifie l'utilisateur SANS jamais créer de vraie
+   session Firebase Authentication (pas d'appel signInWithEmailAndPassword).
+   Or _loadFirebaseDB() lit ensuite Firestore (users/ecoles/eleves/notes) —
+   si ces lectures exigent une session Auth valide, elles échouent
+   silencieusement, _loadFirebaseDB tombe dans son catch, et l'app retombe
+   sur le cache localStorage de cet appareil (ou sur les données de
+   démonstration si ce cache est vide/neuf) : les vraies données restent
+   dans Firestore mais ne sont plus affichées.
+
+   CORRECTIF : on enveloppe _doLoginFirebase. Une fois la connexion locale
+   acceptée, on établit AUSSI en arrière-plan une vraie session Firebase
+   Auth avec les mêmes identifiants (connexion, ou création du compte
+   Firebase Auth si besoin), puis on relance _loadFirebaseDB() pour
+   remplacer les données locales/démo par les VRAIES données Firestore.
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  function patch(){
+    if (window.__pgnepAuthSyncPatched) return true;
+    if (typeof window._doLoginFirebase !== 'function') return false;
+    window.__pgnepAuthSyncPatched = true;
+
+    var _orig = window._doLoginFirebase;
+
+    function ensureRealAuthSession(loginId, pass){
+      try{
+        if (!window._firebaseReady || !window._fb) return;
+        if (window._fbAuth && window._fbAuth.currentUser) return; // déjà authentifié réellement
+
+        var idNorm = String(loginId||'').toLowerCase().trim();
+        var u = (window.DB && DB.users || []).find(function(x){ return x.login === idNorm; });
+        var email = (u && u.email) || (idNorm + '@pgnep-menaet.ci');
+
+        window._fb.signIn(email, pass).catch(function(){
+          // Pas encore de compte Firebase Auth pour cet utilisateur → on le crée.
+          return window._fb.createUser(email, pass).then(function(){
+            return window._fb.signIn(email, pass);
+          });
+        }).then(function(){
+          // Session Auth réelle établie : recharger Firestore pour remplacer
+          // les données locales/démo par les vraies données déjà collectées.
+          if (window._loadFirebaseDB) return window._loadFirebaseDB();
+        }).then(function(){
+          try{
+            if (typeof updateStats==='function') updateStats();
+            if (typeof renderDashboard==='function') renderDashboard();
+            if (typeof refreshUI==='function') refreshUI();
+          }catch(_){}
+        }).catch(function(e){
+          console.warn('pgnep-auth-sync-fix : session Firebase Auth non établie', e);
+        });
+      }catch(e){ console.warn('pgnep-auth-sync-fix', e); }
+    }
+
+    window._doLoginFirebase = function(loginId, pass){
+      var res = _orig.apply(this, arguments);
+      Promise.resolve(res).then(function(){
+        if (window.currentUser) ensureRealAuthSession(loginId, pass);
+      });
+      return res;
+    };
+    return true;
+  }
+  if(!patch()){ document.addEventListener('DOMContentLoaded', patch); setTimeout(patch, 1500); }
+})();
+</script>
+
+<script id="pgnep-calendrier-maitres">
+/* ══════════════════════════════════════════════════════════════
+   [pgnep-calendrier-maitres] — 100% additif, aucune ligne existante
+   modifiée ni supprimée.
+
+   DEMANDE : que le Calendrier scolaire (visible aujourd'hui uniquement
+   dans l'Espace Directeur) soit aussi accessible à tous les maîtres
+   (instituteurs/bénévoles), du CP1 au CM2.
+
+   RÉALISATION :
+   - Ajoute un onglet « 📅 Calendrier scolaire » dans l'Espace Maître
+     (barre d'onglets + menu latéral), pour tous les rôles instituteur
+     et bénévole (donc toutes les classes CP1 à CM2).
+   - Affiche EXACTEMENT le même contenu que côté Directeur (calendrier
+     officiel MENAET : trimestres + congés, puis les évènements propres
+     à l'école du maître : compositions, examens, congés spécifiques),
+     mais en LECTURE SEULE (aucun bouton modifier/ajouter/supprimer) —
+     la gestion du calendrier reste réservée au Directeur.
+   - N'écrase ni ne modifie espRenderCalendrier ni pgnep-cal-officiel :
+     un nouveau bloc, une nouvelle fonction, un nouveau point d'entrée.
+
+   NOTE TECHNIQUE (transparence) : le calendrier officiel (trimestres/
+   congés) est identique par défaut sur tous les appareils. En revanche,
+   les évènements ajoutés manuellement par le Directeur via « Ajouter au
+   calendrier » sont aujourd'hui stockés dans le stockage local de SON
+   appareil (pas encore synchronisés via Firebase) : un maître connecté
+   depuis un autre appareil verra le calendrier officiel, mais pas
+   forcément ces évènements ponctuels tant qu'ils n'auront pas été
+   synchronisés. ══════════════════════════════════════════════════════════════ */
+(function(){
+  function esc(s){ return (typeof espEsc==='function')?espEsc(s):String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];}); }
+
+  /* ---------- Rendu lecture seule pour l'Espace Maître ---------- */
+  function renderCalMaitre(){
+    var box=document.getElementById('esp-maitre-calendrier'); if(!box) return;
+    var eid=(typeof espMyEcoleId==='function')?espMyEcoleId():null;
+
+    var off='';
+    try{
+      var d=null;
+      if(typeof espLsGet==='function') d=espLsGet('pgnep_calendrier_officiel',null);
+      if(!d||!d.trim||!d.conges){
+        var dT=(typeof AFF_CAL_TRIM!=='undefined')?AFF_CAL_TRIM:[];
+        var dC=(typeof AFF_CAL_CONGES!=='undefined')?AFF_CAL_CONGES:[];
+        var an=(typeof AFF_CAL_ANNEE!=='undefined')?AFF_CAL_ANNEE:'2026-2027';
+        d={ annee:an, trim:dT.map(function(t){return {n:t.n,d:t.d};}), conges:dC.map(function(c){return {n:c.n,d:c.d};}) };
+      }
+      var trimRows=d.trim.map(function(t){
+        return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;"><div style="color:#F77F00;font-weight:700;text-transform:uppercase;font-size:13px;">'+esc(t.n)+'</div><div style="border-top:1px dashed #F77F00;margin:6px 0;"></div><div style="font-size:14px;">'+esc(t.d)+'</div></div>';
+      }).join('');
+      var congRows=d.conges.map(function(c){
+        return '<tr><td style="color:#006B3F;font-weight:700;text-transform:uppercase;padding:8px 10px;border-bottom:1px dashed #bcd;white-space:nowrap;vertical-align:top;">'+esc(c.n)+'</td><td style="padding:8px 10px;border-bottom:1px dashed #bcd;">'+esc(c.d)+'</td></tr>';
+      }).join('');
+      var grid='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">'
+        +'<div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#006B3F;color:#fff;font-weight:700;padding:10px 12px;">Découpage de l\'année scolaire '+esc(d.annee)+'</div><div style="padding:12px;">'+trimRows+'</div></div>'
+        +'<div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;"><div style="background:#F77F00;color:#fff;font-weight:700;padding:10px 12px;">Dates des congés scolaires '+esc(d.annee)+'</div><table style="width:100%;border-collapse:collapse;font-size:14px;">'+congRows+'</table></div></div>';
+      var sub='<button class="btn btn-secondary" onclick="pgnepCalMaitrePrint()">🖨️ Imprimer / PDF</button> <span style="font-size:11px;color:#64748b;">Calendrier officiel MENAET — identique pour tous les niveaux.</span>';
+      off=(typeof espCard==='function')?espCard('📆 Calendrier officiel & congés '+esc(d.annee), sub, grid):('<div style="margin-bottom:8px;">'+sub+'</div>'+grid);
+      window.__pgnepCalMaitreData=d;
+    }catch(e){}
+
+    var list='';
+    try{
+      var col={'Congé':'badge-vert','Composition':'badge-bleu','Examen Blanc 1':'badge-orange','Examen Blanc 2':'badge-orange','Entrée en 6ème':'badge-gold'};
+      var cal=(typeof espLsGet==='function'?espLsGet('pgnep_calendrier',[]):[]).filter(function(x){ return x.ecole_id===eid; }).sort(function(a,b){ return a.du.localeCompare(b.du); });
+      var rows=cal.map(function(x){
+        return '<tr><td><span class="badge '+(col[x.type]||'badge-gray')+'">'+esc(x.type)+'</span></td><td><strong>'+esc(x.titre)+'</strong></td><td>'+esc(x.du)+(x.au&&x.au!==x.du?(' → '+esc(x.au)):'')+'</td></tr>';
+      }).join('');
+      var tools=(typeof espTools==='function')?espTools('cal-tab-ma','Calendrier scolaire'):'';
+      var emptyMsg=(typeof espEmpty==='function')?espEmpty('Aucun évènement planifié.'):'Aucun évènement planifié.';
+      list=(typeof espCard==='function')?espCard('📅 Calendrier des congés, compositions et examens', tools,
+        '<div class="table-wrap" id="cal-tab-ma"><table><thead><tr><th>Type</th><th>Intitulé</th><th>Période</th></tr></thead><tbody>'+(rows||'<tr><td colspan="3">'+emptyMsg+'</td></tr>')+'</tbody></table></div>') : rows;
+    }catch(e){}
+
+    box.innerHTML=off+'<div style="height:16px;"></div>'+list;
+  }
+  window.pgnepCalMaitrePrint=function(){
+    var d=window.__pgnepCalMaitreData; if(!d) return;
+    var head='<h1 style="color:#006B3F;border-bottom:3px solid #F77F00;padding-bottom:8px;">Calendrier scolaire '+esc(d.annee)+' — MENAET · Côte d\'Ivoire</h1>';
+    var trim=d.trim.map(function(t){ return '<div style="margin:6px 0;"><b style="color:#F77F00;text-transform:uppercase;">'+esc(t.n)+'</b> : '+esc(t.d)+'</div>'; }).join('');
+    var cong=d.conges.map(function(c){ return '<tr><td style="color:#006B3F;font-weight:700;text-transform:uppercase;padding:4px 8px;border-bottom:1px dashed #bbb;">'+esc(c.n)+'</td><td style="padding:4px 8px;border-bottom:1px dashed #bbb;">'+esc(c.d)+'</td></tr>'; }).join('');
+    var html=head+'<h3>Découpage de l\'année</h3>'+trim+'<h3>Congés</h3><table style="border-collapse:collapse;width:100%;">'+cong+'</table>';
+    if(typeof affPrintHTML==='function'){ affPrintHTML(html,'Calendrier scolaire '+d.annee); return; }
+    var w=window.open('','_blank'); if(!w){ alert('Autorisez les pop-up pour imprimer.'); return; }
+    w.document.write('<!doctype html><meta charset="utf-8"><body style="font-family:Arial,sans-serif;margin:24px;">'+html+'</body>'); w.document.close(); setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} },400);
+  };
+
+  /* ---------- Insertion du bouton d'onglet + du panneau (une seule fois) ---------- */
+  function ensureUI(){
+    var bar=document.getElementById('esp-tabbar-maitre');
+    if(bar && !document.getElementById('esp-tab-maitre-calendrier')){
+      var btn=document.createElement('button');
+      btn.className='esp-tab'; btn.id='esp-tab-maitre-calendrier'; btn.setAttribute('data-tab','calendrier');
+      btn.textContent='📅 Calendrier scolaire';
+      btn.onclick=function(){ switchEspTab('maitre','calendrier'); };
+      bar.appendChild(btn);
+    }
+    var panelsHost=document.getElementById('esp-maitre-stats');
+    if(panelsHost && !document.getElementById('esp-maitre-calendrier')){
+      var panel=document.createElement('div');
+      panel.className='esp-panel'; panel.id='esp-maitre-calendrier';
+      panelsHost.parentNode.insertBefore(panel, panelsHost.nextSibling);
+    }
+  }
+
+  /* ---------- Ajout au menu latéral (liste utilisée par espRenderMaitreNav) ---------- */
+  function ensureNavEntry(){
+    /* ESP_MAITRE_TABS est déclaré en "const" en haut de fichier : il n'existe
+       donc pas en tant que window.ESP_MAITRE_TABS, mais reste accessible par
+       son nom depuis n'importe quelle balise de script classique du document. */
+    try{
+      if(typeof ESP_MAITRE_TABS==='undefined' || !Array.isArray(ESP_MAITRE_TABS)) return;
+      if(!ESP_MAITRE_TABS.some(function(t){ return t.tab==='calendrier'; })){
+        ESP_MAITRE_TABS.push({ tab:'calendrier', icon:'📅', label:'Calendrier scolaire' });
+      }
+    }catch(e){}
+  }
+
+  /* ---------- Branchement sur le routeur d'onglets (espDispatch) ---------- */
+  function hookDispatch(){
+    if(window.__pgnepCalMaitreDispatchHooked) return true;
+    if(typeof window.espDispatch!=='function') return false;
+    window.__pgnepCalMaitreDispatchHooked=true;
+    var _orig=window.espDispatch;
+    window.espDispatch=function(pageKey, tabId){
+      if(pageKey==='maitre' && tabId==='calendrier'){ renderCalMaitre(); return; }
+      return _orig.apply(this, arguments);
+    };
+    return true;
+  }
+
+  function init(){
+    ensureUI();
+    ensureNavEntry();
+    hookDispatch();
+    // Si le menu latéral « Espace Maître » a déjà été construit avant que
+    // cette entrée n'existe, on le régénère pour l'y inclure.
+    try{ if(typeof espRenderMaitreNav==='function' && typeof currentUser!=='undefined' && currentUser) espRenderMaitreNav(currentUser.role); }catch(e){}
+  }
+  if(!hookDispatch()){ document.addEventListener('DOMContentLoaded', init); setTimeout(init,1500); }
+  else init();
+})();
+</script>
+
+<script id="pgnep-compte-collision-fix">
+/* ══════════════════════════════════════════════════════════════
+   [pgnep-compte-collision-fix] — 100% additif, aucune ligne existante
+   modifiée ni supprimée.
+
+   PROBLÈME OBSERVÉ : un directeur ne voit pas certains de ses adjoints
+   dans « Instituteurs de mon école », et en tentant de créer leur compte
+   il reçoit « Identifiant déjà utilisé » sans aucune explication.
+
+   CAUSE : le contrôle d'unicité du login est (à juste titre) GLOBAL sur
+   toute la base — mais rien n'indique à quel compte, rôle ou école cet
+   identifiant est déjà rattaché. Si ce compte a été créé par erreur pour
+   une autre école (mauvaise saisie, transfert d'enseignant, etc.), il
+   devient invisible dans le périmètre du directeur tout en bloquant la
+   création d'un nouveau compte avec le même identifiant.
+
+   CORRECTIF :
+   1) Enrichit le message d'erreur avec le nom, le rôle et l'école du
+      compte déjà existant.
+   2) Si ce compte est un instituteur/bénévole, propose un bouton pour
+      le RATTACHER directement à l'école du directeur (au lieu d'en
+      créer un doublon).
+   3) Ajoute un petit outil « 🔎 Retrouver un adjoint » (bouton flottant)
+      permettant de chercher n'importe quel identifiant existant et de
+      le rattacher, sans passer par une tentative de création ratée.
+
+   N'écrase ni ne modifie saveCompte, canManageComptes, getScopeUsers ou
+   renderUsersList : ce bloc les enveloppe ou les appelle tels quels.
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  function roleLabelOf(r){ return (typeof ROLE_LABELS!=='undefined' && ROLE_LABELS[r]) || r; }
+  function ecoleNomOf(u){
+    try{
+      var eid = u.ecole_val || (u.structure_type==='ecole' ? u.structure_val : null);
+      var rid = (typeof resolveEcoleId==='function') ? resolveEcoleId(eid) : eid;
+      var ec = ((window.DB && DB.ecoles) || []).find(function(e){ return e.id===rid || e.id===eid; });
+      return ec ? ec.nom : (eid || null);
+    }catch(e){ return null; }
+  }
+  function meData(){ try{ return (typeof getCurrentUserData==='function') ? getCurrentUserData() : null; }catch(e){ return null; } }
+
+  /* ── Action commune : rattacher un compte existant à l'école du directeur connecté ── */
+  window.pgnepRattacherCompteExistant = function(login, classeSuggeree){
+    try{
+      if(!currentUser || currentUser.role!=='directeur'){ if(typeof showNotif==='function') showNotif('🔒 Réservé au directeur','error'); return; }
+      var me=meData(); if(!me){ alert('Session invalide — reconnectez-vous.'); return; }
+      var idx=(DB.users||[]).findIndex(function(u){ return u.login===login; });
+      if(idx<0){ alert('Compte introuvable : '+login); return; }
+      var u=DB.users[idx];
+      if(['instituteur','benevole'].indexOf(u.role)===-1){ alert('Ce compte n\'est ni instituteur ni bénévole — impossible de le rattacher ici.'); return; }
+
+      var monEcole=(typeof resolveEcoleId==='function')?resolveEcoleId(me.structure_val):me.structure_val;
+      var CLASSES_OK=['CP1','CP2','CE1','CE2','CM1','CM2'];
+      var valClasse=classeSuggeree||u.structure_val||'';
+      if(CLASSES_OK.indexOf(valClasse)===-1){
+        valClasse=prompt('Classe de cet adjoint (CP1, CP2, CE1, CE2, CM1 ou CM2) :', 'CP1');
+        if(valClasse===null) return;
+        valClasse=(valClasse||'').trim().toUpperCase();
+        if(CLASSES_OK.indexOf(valClasse)===-1){ alert('Classe invalide.'); return; }
+      }
+      var nbAdj=(DB.users||[]).filter(function(x){
+        return ['instituteur','benevole'].indexOf(x.role)!==-1 && x.login!==u.login &&
+          ((typeof resolveEcoleId==='function'?resolveEcoleId(x.ecole_val):x.ecole_val)===monEcole);
+      }).length;
+      if(nbAdj>=6){ alert('Limite atteinte : 6 adjoints maximum pour votre école.'); return; }
+
+      var ecObj=(DB.ecoles||[]).find(function(e){ return e.id===monEcole; });
+      var ancienneEcole=ecoleNomOf(u);
+      if(!confirm('Rattacher le compte « '+(u.nom||login)+' » ('+roleLabelOf(u.role)+(ancienneEcole?' — actuellement à « '+ancienneEcole+' »':'')+') à votre école'+(ecObj?(' « '+ecObj.nom+' »'):'')+', classe '+valClasse+' ?\n\nSon ancien rattachement sera remplacé.')) return;
+
+      u.role='instituteur';
+      u.structure_type='classe';
+      u.structure_val=valClasse;
+      u.ecole_val=monEcole;
+      if(u.actif===undefined) u.actif=true;
+
+      if(window._firebaseReady && window._fb) window._fb.set('users', login, u).catch(function(){});
+      try{ save('users'); }catch(e){}
+      try{ renderUsersList(); }catch(e){}
+      try{ if(typeof resetCompteForm==='function') resetCompteForm(); }catch(e){}
+      var errEl=document.getElementById('compte-error'); if(errEl){ errEl.style.display='none'; errEl.innerHTML=''; }
+      if(typeof showNotif==='function') showNotif('✅ Compte rattaché à votre école','success');
+    }catch(e){ console.warn('pgnep-compte-collision-fix', e); alert('Erreur : '+((e&&e.message)||e)); }
+  };
+
+  /* ── 1) Enrichissement automatique du message après un échec de création ── */
+  function enrichCollisionUI(){
+    try{
+      if (!currentUser || currentUser.role!=='directeur') return;
+      var errEl=document.getElementById('compte-error');
+      if(!errEl || errEl.style.display==='none') return;
+      if(!/Identifiant d.j. utilis/i.test(errEl.textContent||'')) return;
+      var loginEl=document.getElementById('new-login');
+      var login=((loginEl&&loginEl.value)||'').trim().toLowerCase();
+      var existing=((window.DB && DB.users) || []).find(function(u){ return u.login===login; });
+      if(!existing) return;
+
+      var ecoleLbl=ecoleNomOf(existing);
+      var msg='⚠️ L\'identifiant « '+login+' » est déjà utilisé par <strong>'+((existing.nom||login).replace(/[<>]/g,''))+'</strong> ('+roleLabelOf(existing.role)+(ecoleLbl?' — '+String(ecoleLbl).replace(/[<>]/g,''):'')+').';
+      var canRattacher = ['instituteur','benevole'].indexOf(existing.role)!==-1;
+      var btnId='pg-collision-rattacher-btn';
+      errEl.innerHTML = msg + (canRattacher
+        ? '<br><button id="'+btnId+'" type="button" class="btn btn-secondary btn-sm" style="margin-top:6px;">🔗 Rattacher ce compte à mon école</button>'
+        : '');
+      if(canRattacher){
+        var btn=document.getElementById(btnId);
+        if(btn) btn.onclick=function(){
+          var valClasse=((document.getElementById('new-classe-user')||{}).value)||'';
+          window.pgnepRattacherCompteExistant(login, valClasse);
+        };
+      }
+    }catch(e){}
+  }
+  function hookSaveCompte(){
+    if(window.__pgnepCollisionHooked) return true;
+    if(typeof window.saveCompte!=='function') return false;
+    window.__pgnepCollisionHooked=true;
+    var _orig=window.saveCompte;
+    window.saveCompte=function(){ var r=_orig.apply(this,arguments); setTimeout(enrichCollisionUI,0); return r; };
+    return true;
+  }
+
+  /* ── 2) Outil autonome : retrouver / rattacher un adjoint par son identifiant ── */
+  window.pgnepRetrouverAdjoint=function(){
+    if(!currentUser || currentUser.role!=='directeur'){ return; }
+    var login=prompt('Identifiant de l\'adjoint à retrouver (celui utilisé à la connexion) :');
+    if(!login) return;
+    login=login.trim().toLowerCase();
+    var existing=(DB.users||[]).find(function(u){ return u.login===login; });
+    if(!existing){ alert('Aucun compte trouvé avec l\'identifiant « '+login+' ».'); return; }
+    var ecoleLbl=ecoleNomOf(existing);
+    if(['instituteur','benevole'].indexOf(existing.role)===-1){
+      alert('Compte trouvé : '+(existing.nom||login)+' — '+roleLabelOf(existing.role)+(ecoleLbl?' — '+ecoleLbl:'')+'.\nCe rôle ne peut pas être rattaché comme adjoint ici.');
+      return;
+    }
+    if(confirm('Compte trouvé : '+(existing.nom||login)+' — '+roleLabelOf(existing.role)+(ecoleLbl?' — actuellement à « '+ecoleLbl+' »':' — sans école connue')+'.\n\nLe rattacher à votre école maintenant ?')){
+      window.pgnepRattacherCompteExistant(login, null);
+    }
+  };
+  function ensureFloatingBtn(){
+    if(document.getElementById('pg-retrouver-adjoint-btn')) return;
+    if(!currentUser || currentUser.role!=='directeur') return;
+    var b=document.createElement('button');
+    b.id='pg-retrouver-adjoint-btn'; b.type='button'; b.textContent='🔎 Retrouver un adjoint';
+    b.style.cssText='position:fixed;right:16px;bottom:72px;z-index:9999;background:#1A3D6E;color:#fff;border:0;border-radius:24px;padding:12px 16px;font-weight:700;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;';
+    b.onclick=window.pgnepRetrouverAdjoint;
+    document.body.appendChild(b);
+  }
+  function removeFloatingBtnIfNotDirecteur(){
+    var b=document.getElementById('pg-retrouver-adjoint-btn');
+    if(b && (!currentUser || currentUser.role!=='directeur')) b.remove();
+  }
+
+  function hookRenderDashboardForBtn(){
+    if(window.__pgnepRetrouverHooked) return true;
+    if(typeof window.renderDashboard!=='function') return false;
+    window.__pgnepRetrouverHooked=true;
+    var _rd=window.renderDashboard;
+    window.renderDashboard=function(){ var r=_rd.apply(this,arguments); try{ ensureFloatingBtn(); removeFloatingBtnIfNotDirecteur(); }catch(e){} return r; };
+    try{ ensureFloatingBtn(); }catch(e){}
+    return true;
+  }
+
+  function init(){ hookSaveCompte(); hookRenderDashboardForBtn(); }
+  if(!hookSaveCompte() || !hookRenderDashboardForBtn()){ document.addEventListener('DOMContentLoaded', init); setTimeout(init,1500); }
+})();
+</script>
+
+<script id="pgnep-eval-cm2-only">
+/* ══════════════════════════════════════════════════════════════
+   [pgnep-eval-cm2-only] — 100% additif, aucune ligne existante
+   modifiée ni supprimée.
+
+   DEMANDE : les classes CP1 à CM1 ne doivent pas voir (ou voir en gris,
+   non cliquable) les options « Examen Blanc 1 », « Examen Blanc 2 » et
+   « 🎓 Entrée en 6ème ». Seule la classe CM2 doit pouvoir les voir/utiliser.
+
+   CAUSE : une fonction updateEvalOptions() existait déjà pour ça, mais :
+   - elle ciblait de mauvais id de <select> pour 2 des 5 menus concernés
+     ('filt-eval' / 'rapport-eval' au lieu des vrais id 'filt-res-eval' /
+     'rpt-eval'), donc ces menus n'étaient jamais filtrés ;
+   - elle n'était déclenchée que lors du choix d'un élève pour un
+     bulletin — jamais à l'ouverture de Résultats & Stats, Rapports, ou
+     du Tableau de bord ;
+   - le menu du Tableau de bord (« Liste de classe », id dash-liste-eval)
+     n'était même pas dans sa liste.
+
+   CORRECTIF : nouvelle fonction, indépendante d'updateEvalOptions()
+   (qu'on laisse intacte), qui couvre les 5 menus avec la bonne classe
+   de référence pour chacun, et qui se déclenche à chaque changement de
+   contexte pertinent (élève choisi, classe filtrée, page ouverte).
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  var EB_VALUES = ['examen_blanc1','examen_blanc2','entree6'];
+
+  /* Grise (disabled + style) ou réactive les options EB1/EB2/entree6
+     d'un <select> selon la classe de référence fournie. classeCtx
+     vide/inconnue = permissif (on n'interdit que si on est sûr que ce
+     n'est PAS CM2). */
+  function appliquer(selId, classeCtx){
+    var s=document.getElementById(selId); if(!s) return;
+    var interdit = !!classeCtx && classeCtx!=='CM2';
+    Array.prototype.forEach.call(s.options, function(opt){
+      if(EB_VALUES.indexOf(opt.value)===-1) return;
+      opt.disabled = interdit;
+      opt.style.color = interdit ? '#9CA3AF' : '';
+      opt.style.fontStyle = interdit ? 'italic' : '';
+      if(interdit && s.value===opt.value){ s.value=''; }
+    });
+  }
+
+  function classeEleveDe(selectEleveId){
+    try{
+      var el=document.getElementById(selectEleveId);
+      if(!el || !el.value) return null;
+      var e=(window.DB && DB.eleves || []).find(function(x){ return x.id===el.value; });
+      return e ? e.classe : null;
+    }catch(err){ return null; }
+  }
+
+  function classeDuPerimetreDashboard(){
+    try{
+      var r = currentUser ? currentUser.role : '';
+      if(['instituteur','benevole'].indexOf(r)!==-1){
+        var me=(typeof getCurrentUserData==='function')?getCurrentUserData():null;
+        return me ? me.structure_val : null;
+      }
+      var liste=(typeof getScopeEleves==='function')?getScopeEleves():[];
+      var classes=[]; liste.forEach(function(e){ if(classes.indexOf(e.classe)===-1) classes.push(e.classe); });
+      if(classes.length===1) return classes[0];
+      if(classes.indexOf('CM2')!==-1) return 'CM2'; // périmètre mixte incluant CM2 → permissif
+      return classes.length ? classes[0] : null;
+    }catch(err){ return null; }
+  }
+
+  window.pgnepAppliquerRestrictionsEval = function(){
+    appliquer('sel-eval', classeEleveDe('sel-eleve'));
+    appliquer('bul-eval', classeEleveDe('bul-eleve'));
+    var clRes=document.getElementById('filt-res-classe');
+    appliquer('filt-res-eval', clRes ? clRes.value : null);
+    var clRpt=document.getElementById('rpt-classe');
+    appliquer('rpt-eval', clRpt ? clRpt.value : null);
+    appliquer('dash-liste-eval', classeDuPerimetreDashboard());
+  };
+
+  /* Écouteurs additifs sur les menus « classe » qui n'appellent pas déjà
+     une fonction couvrant ce correctif (on ne touche pas aux onchange
+     déjà présents dans le HTML, on en ajoute simplement un second). */
+  function ensureListeners(){
+    ['filt-res-classe','rpt-classe'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el && !el.dataset.pgnepEbHooked){
+        el.dataset.pgnepEbHooked='1';
+        el.addEventListener('change', window.pgnepAppliquerRestrictionsEval);
+      }
+    });
+  }
+
+  /* Enveloppe les fonctions de rendu concernées pour réappliquer la
+     restriction juste après leur exécution normale — couvre aussi bien
+     l'ouverture d'une page que tout changement programmatique. */
+  function wrap(name){
+    if(typeof window[name]!=='function' || window['__pgnepEbWrapped_'+name]) return false;
+    window['__pgnepEbWrapped_'+name]=true;
+    var _orig=window[name];
+    window[name]=function(){
+      var r=_orig.apply(this, arguments);
+      try{ ensureListeners(); window.pgnepAppliquerRestrictionsEval(); }catch(e){}
+      return r;
+    };
+    return true;
+  }
+
+  function init(){
+    ['onEleveSelect','renderResultats','genBulletin','genRapport','renderDashListe'].forEach(wrap);
+    ensureListeners();
+    try{ window.pgnepAppliquerRestrictionsEval(); }catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', init);
+  setTimeout(init, 1200);
+})();
+</script>
+
 </body>
 </html>
