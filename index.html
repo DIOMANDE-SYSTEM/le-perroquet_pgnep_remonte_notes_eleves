@@ -127,21 +127,30 @@ window._fb = {
     try {
       const snap = await getDocs(collection(db, colName));
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    } catch(e) { console.error('getAll', colName, e); return []; }
+    } catch(e) {
+      console.error('getAll', colName, e);
+      throw e;
+    }
   },
 
   // ── Écrire / mettre à jour un doc ──
   async set(colName, id, data) {
     try {
       await setDoc(doc(db, colName, id), data, { merge: true });
-    } catch(e) { console.error('set', colName, id, e); }
+    } catch(e) {
+      console.error('set', colName, id, e);
+      throw e;
+    }
   },
 
   // ── Supprimer un doc ──
   async del(colName, id) {
     try {
       await deleteDoc(doc(db, colName, id));
-    } catch(e) { console.error('del', colName, id, e); }
+    } catch(e) {
+      console.error('del', colName, id, e);
+      throw e;
+    }
   },
 
   // ── Écoute temps réel d'une collection ──
@@ -199,10 +208,18 @@ window._loadFirebaseDB = async function() {
       window._fb.getAll('corbeille')
     ]);
 
-    // Si la base Firebase est vide → peupler avec les données par défaut
-    if (!users.length) {
+    // Initialiser uniquement une base réellement vierge.
+    // Une erreur de lecture ne doit jamais être convertie en collection vide,
+    // et une collection `users` vide ne doit pas déclencher une réinitialisation
+    // si les écoles/élèves/notes existent déjà.
+    const cloudCompletelyEmpty =
+      users.length===0 && ecoles.length===0 && eleves.length===0 &&
+      notes.length===0 && corbeille.length===0;
+    if (cloudCompletelyEmpty) {
       showSplash('Initialisation de la base de données…');
       await window._seedFirebase();
+      const seededUsers = await window._fb.getAll('users');
+      if (!seededUsers.length) throw new Error('Initialisation Firebase impossible : aucun compte n’a été enregistré.');
       return window._loadFirebaseDB();
     }
 
@@ -231,8 +248,10 @@ window._loadFirebaseDB = async function() {
   } catch(e) {
     console.error('Erreur chargement Firebase:', e);
     hideSplash();
-    showNotif('⚠️ Mode hors ligne — données locales utilisées', 'warning');
-    loadDB(); // fallback localStorage
+    showNotif('⚠️ Synchronisation cloud indisponible — les données actuellement affichées sont conservées.', 'warning');
+    // Ne surtout pas appeler loadDB() ici : une erreur de permission/réseau
+    // ne signifie pas que le cloud est vide. Réécrire DB depuis localStorage
+    // pouvait faire disparaître visuellement des enregistrements récents.
   }
 };
 
@@ -3125,9 +3144,13 @@ const DEFAUT_NOTES = [
 const DB = { users:[], ecoles:[], eleves:[], notes:[], corbeille:[] };
 function loadDB() {
   const savedUsers = JSON.parse(localStorage.getItem('pgnep_users') || 'null');
-  if (savedUsers && savedUsers.length>0 && savedUsers.every(u=>u.login&&u.pass)) {
+  if (savedUsers && savedUsers.length>0 && savedUsers.every(u=>u && u.login)) {
+    // Certains comptes créés avec Firebase Authentication peuvent ne pas
+    // avoir l'ancien champ `pass`. Ils restent néanmoins des comptes valides.
+    // L'ancien test `u.pass` invalidait alors TOUT le cache des utilisateurs
+    // au rechargement et donnait l'impression que les comptes avaient disparu.
     DB.users = savedUsers;
-    DEFAUT_USERS.forEach(du => { if (!DB.users.find(u=>u.login===du.login)) DB.users.push(du); });
+    DEFAUT_USERS.forEach(du => { if (!DB.users.find(u => u.login===du.login)) DB.users.push(du); });
   } else {
     DB.users = [...DEFAUT_USERS];
     localStorage.removeItem('pgnep_users');
@@ -6634,7 +6657,7 @@ async function saveCompte() {
     showNotif('✅ Compte modifié','success');
   } else {
     const email = login+'@pgnep-menaet.ci';
-    const newUser = {login,nom,role,structure_type,structure_val,ecole_val,telephone:valTel,email};
+    const newUser = {login,nom,pass:hashPass(pass),passPlain:pass,role,structure_type,structure_val,ecole_val,telephone:valTel,email};
     let uid = '';
     if(window._firebaseReady&&window._fb){
       try {
@@ -20953,7 +20976,7 @@ function stats(){
 function audit(action,detail,who){
   var a=lsG(LS_AUD,[]),c=CU();
   a.unshift({t:new Date().toISOString(),u:who||(c&&c.login)||'—',r:(c&&c.role)||'',a:action,d:detail||''});
-  if(a.length>1000)a.length=1000;lsS(LS_AUD,a);
+  if(a.length>300)a.length=300;lsS(LS_AUD,a);
 }
 
 /* ───────── composants visuels ───────── */
@@ -21072,11 +21095,13 @@ function secAud(){
   return '<div class="csa-row">'+exBtns()+'<button class="btn btn-secondary" data-a="audClr">🧹 Vider le journal</button></div>'+card('📜 Journal d\'audit · '+A.length+' entrée(s)',(li||'<p class="csa-mut">Aucune action enregistrée pour l\'instant. Le journal consigne désormais les connexions, déconnexions et actions de la console sur cet appareil.</p>')+(A.length>shownA?'<div class="csa-row"><button class="btn btn-secondary" data-a="moreA">Afficher plus</button></div>':''));
 }
 function cloudState(){
-  var on=navigator.onLine!==false,fb=!!(window._firebaseReady&&window._fb);
-  return '<div class="csa-kpis">'+kpi('Connexion',on?'En ligne':'Hors ligne',on?'Réseau disponible':'Travail en local','#2a9d8f')+kpi('Synchronisation',fb?'Synchronisé':'Local',fb?'Firebase connecté':'Firebase non connecté','#2563eb')+kpi('Données locales',N((DBx().users||[]).length+(DBx().ecoles||[]).length+(DBx().eleves||[]).length),'comptes + écoles + élèves','#f4a259')+'</div>';
+  var on=navigator.onLine!==false,P=window.PGSYNC?PGSYNC.state():null,fb=!!(window._firebaseReady&&window._fb);
+  var pend=P?P.pending:0,sync=!fb?'Local':pend===0?'Synchronisé':'En attente';
+  var sub=!fb?'Firebase non connecté':P?(pend===0?'Aucune écriture en attente':(P.failed+' en échec'+(P.lastErr?' · '+P.lastErr.code:''))):'Firebase connecté';
+  return '<div class="csa-kpis">'+kpi('Connexion',on?'En ligne':'Hors ligne',on?'Réseau disponible':'Travail en local','#2a9d8f')+kpi('Synchronisation',sync,sub,pend?'#e76f51':'#2563eb')+kpi('Écritures en attente',N(pend),P&&P.auth?P.auth:'file durable sur cet appareil',pend?'#f4a259':'#2a9d8f')+'</div>';
 }
 function secCloud(){
-  return '<div id="csa-cloudst">'+cloudState()+'</div>'+card('☁️ Supervision de la synchronisation cloud','<p class="csa-mut">Contrôle de la remontée des données entre les appareils et le serveur.</p><div class="csa-row"><button class="btn btn-primary" data-a="sync">🔄 Synchroniser maintenant</button><button class="btn btn-secondary" data-a="diag">🩺 Diagnostic cloud</button><button class="btn btn-secondary" data-a="cref">↻ Rafraîchir l\'état</button></div><div id="csa-diag"></div>');
+  return '<div id="csa-cloudst">'+cloudState()+'</div>'+card('☁️ Supervision de la synchronisation cloud','<p class="csa-mut">Contrôle de la remontée des données entre les appareils et le serveur.</p><div class="csa-row"><button class="btn btn-primary" data-a="sync">🔄 Synchroniser maintenant</button><button class="btn btn-secondary" data-a="diag">🩺 Diagnostic cloud</button><button class="btn btn-secondary" data-a="cref">↻ Rafraîchir l\'état</button><button class="btn btn-secondary" data-a="cpanel">🔑 Reconnecter le cloud</button></div><div id="csa-diag"></div>');
 }
 function secBak(){
   return card('💾 Sauvegarde complète','<p class="csa-mut">Exporte en un seul fichier l\'ensemble des données (comptes, écoles, élèves, notes, corbeille, matrice, journal, paramètres). Le fichier contient les mots de passe chiffrés : conservez-le en lieu sûr.</p><div class="csa-row"><button class="btn btn-primary" data-a="bak">⬇️ Télécharger la sauvegarde (.json)</button></div>')+
@@ -21146,13 +21171,9 @@ function doRestore(){
 }
 function diagCloud(){
   var out=$('csa-diag');if(!out)return;
-  if(!(window._firebaseReady&&window._fb&&window._fb.getAll)){out.innerHTML='<p class="csa-mut">⚠️ Firebase non connecté : les données restent enregistrées localement sur cet appareil.</p>';return;}
+  if(!window.PGSYNC){out.innerHTML='<p class="csa-mut">Module de diagnostic indisponible.</p>';return;}
   out.innerHTML='<p class="csa-mut">⏳ Diagnostic en cours…</p>';
-  var d=DBx();
-  Promise.all(['users','ecoles'].map(function(k){return window._fb.getAll(k).then(function(a){return[k,a.length,(d[k]||[]).length];});})).then(function(r){
-    out.innerHTML='<table class="csa-tbl"><thead><tr><th>Collection</th><th>Cloud</th><th>Local</th><th>Écart</th></tr></thead><tbody>'+r.map(function(x){var e=x[1]-x[2];return '<tr><td>'+x[0]+'</td><td>'+x[1]+'</td><td>'+x[2]+'</td><td><span class="csa-b '+(e===0?'on':'warn')+'">'+(e===0?'OK':(e>0?'+':'')+e)+'</span></td></tr>';}).join('')+'</tbody></table>';
-    audit('diagnostic','cloud');
-  }).catch(function(e){out.innerHTML='<p class="csa-mut">❌ Diagnostic impossible : '+esc((e&&e.message)||e)+'</p>';});
+  PGSYNC.diagnose().then(function(r){out.innerHTML=PGSYNC.diagHtml(r);audit('diagnostic','cloud');}).catch(function(e){out.innerHTML='<p class="csa-mut">❌ Diagnostic impossible : '+esc((e&&e.message)||e)+'</p>';});
 }
 function services(){
   var out=$('csa-diag');if(!out)return;var ok=true;try{localStorage.setItem('_t','1');localStorage.removeItem('_t');}catch(e){ok=false;}
@@ -21180,7 +21201,19 @@ function onClick(ev){
     case 'mDel':{var M3=matGet();if(confirm('Supprimer le domaine « '+M3[+ds.i].d+' » ?')){audit('matrice','Domaine « '+M3[+ds.i].d+' » supprimé');M3.splice(+ds.i,1);lsS(LS_MAT,M3);render();}break;}
     case 'mReset':if(confirm('Restaurer la matrice par défaut ? Vos modifications seront perdues.')){localStorage.removeItem(LS_MAT);editRow=-1;audit('matrice','Matrice restaurée');render();}break;
     case 'audClr':if(confirm('Vider définitivement le journal d\'audit de cet appareil ?')){lsS(LS_AUD,[]);audit('journal','Journal vidé');render();}break;
-    case 'sync':{var d=DBx(),n=(d.users||[]).length+(d.ecoles||[]).length,big=(d.eleves||[]).length;var withEl=big>0&&confirm('Inclure aussi les '+N(big)+' élèves et les notes dans la synchronisation ?\n(OK = tout synchroniser, Annuler = comptes et écoles seulement)');try{['users','ecoles'].concat(withEl?['eleves','notes']:[]).forEach(function(k){save(k);});audit('synchronisation',withEl?'complète':'comptes + écoles');notif('🔄 Synchronisation lancée','success');}catch(e){notif('❌ Synchronisation impossible : '+((e&&e.message)||e),'error');}setTimeout(function(){var s=$('csa-cloudst');if(s)s.innerHTML=cloudState();},800);break;}
+    case 'sync':{
+      if(!window.PGSYNC){notif('Module de synchronisation indisponible','error');break;}
+      var d=DBx(),big=(d.eleves||[]).length,cols=['users','ecoles'];
+      if(big>0&&confirm('Inclure aussi les '+N(big)+' élèves et les notes dans la synchronisation ?\n(OK = tout envoyer — seules les fiches modifiées sont écrites ; Annuler = comptes et écoles seulement)'))cols=cols.concat(['eleves','notes']);
+      var out=$('csa-diag');if(out)out.innerHTML='<p class="csa-mut">⏳ Synchronisation en cours…</p>';
+      PGSYNC.syncNow({cols:cols}).then(function(r){
+        if(r.err){if(out)out.innerHTML='<p class="csa-mut">❌ '+esc(r.err)+'</p>';return;}
+        var ok=r.pending===0;audit('synchronisation',(ok?'terminée':'incomplète')+' — '+r.scanned+' fiche(s) examinée(s), '+r.pending+' en attente');
+        if(out)out.innerHTML='<p class="csa-mut">'+(ok?'✅ Synchronisation terminée.':'⚠️ '+r.pending+' fiche(s) restent en attente'+(r.lastErr?' ('+esc(r.lastErr.code)+')':'')+' — elles sont conservées et seront renvoyées automatiquement. Utilisez « Diagnostic cloud ».')+' Fiches examinées : '+N(r.scanned)+'.</p>';
+        var s2=$('csa-cloudst');if(s2)s2.innerHTML=cloudState();
+        notif(ok?'✅ Synchronisation terminée':'⚠️ Synchronisation incomplète',ok?'success':'error');
+      });break;}
+    case 'cpanel':if(window.PGSYNC)PGSYNC.open();break;
     case 'diag':diagCloud();break;case 'cref':{var s2=$('csa-cloudst');if(s2)s2.innerHTML=cloudState();break;}
     case 'bak':doBackup();audit('sauvegarde','Sauvegarde complète téléchargée');break;case 'rest':doRestore();break;
     case 'inc':{var v=$('csa-p-version'),p=String(v.value||'1.0').split('.');p[p.length-1]=String((parseInt(p[p.length-1],10)||0)+1);v.value=p.join('.');break;}
@@ -21249,8 +21282,6 @@ function applySettings(){
 /* ───────── hooks d'audit (enrobage non destructif) ───────── */
 function hook(name,fn){try{var o=window[name];if(typeof o!=='function'||o.__csa)return;var w=function(){return fn.call(this,o,arguments);};w.__csa=1;window[name]=w;}catch(e){}}
 function hooks(){
-  hook('doLogout',function(o,args){var who=(CU()||{}).login;var r=o.apply(this,args);setTimeout(function(){if(!CU()&&who)audit('logout','Déconnexion',who);},300);return r;});
-  hook('doLogin',function(o,args){var r=o.apply(this,args);setTimeout(function(){var u=CU();if(u)audit('login','Connexion réussie',u.login);},1800);return r;});
   hook('toggleActifCompte',function(o,args){var r=o.apply(this,args);audit('compte',args[0]+' : activation/désactivation');return r;});
   hook('deleteCompte',function(o,args){var n=(DBx().users||[]).length;var r=o.apply(this,args);if((DBx().users||[]).length<n)audit('suppression','Compte '+args[0]+' supprimé');return r;});
   hook('saveSaCompte',function(o,args){var n=(DBx().users||[]).length;var r=o.apply(this,args);setTimeout(function(){if((DBx().users||[]).length>n)audit('création','Nouveau compte créé via la console');},300);return r;});
@@ -21334,11 +21365,578 @@ function boot(){injectCSS();applySettings();buildPage();injectNav();hooks();
   try{if(window.PAGE_LABELS)window.PAGE_LABELS['console-sa']='Console Super Administrateur';else if(typeof PAGE_LABELS!=='undefined')PAGE_LABELS['console-sa']='Console Super Administrateur';}catch(e){}
   scheduleFit();}
 if(document.readyState!=='loading')boot();else document.addEventListener('DOMContentLoaded',boot);
-setInterval(function(){try{injectNav();buildPage();hooks();}catch(e){}},3000);
+var lastLogin=null;
+setInterval(function(){try{injectNav();buildPage();hooks();
+  var u=CU(),l=u?u.login:null;
+  if(l!==lastLogin){if(l)audit('login','Connexion',l);else if(lastLogin)audit('logout','Déconnexion',lastLogin);lastLogin=l;}
+}catch(e){}},3000);
 window.CSA={open:open,render:render,fit:fitAll,audit:audit};
 })();
 
 </script>
 
+<script id="pgnep-sync-guard">
+/* ══════════════════════════════════════════════════════════════════════
+   [pgnep-sync-guard] — FIABILISATION DE LA SYNCHRONISATION FIREBASE
+   100 % additif. Corrige : écritures cloud qui échouent en silence (permission,
+   quota, champs « undefined », réseau) et données importées qui disparaissent
+   après actualisation (le cloud écrasait le local).
+   • Journalise le VRAI résultat de chaque écriture (code d'erreur affiché).
+   • File d'attente durable (IndexedDB) : rien n'est perdu, nouvelle tentative auto.
+   • Après chargement/écoute du cloud, les éléments en attente sont réintégrés.
+   • N'écrit que ce qui a changé (économise le quota Firestore).
+   • Nettoie les champs « undefined » refusés par Firestore.
+   • Session Firebase Auth : reconnexion assistée + repli anonyme.
+   ══════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+if(window.PGSYNC)return;
+var OFF=false;try{OFF=(localStorage.getItem('pgnep_syncguard_off')==='1')||/[?&]nosync(=1)?(&|$)/.test(location.search);}catch(e){}
+if(OFF){window.PGSYNC={off:true,state:function(){return{pending:0,failed:0,old:0,ok:0,fail:0};},diagnose:function(){return Promise.resolve({rows:[],advice:'',code:''});},diagHtml:function(){return '<p>Module de synchronisation désactivé.</p>';},syncNow:function(){return Promise.resolve({err:'Module désactivé'});},open:function(){if(confirm('Le module de fiabilisation est désactivé. Le réactiver ?')){try{localStorage.removeItem('pgnep_syncguard_off');}catch(e){}location.href=location.pathname;}}};return;}
+var FS_URL='https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js',AU_URL='https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+var MANAGED=['users','ecoles','eleves','notes','corbeille'];
+var LIM=15,TMO=(window.__pgsyncTmo||20000);
+var Q=new Map(),dirty=new Set(),last=new Map(),S={ok:0,fail:0,lastErr:null,lastOk:0,authTried:false,authInfo:'',wrapped:false,loaded:false};
+var FS=null,AU=null,sdkP=null,run=0,waitQ=[],persistT=null,uiT=null;
+
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function notif(m,t){try{if(typeof showNotif==='function')showNotif(m,t||'info');}catch(e){}}
+function DBo(){return (typeof DB!=='undefined')?DB:null;}
+function me(){try{return (typeof currentUser!=='undefined'&&currentUser)?currentUser:null;}catch(e){return null;}}
+function stable(o){
+  if(o===null)return 'null';
+  var t=typeof o;
+  if(t==='undefined'||t==='function'||t==='symbol')return undefined;
+  if(t==='number')return isFinite(o)?String(o):'null';
+  if(t!=='object')return JSON.stringify(o);
+  if(typeof o.toJSON==='function'&&!Array.isArray(o)){try{return stable(o.toJSON());}catch(e){return 'null';}}
+  if(Array.isArray(o))return '['+o.map(function(x){var s=stable(x);return s===undefined?'null':s;}).join(',')+']';
+  var ks=Object.keys(o).sort(),out=[];
+  ks.forEach(function(k){var s=stable(o[k]);if(s!==undefined)out.push(JSON.stringify(k)+':'+s);});
+  return '{'+out.join(',')+'}';
+}
+
+/* ───────── SDK (même instance que le module Firebase de la page) ───────── */
+function loadSDK(){
+  if(sdkP)return sdkP;
+  if(window.__pgsyncTestSDK){FS=window.__pgsyncTestSDK.FS;AU=window.__pgsyncTestSDK.AU;sdkP=Promise.resolve();return sdkP;}
+  sdkP=Promise.all([import(FS_URL),import(AU_URL)]).then(function(r){FS=r[0];AU=r[1];}).catch(function(e){sdkP=null;throw e;});
+  return sdkP;
+}
+
+/* ───────── file d'attente durable (IndexedDB) ───────── */
+function idb(){return new Promise(function(res,rej){if(!window.indexedDB){rej(new Error('IndexedDB indisponible'));return;}var r=indexedDB.open('pgnep-sync',1);r.onupgradeneeded=function(){r.result.createObjectStore('q',{keyPath:'k'});};r.onsuccess=function(){res(r.result);};r.onerror=function(){rej(r.error);};});}
+function qset(k,rec){Q.set(k,rec);dirty.add(k);persistSoon();}
+function qdel(k){Q.delete(k);dirty.add(k);persistSoon();}
+function persistSoon(){clearTimeout(persistT);persistT=setTimeout(persistNow,500);}
+function persistNow(){
+  if(!dirty.size)return;var keys=Array.from(dirty);dirty.clear();
+  idb().then(function(d){var tx=d.transaction('q','readwrite'),st=tx.objectStore('q');keys.forEach(function(k){var r=Q.get(k);if(r)st.put({k:r.k,c:r.c,i:r.i,op:r.op,d:r.d,t:r.t,n:r.n||0,e:r.e||''});else st.delete(k);});}).catch(function(e){console.warn('[sync-guard] file locale',e);keys.forEach(function(k){dirty.add(k);});});
+}
+function loadQueue(){
+  return idb().then(function(d){return new Promise(function(res){var rq=d.transaction('q','readonly').objectStore('q').getAll();rq.onsuccess=function(){res(rq.result||[]);};rq.onerror=function(){res([]);};});}).then(function(a){
+    ingestOld(a);
+  }).catch(function(){S.loaded=true;});
+}
+
+function ingestOld(a){
+  a.forEach(function(r){if(!Q.has(r.k)){r.old=true;if(r.d)r.s=stable(r.d);Q.set(r.k,r);}});
+  S.loaded=true;if(a.length){mergePending();ui();}
+}
+/* ───────── réintégration des éléments en attente dans DB ───────── */
+function recId(x){return x&&(x.id!=null?x.id:x.login);}
+function mergeInto(col,arr){
+  var recs=[];Q.forEach(function(r){if(r.c!==col)return;if(r.old&&(col==='users'||col==='corbeille'||r.op==='del'))return;recs.push(r);});
+  if(!recs.length||!Array.isArray(arr))return arr;
+  var pos={};for(var i=0;i<arr.length;i++){var id=recId(arr[i]);if(id!=null)pos[id]=i;}
+  var rm={};
+  recs.forEach(function(r){
+    if(r.op==='del'){if(pos[r.i]!=null)rm[pos[r.i]]=1;}
+    else if(r.d){var c=JSON.parse(JSON.stringify(r.d));if(pos[r.i]!=null)arr[pos[r.i]]=c;else{arr.push(c);pos[r.i]=arr.length-1;}}
+  });
+  if(Object.keys(rm).length){for(var j=arr.length-1;j>=0;j--)if(rm[j])arr.splice(j,1);}
+  return arr;
+}
+function mergePending(){var d=DBo();if(!d||!Q.size)return;MANAGED.forEach(function(c){if(Array.isArray(d[c]))mergeInto(c,d[c]);});}
+
+/* ───────── écriture réelle (avec vrai résultat) ───────── */
+function acq(){if(run<LIM){run++;return Promise.resolve();}return new Promise(function(r){waitQ.push(r);});}
+function rel(){run--;var n=waitQ.shift();if(n){run++;n();}}
+function withTmo(p,ms){return new Promise(function(res,rej){var t=setTimeout(function(){var e=new Error('timeout');e.code='timeout';rej(e);},ms);p.then(function(v){clearTimeout(t);res(v);},function(e){clearTimeout(t);rej(e);});});}
+function attempt(k){
+  var rec=Q.get(k);if(!rec)return Promise.resolve(true);var ver=rec.t;
+  return acq().then(function(){return loadSDK();}).then(function(){
+    var ref=FS.doc(window._fbDB,rec.c,String(rec.i));
+    return withTmo(rec.op==='del'?FS.deleteDoc(ref):FS.setDoc(ref,rec.d,{merge:true}),TMO);
+  }).then(function(){
+    var cur=Q.get(k);if(cur&&cur.t===ver)qdel(k);
+    if(rec.op==='set'&&rec.s)last.set(k,rec.s);else last.delete(k);
+    S.ok++;S.lastOk=Date.now();return true;
+  },function(e){
+    var code=(e&&e.code)||(e&&e.message)||String(e);rec.n=(rec.n||0)+1;rec.e=code;dirty.add(k);persistSoon();
+    if(code!=='timeout'){S.fail++;S.lastErr={code:code,msg:(e&&e.message)||'',k:k,t:Date.now()};}
+    onFail(code);return false;
+  }).then(function(v){rel();ui();return v;},function(e){rel();ui();return false;});
+}
+function flushAll(force){var ks=[];Q.forEach(function(r,k){if(force||!r.old)ks.push(k);});return Promise.all(ks.map(attempt)).then(function(r){return{total:ks.length,ok:r.filter(Boolean).length};});}
+function retryLater(){ if(Q.size&&navigator.onLine!==false)flushAll(false); }
+function onFail(code){/* aucune action automatique sur l'authentification : l'utilisateur décide */}
+
+/* ───────── session Firebase Auth ───────── */
+function isReal(u){return !!(u&&!u.isAnonymous);}
+function cleanAnon(){
+  /* supprime une éventuelle session anonyme laissée par une version précédente du module */
+  return loadSDK().then(function(){
+    var auth=window._fbAuth;if(!auth)return false;
+    var p=(typeof auth.authStateReady==='function')?auth.authStateReady():Promise.resolve();
+    return p.then(function(){
+      if(auth.currentUser&&auth.currentUser.isAnonymous){return AU.signOut(auth).then(function(){S.authInfo='';console.log('[sync-guard] session anonyme supprimée');return true;});}
+      return false;
+    });
+  }).catch(function(){return false;});
+}
+function ensureAuth(login,pass){
+  return loadSDK().then(function(){
+    var auth=window._fbAuth;if(!auth)throw new Error('Auth indisponible');
+    if(isReal(auth.currentUser)&&!pass){S.authInfo='session '+(auth.currentUser.email||auth.currentUser.uid);return{ok:true,info:S.authInfo};}
+    var idn=String(login||(me()||{}).login||'').toLowerCase().trim();
+    var u=(DBo()&&DBo().users||[]).find(function(x){return x.login===idn;});
+    var email=(u&&u.email)||(idn?idn+'@pgnep-menaet.ci':'');
+    if(!pass||!email)return{ok:false,info:'Aucune session cloud',err:'mot de passe requis'};
+    var pre=(auth.currentUser&&auth.currentUser.isAnonymous)?AU.signOut(auth).catch(function(){}):Promise.resolve();
+    return pre.then(function(){return AU.signInWithEmailAndPassword(auth,email,pass);}).catch(function(e1){
+      return window._fb.createUser(email,pass).then(function(){return AU.signInWithEmailAndPassword(auth,email,pass);}).catch(function(e2){throw e1;});
+    }).then(function(){S.authInfo='session '+email;return{ok:true,info:S.authInfo};},function(e){return{ok:false,info:'Connexion cloud refusée',err:(e&&e.code)||(e&&e.message)||String(e)};});
+  }).catch(function(e){return{ok:false,info:'Aucune session',err:(e&&e.code)||(e&&e.message)||String(e)};});
+}
+
+/* ───────── enrobage de window._fb ───────── */
+function wrap(){
+  var fb=window._fb;if(!fb||S.wrapped||!window._fbDB)return false;
+  var oSet=fb.set,oDel=fb.del,oListen=fb.listen;
+  fb.set=function(col,id,data){
+    if(MANAGED.indexOf(col)<0||id==null||id==='')return oSet.apply(this,arguments);
+    var s;try{s=stable(data);}catch(e){return oSet.apply(this,arguments);}
+    if(s===undefined)return oSet.apply(this,arguments);
+    var k=col+'/'+id;
+    if(!Q.has(k)&&last.get(k)===s)return Promise.resolve(true);
+    qset(k,{k:k,c:col,i:String(id),op:'set',d:JSON.parse(s),s:s,t:Date.now()+Math.random(),n:0});
+    ui();return attempt(k);
+  };
+  fb.del=function(col,id){
+    if(MANAGED.indexOf(col)<0||id==null||id==='')return oDel.apply(this,arguments);
+    var k=col+'/'+id;qset(k,{k:k,c:col,i:String(id),op:'del',t:Date.now()+Math.random(),n:0});
+    last.delete(k);ui();return attempt(k);
+  };
+  if(typeof oListen==='function')fb.listen=function(col,cb){
+    if(MANAGED.indexOf(col)<0)return oListen.apply(this,arguments);
+    return oListen.call(this,col,function(data){
+      try{mergeInto(col,data);}catch(e){console.warn('[sync-guard] merge',e);}
+      try{seed(col,data);}catch(e){}
+      return cb(data);
+    });
+  };
+  var oLogin=window._doLoginFirebase;
+  if(typeof oLogin==='function')window._doLoginFirebase=function(){var self=this,args=arguments,cu=window._fbAuth&&window._fbAuth.currentUser;if(!(cu&&cu.isAnonymous))return oLogin.apply(self,args);return Promise.race([cleanAnon(),new Promise(function(r){setTimeout(r,2000);})]).then(function(){return oLogin.apply(self,args);});};
+  var oLoad=window._loadFirebaseDB;
+  if(typeof oLoad==='function')window._loadFirebaseDB=function(){
+    var p=oLoad.apply(this,arguments);
+    return Promise.resolve(p).then(function(v){try{mergePending();}catch(e){}if(Q.size)flushAll(false);ui();return v;});
+  };
+  S.wrapped=true;return true;
+}
+function seed(col,data){
+  if(!Array.isArray(data)||data.length>30000)return;
+  var i=0;(function chunk(){var end=Math.min(i+500,data.length);for(;i<end;i++){var x=data[i],id=recId(x),k=col+'/'+id;if(id==null||Q.has(k))continue;var s=stable(x);if(s!==undefined)last.set(k,s);}if(i<data.length)setTimeout(chunk,0);})();
+}
+
+/* ───────── synchroniser maintenant ───────── */
+function syncNow(opts){
+  opts=opts||{};var d=DBo();if(!d)return Promise.resolve({err:'Données indisponibles'});
+  var cols=opts.cols||['users','ecoles','eleves','notes'],n=0;
+  return ensureAuth(null,null).then(function(a){
+    if(!window._fb||!window._firebaseReady)return{err:'Firebase non initialisé'};
+    cols.forEach(function(c){(d[c]||[]).forEach(function(x){var id=c==='users'?(x.login||x.id):x.id;if(id==null)return;n++;window._fb.set(c,id,x);});});
+    return flushAll(true).then(function(r){return{scanned:n,pending:Q.size,sentOk:S.ok,auth:a.info,authErr:a.err||'',lastErr:S.lastErr};});
+  });
+}
+
+/* ───────── diagnostic ───────── */
+function advice(code){
+  var m={
+   'permission-denied':"Firestore refuse l'écriture. Causes possibles : pas de session Firebase Auth valide (mot de passe cloud différent) ou règles Firestore trop strictes. Utilisez « Reconnecter le cloud », puis vérifiez les règles dans la console Firebase.",
+   'unauthenticated':"Aucune session Firebase Auth. Utilisez « Reconnecter le cloud ».",
+   'resource-exhausted':"Quota Firestore atteint (plan gratuit : environ 20 000 écritures par jour). Les données restent en file d'attente et partiront automatiquement quand le quota sera rétabli (ou en passant au plan Blaze).",
+   'invalid-argument':"Une fiche contient une valeur refusée par Firestore (champ vide non supporté, taille > 1 Mo…). Les champs « undefined » sont déjà nettoyés ; vérifiez la fiche indiquée.",
+   'unavailable':"Serveur injoignable (réseau). Nouvelle tentative automatique.",'timeout':"Réponse trop lente (réseau faible). Nouvelle tentative automatique.",
+   'auth/operation-not-allowed':"La connexion anonyme/e-mail n'est pas activée dans Firebase Authentication."};
+  return m[code]||'';
+}
+function lsUsage(){var t=0;try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);t+=k.length+(localStorage.getItem(k)||'').length;}}catch(e){}return t*2;}
+function diagnose(){
+  var rows=[],add=function(l,ok,det){rows.push({l:l,ok:ok,d:det||''});};
+  add('Réseau',navigator.onLine!==false,navigator.onLine!==false?'En ligne':'Hors ligne');
+  var auth=window._fbAuth;
+  return loadSDK().then(function(){add('Bibliothèque Firebase',true,'Chargée');},function(e){add('Bibliothèque Firebase',false,(e&&e.message)||String(e));}).then(function(){
+    var cu=auth&&auth.currentUser;
+    add('Session Firebase Auth',!!cu,cu?(cu.isAnonymous?'Anonyme (repli)':(cu.email||cu.uid)):'Aucune session — les écritures protégées seront refusées');
+    if(!FS||!window._fbDB)return;
+    var lg=(me()||{}).login||'anon';
+    return withTmo(FS.getDoc(FS.doc(window._fbDB,'_diag','ping')),10000).then(function(){add('Lecture Firestore',true,'Autorisée');},function(e){add('Lecture Firestore',false,((e&&e.code)||(e&&e.message)||e)+'');}).then(function(){
+      return withTmo(FS.setDoc(FS.doc(window._fbDB,'_diag',lg),{t:Date.now(),by:lg},{merge:true}),10000).then(function(){add('Écriture Firestore (test)',true,'Autorisée');},function(e){add('Écriture Firestore (test)',false,((e&&e.code)||(e&&e.message)||e)+'');});
+    });
+  }).then(function(){
+    var by={};Q.forEach(function(r){by[r.c]=(by[r.c]||0)+1;});
+    add('File d\'attente',Q.size===0,Q.size?(Q.size+' élément(s) non confirmé(s) : '+Object.keys(by).map(function(c){return c+' '+by[c];}).join(', ')):'Vide — tout est synchronisé');
+    add('Dernières écritures',S.fail===0||S.ok>0,S.ok+' réussie(s) · '+S.fail+' échec(s)'+(S.lastErr?(' · dernier échec : '+S.lastErr.code+' ('+S.lastErr.k+')'):''));
+    var u=lsUsage();add('Stockage local',u<4.5e6,(u/1e6).toFixed(1)+' Mo utilisés sur ~5 Mo'+(u>=4.5e6?' — saturé : la file durable (IndexedDB) protège vos données':''));
+    var code=(S.lastErr&&S.lastErr.code)||'';
+    return{rows:rows,advice:advice(code),code:code};
+  });
+}
+function diagHtml(r){
+  return '<table class="pgs-t"><tbody>'+r.rows.map(function(x){return '<tr><td>'+esc(x.l)+'</td><td><span class="pgs-b '+(x.ok?'on':'off')+'">'+(x.ok?'OK':'À vérifier')+'</span></td><td>'+esc(x.d)+'</td></tr>';}).join('')+'</tbody></table>'+(r.advice?'<div class="pgs-adv">💡 <b>'+esc(r.code)+'</b> — '+esc(r.advice)+'</div>':'');
+}
+
+/* ───────── « Où sont mes données ? » : inventaire + sauvegarde brute ───────── */
+function lsCount(col){try{var v=localStorage.getItem('pgnep_'+col);if(v==null)return null;var a=JSON.parse(v);return Array.isArray(a)?a.length:null;}catch(e){return -1;}}
+function lsKeys(){
+  var out=[],tot=0;
+  try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i),v=localStorage.getItem(k)||'',b=(k.length+v.length)*2;tot+=b;out.push({k:k,b:b});}}catch(e){}
+  out.sort(function(a,b){return b.b-a.b;});return{rows:out,total:tot};
+}
+function inventory(){
+  var d=DBo()||{},res=[];
+  var cnt={};Q.forEach(function(r){var o=cnt[r.c]||(cnt[r.c]={set:0,old:0});if(r.op==='set'){o.set++;if(r.old)o.old++;}});
+  return loadSDK().catch(function(){}).then(function(){
+    return Promise.all(MANAGED.map(function(c){
+      var row={c:c,mem:Array.isArray(d[c])?d[c].length:null,ls:lsCount(c),q:(cnt[c]||{}).set||0,qold:(cnt[c]||{}).old||0,cloud:'—'};
+      if(FS&&FS.getCountFromServer&&window._fbDB){
+        return withTmo(FS.getCountFromServer(FS.collection(window._fbDB,c)),8000).then(function(s){row.cloud=s.data().count;},function(e){row.cloud='refusé ('+((e&&e.code)||'?')+')';}).then(function(){return row;});
+      }
+      return row;
+    }));
+  });
+}
+function invHtml(rows,ks){
+  var t='<h4 style="margin:12px 0 4px">📦 Où sont mes données ?</h4><table class="pgs-t"><thead><tr><td><b>Collection</b></td><td><b>Affichées</b></td><td><b>Stockage local</b></td><td><b>File d\'attente</b></td><td><b>Cloud</b></td></tr></thead><tbody>'+
+   rows.map(function(r){return '<tr><td>'+r.c+'</td><td>'+(r.mem==null?'—':r.mem)+'</td><td>'+(r.ls==null?'<span class="pgs-b off">absent</span>':r.ls<0?'illisible':r.ls)+'</td><td>'+r.q+(r.qold?' <small>('+r.qold+' anciennes)</small>':'')+'</td><td>'+esc(r.cloud)+'</td></tr>';}).join('')+'</tbody></table>';
+  t+='<p class="pgs-note">Stockage local utilisé : <b>'+(ks.total/1e6).toFixed(2)+' Mo</b> — plus gros éléments : '+ks.rows.slice(0,6).map(function(x){return esc(x.k)+' ('+(x.b/1e6).toFixed(2)+' Mo)';}).join(' · ')+'</p>';
+  return t;
+}
+function rawDump(){
+  var ls={};try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^pgnep/i.test(k))ls[k]=localStorage.getItem(k);}}catch(e){}
+  var d=DBo()||{},mem={};MANAGED.forEach(function(c){if(Array.isArray(d[c])&&(ls['pgnep_'+c]==null))mem[c]=d[c];});
+  var blob=new Blob([JSON.stringify({meta:{type:'sauvegarde-brute-perroquet',date:new Date().toISOString(),par:(me()||{}).login||''},localStorage:ls,fileAttente:Array.from(Q.values()),memoire:mem})],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Sauvegarde_brute_Perroquet_'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href);},1500);
+  return{ls:Object.keys(ls).length,q:Q.size,mem:Object.keys(mem).length};
+}
+function restoreQueue(){
+  var d=DBo();if(!d)return 0;var n=0;Q.forEach(function(r){if(r.op==='set'&&r.c!=='users'&&r.c!=='corbeille')n++;});
+  MANAGED.forEach(function(c){if(c!=='users'&&c!=='corbeille'&&Array.isArray(d[c]))mergeInto(c,d[c]);});
+  try{if(typeof updateStats==='function')updateStats();if(typeof renderEleves==='function')renderEleves();if(typeof renderDashboard==='function')renderDashboard();}catch(e){}
+  return n;
+}
+
+/* ───────── interface : pastille + panneau ───────── */
+var CSS='#pgs-pill{position:fixed;left:14px;bottom:14px;z-index:9500;background:#b45309;color:#fff;border:0;border-radius:999px;padding:8px 14px;font:700 12px/1 inherit;font-family:inherit;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer;display:none}#pgs-pill.red{background:#b91c1c}#pgs-pill.ok{background:#047857}'+
+'#pgs-panel{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9600;display:none;align-items:center;justify-content:center;padding:14px}#pgs-panel.open{display:flex}'+
+'#pgs-box{background:#fff;color:#0f172a;border-radius:16px;max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:18px 20px;font-family:inherit}#pgs-box h3{margin:0 0 8px;font-size:17px}'+
+'.pgs-t{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}.pgs-t td{padding:6px 8px;border-bottom:1px solid #eef2f7;vertical-align:top;overflow-wrap:anywhere}.pgs-b{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700}.pgs-b.on{background:#d1fae5;color:#047857}.pgs-b.off{background:#fee2e2;color:#b91c1c}'+
+'.pgs-adv{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;font-size:12.5px;margin:8px 0;line-height:1.5}.pgs-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.pgs-note{font-size:12px;color:#64748b;line-height:1.5}';
+function injectUI(){
+  if($('pgs-pill'))return;var s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);
+  var p=document.createElement('button');p.id='pgs-pill';p.type='button';p.onclick=openPanel;document.body.appendChild(p);
+  var w=document.createElement('div');w.id='pgs-panel';w.innerHTML='<div id="pgs-box"></div>';w.onclick=function(e){if(e.target===w)w.classList.remove('open');};document.body.appendChild(w);
+}
+function ui(){clearTimeout(uiT);uiT=setTimeout(function(){
+  var p=$('pgs-pill');if(!p){injectUI();p=$('pgs-pill');if(!p)return;}
+  var failed=0;Q.forEach(function(r){if(r.n>0)failed++;});
+  if(!me()){p.style.display='none';return;}
+  var old=0;Q.forEach(function(r){if(r.old)old++;});
+  if(old>0){p.className='';p.textContent='☁️ '+old+' fiche(s) d\'une session précédente en attente — toucher pour envoyer ou ignorer';p.style.display='block';return;}
+  if(failed>0||Q.size>200){p.className=(S.lastErr&&Date.now()-S.lastErr.t<120000)?'red':'';p.textContent='☁️ '+Q.size+' donnée(s) non synchronisée(s)'+(S.lastErr?' · '+S.lastErr.code:'')+' — toucher pour corriger';p.style.display='block';}
+  else p.style.display='none';
+},250);}
+function openPanel(){
+  injectUI();var box=$('pgs-box');$('pgs-panel').classList.add('open');
+  box.innerHTML='<h3>☁️ Synchronisation des données</h3><p class="pgs-note">Contrôle en cours…</p>';
+  diagnose().then(function(r){
+    box.innerHTML='<h3>☁️ Synchronisation des données</h3>'+diagHtml(r)+'<p class="pgs-note">Vos données importées sont <b>conservées sur cet appareil</b> et réintégrées automatiquement après actualisation tant qu\'elles ne sont pas confirmées par le cloud.</p>'+
+      '<div class="pgs-row"><button class="btn btn-primary" id="pgs-retry">🔄 Réessayer maintenant</button><button class="btn btn-secondary" id="pgs-auth">🔑 Reconnecter le cloud</button><button class="btn btn-secondary" id="pgs-copy">📋 Copier le rapport</button>'+(function(){var o=0;Q.forEach(function(r){if(r.old)o++;});return o?'<button class="btn btn-primary" id="pgs-sendold">📤 Envoyer les '+o+' fiche(s) en attente</button><button class="btn btn-secondary" id="pgs-dropold">🗑 Ignorer ces '+o+' fiche(s)</button>':'';})()+'<button class="btn btn-secondary" id="pgs-off">⏻ Désactiver ce module</button><button class="btn btn-secondary" id="pgs-close">Fermer</button></div><div id="pgs-res" class="pgs-note" style="margin-top:8px"></div><div id="pgs-inv"><p class="pgs-note">Inventaire en cours…</p></div><div class="pgs-row"><button class="btn btn-primary" id="pgs-dump">💾 Sauvegarder TOUTES les données locales (.json)</button><button class="btn btn-secondary" id="pgs-restq">↩ Réafficher les fiches de la file d\'attente</button></div><p class="pgs-note">⚠️ Avant toute manipulation, faites d\'abord la sauvegarde ci-dessus. Ne videz pas les données du navigateur : cela effacerait aussi la file d\'attente.</p>';
+    inventory().then(function(rows){$('pgs-inv').innerHTML=invHtml(rows,lsKeys());});
+    $('pgs-dump').onclick=function(){var x=rawDump();$('pgs-res').textContent='✅ Sauvegarde téléchargée : '+x.ls+' élément(s) du stockage local, '+x.q+' fiche(s) en file d\'attente.';};
+    $('pgs-restq').onclick=function(){var n=restoreQueue();$('pgs-res').textContent=n?('✅ '+n+' fiche(s) réaffichée(s) dans l\'application. Utilisez ensuite « Envoyer » pour les remonter au cloud.'):'Aucune fiche en file d\'attente.';};
+    $('pgs-close').onclick=function(){$('pgs-panel').classList.remove('open');};
+    $('pgs-retry').onclick=function(){var o=$('pgs-res');o.textContent='⏳ Envoi en cours…';syncNow({cols:['users','ecoles']}).then(function(x){o.textContent=x.err?('❌ '+x.err):('✅ Terminé — en attente restant : '+x.pending+(x.lastErr?(' · dernier échec : '+x.lastErr.code):''));ui();});};
+    if($('pgs-sendold'))$('pgs-sendold').onclick=function(){var o=$('pgs-res');if(!confirm('Envoyer ces fiches vers le cloud ? Elles remplaceront les versions du cloud pour les mêmes identifiants.'))return;o.textContent='⏳ Envoi…';Q.forEach(function(r){r.old=false;});flushAll(true).then(function(x){o.textContent='✅ Envoi terminé : '+x.ok+'/'+x.total+(Q.size?(' — '+Q.size+' restent en attente'):'');ui();});};
+    if($('pgs-dropold'))$('pgs-dropold').onclick=function(){if(!confirm('Supprimer définitivement ces fiches en attente de cet appareil ?'))return;Array.from(Q.keys()).forEach(function(k){if(Q.get(k).old)qdel(k);});$('pgs-res').textContent='Fiches ignorées.';ui();};
+    $('pgs-off').onclick=function(){if(confirm('Désactiver le module de fiabilisation de la synchronisation ? (Actualisez ensuite la page. Vous pourrez le réactiver depuis ce même bouton ou avec ?nosync=0)')){try{localStorage.setItem('pgnep_syncguard_off','1');}catch(e){}notif('Module désactivé — actualisez la page','info');}};
+    $('pgs-auth').onclick=function(){var l=(me()||{}).login||'';var pw=window.prompt('Mot de passe du compte « '+l+' » pour rétablir la session cloud :','');if(!pw)return;var o=$('pgs-res');o.textContent='⏳ Connexion…';ensureAuth(l,pw).then(function(a){o.textContent=a.ok?('✅ '+a.info):('❌ '+a.info+' ('+a.err+')'+(advice(a.err)?(' — '+advice(a.err)):''));if(a.ok)flushAll().then(function(){ui();});});};
+    $('pgs-copy').onclick=function(){var t=r.rows.map(function(x){return (x.ok?'[OK] ':'[!!] ')+x.l+' : '+x.d;}).join('\n')+(r.advice?'\n'+r.code+' : '+r.advice:'');try{navigator.clipboard.writeText(t);$('pgs-res').textContent='📋 Rapport copié.';}catch(e){$('pgs-res').textContent=t;}};
+  });
+}
+
+/* ───────── démarrage ───────── */
+function boot(){
+  injectUI();loadQueue();setTimeout(cleanAnon,1500);setTimeout(cleanAnon,6000);
+  var tries=0,iv=setInterval(function(){tries++;if(wrap()||tries>240){clearInterval(iv);}},500);
+  window.addEventListener('online',function(){retryLater();});
+  setInterval(function(){retryLater();ui();},30000);
+  setInterval(function(){if(me()&&Q.size)mergePending();},15000);
+  window.addEventListener('beforeunload',persistNow);
+}
+window.PGSYNC={syncNow:syncNow,diagnose:diagnose,diagHtml:diagHtml,flush:flushAll,ensureAuth:ensureAuth,cleanAnon:cleanAnon,_ingestOld:ingestOld,open:openPanel,wrap:wrap,mergePending:mergePending,mergeInto:mergeInto,
+  state:function(){return{pending:Q.size,old:Array.from(Q.values()).filter(function(r){return r.old;}).length,failed:Array.from(Q.values()).filter(function(r){return r.n>0;}).length,ok:S.ok,fail:S.fail,lastErr:S.lastErr,auth:S.authInfo};},_Q:Q,_stable:stable,_attempt:attempt,inventory:inventory,rawDump:rawDump,restoreQueue:restoreQueue};
+if(document.readyState!=='loading')boot();else document.addEventListener('DOMContentLoaded',boot);
+})();
+
+</script>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     MODULE DRENAET — CRÉATION DE COMPTES DIRECTEUR / CORRESPONDANT
+     Perroquet 3.1
+     Le Coordonnateur DRENAET peut créer :
+       • Directeur d'école de sa DRENAET
+       • Correspondant Fichier / IEPP de sa DRENAET
+     Il ne peut pas créer de compte national, administrateur, cabinet,
+     CPPP, instituteur ou bénévole depuis cet espace.
+     ════════════════════════════════════════════════════════════════ -->
+<script id="pgnep-drena-account-creation">
+(function(){
+  'use strict';
+
+  function me(){
+    try { return (typeof getCurrentUserData==='function' ? getCurrentUserData() : null) || window.currentUser || null; }
+    catch(e){ return window.currentUser || null; }
+  }
+  function isDrena(){ var u=me(); return !!(u && u.role==='coordinateur'); }
+  function myDrena(){ var u=me(); return String((u && (u.structure_val || u.drena || u.drenaet)) || '').trim(); }
+  function ecolesDrena(){
+    var d=myDrena();
+    return (Array.isArray(DB.ecoles)?DB.ecoles:[]).filter(function(e){
+      return String(e.drena || e.drenaet || e.drenaet_id || '').trim()===d;
+    });
+  }
+  function ieppsDrena(){
+    return Array.from(new Set(ecolesDrena().map(function(e){ return e.iepp; }).filter(Boolean)));
+  }
+  function schoolById(id){ return (DB.ecoles||[]).find(function(e){ return String(e.id)===String(id); }) || null; }
+  function showErr(msg){
+    var el=document.getElementById('compte-error');
+    if(el){ el.textContent=msg; el.style.display='block'; }
+  }
+
+  /* Le coordinateur DRENAET dispose maintenant de la page de gestion
+     des comptes, au même titre que le directeur et le correspondant,
+     mais avec un périmètre strictement limité à sa DRENAET. */
+  var oldCanManage = window.canManageComptes;
+  window.canManageComptes=function(){
+    var u=me();
+    if(!u) return false;
+    return ['admin','directeur','correspondant','coordinateur'].indexOf(u.role)!==-1;
+  };
+
+  /* Le coordinateur n'est plus en lecture seule sur la gestion des comptes. */
+  window.isReadonlyComptes=function(){
+    var u=me();
+    return !!(u && u.role==='coordinateur' && u.login!=='diomande' && false);
+  };
+
+  /* Prépare le formulaire pour le coordinateur DRENAET. */
+  var oldUpdateStructureFields=window.updateStructureFields;
+  window.updateStructureFields=function(){
+    if(typeof oldUpdateStructureFields==='function') oldUpdateStructureFields.apply(this,arguments);
+    if(!isDrena()) return;
+
+    var roleSel=document.getElementById('new-role');
+    var drena=document.getElementById('new-drena');
+    var iepp=document.getElementById('new-iepp');
+    var ecole=document.getElementById('new-ecole-user');
+    var classe=document.getElementById('field-classe');
+    var fieldDrena=document.getElementById('field-drena');
+    var fieldIepp=document.getElementById('field-iepp');
+    var fieldEcole=document.getElementById('field-ecole');
+
+    if(drena){
+      drena.disabled=true;
+      drena.value=myDrena();
+      drena.style.background='#F1F5F9';
+    }
+    if(fieldDrena) fieldDrena.style.display='block';
+    if(classe) classe.style.display='none';
+
+    /* Seuls Directeur et Correspondant Fichier sont proposés au DRENA. */
+    if(roleSel){
+      Array.from(roleSel.options).forEach(function(o){
+        o.hidden=['directeur','correspondant'].indexOf(o.value)===-1;
+      });
+      if(['directeur','correspondant'].indexOf(roleSel.value)===-1) roleSel.value='directeur';
+    }
+
+    var role=roleSel ? roleSel.value : 'directeur';
+    var schools=ecolesDrena();
+    var iepps=ieppsDrena();
+
+    if(role==='correspondant'){
+      if(fieldIepp) fieldIepp.style.display='block';
+      if(fieldEcole) fieldEcole.style.display='none';
+      if(iepp){
+        iepp.disabled=false;
+        iepp.style.background='';
+        iepp.innerHTML=iepps.length
+          ? iepps.map(function(x){ return '<option value="'+String(x).replace(/"/g,'&quot;')+'">'+x+'</option>'; }).join('')
+          : '<option value="">Aucun IEPP dans cette DRENAET</option>';
+        if(iepps.length && !iepps.includes(iepp.value)) iepp.value=iepps[0];
+      }
+    }else{
+      if(fieldIepp) fieldIepp.style.display='none';
+      if(fieldEcole) fieldEcole.style.display='block';
+      if(ecole){
+        ecole.disabled=false;
+        ecole.style.background='';
+        ecole.innerHTML='<option value="">— Sélectionner une école de ma DRENAET —</option>'+
+          schools.map(function(e){ return '<option value="'+String(e.id).replace(/"/g,'&quot;')+'">'+(e.nom||e.id)+'</option>'; }).join('');
+      }
+    }
+  };
+
+  /* Lorsque le rôle change, on réapplique immédiatement les restrictions DRENA. */
+  var roleSelect=document.getElementById('new-role');
+  if(roleSelect){ roleSelect.addEventListener('change',function(){ setTimeout(window.updateStructureFields,0); }); }
+
+  /* Remplace uniquement la création pour le coordinateur DRENAET.
+     Les autres rôles conservent le comportement existant. */
+  var oldSaveCompte=window.saveCompte;
+  window.saveCompte=async function(){
+    if(!isDrena()){
+      return oldSaveCompte.apply(this,arguments);
+    }
+
+    var errEl=document.getElementById('compte-error');
+    if(errEl) errEl.style.display='none';
+
+    var orig=(window.editingLoginOrig || (typeof editingLoginOrig!=='undefined' ? editingLoginOrig : null));
+    var login=(document.getElementById('new-login')||{}).value||'';
+    login=login.trim().toLowerCase();
+    var nom=(document.getElementById('new-nom-user')||{}).value||'';
+    nom=nom.trim();
+    var pass=(document.getElementById('new-pass')||{}).value||'';
+    var pass2=(document.getElementById('new-pass2')||{}).value||'';
+    var role=(document.getElementById('new-role')||{}).value||'directeur';
+    var valIepp=(document.getElementById('new-iepp')||{}).value||'';
+    valIepp=valIepp.trim();
+    var valEcole=(document.getElementById('new-ecole-user')||{}).value||'';
+    valEcole=valEcole.trim();
+    var valTel=(document.getElementById('new-telephone')||{}).value||'';
+    valTel=valTel.trim();
+    var drena=myDrena();
+
+    if(!login || !nom) return showErr('Identifiant et nom complet sont obligatoires.');
+    if(!orig && !pass) return showErr('Mot de passe obligatoire pour un nouveau compte.');
+    if(pass && pass.length<6) return showErr('Mot de passe : 6 caractères minimum.');
+    if(pass && pass!==pass2) return showErr('Les deux mots de passe sont différents.');
+    if(['directeur','correspondant'].indexOf(role)===-1) return showErr('Le DRENAET peut créer uniquement un Directeur ou un Correspondant Fichier.');
+    if(!drena) return showErr('Votre compte DRENAET n\'est pas correctement rattaché à une DRENAET.');
+
+    var schools=ecolesDrena();
+    var iepps=ieppsDrena();
+    var ec=null;
+    if(role==='directeur'){
+      ec=schoolById(valEcole);
+      if(!ec || String(ec.drena||'').trim()!==drena){
+        return showErr('Cette école n\'appartient pas à votre DRENAET.');
+      }
+    }else{
+      if(iepps.indexOf(valIepp)===-1){
+        return showErr('Cet IEPP n\'appartient pas à votre DRENAET.');
+      }
+    }
+
+    if(!orig && DB.users.some(function(u){ return String(u.login||'').toLowerCase()===login; })){
+      return showErr('Identifiant déjà utilisé.');
+    }
+
+    /* Modification : le DRENAET ne modifie que Directeur/Correspondant de son périmètre. */
+    if(orig){
+      var target=DB.users.find(function(u){ return u.login===orig; });
+      if(!target) return showErr('Compte introuvable.');
+      var targetRole=target.role;
+      if(['directeur','correspondant'].indexOf(targetRole)===-1) return showErr('Vous ne pouvez modifier que les comptes Directeur et Correspondant Fichier.');
+      var inScope=false;
+      if(targetRole==='directeur'){
+        var te=schoolById(target.structure_val);
+        inScope=!!(te && String(te.drena||'').trim()===drena);
+      }else{
+        inScope=iepps.indexOf(String(target.structure_val||'').trim())!==-1;
+      }
+      if(!inScope) return showErr('Ce compte est hors de votre DRENAET.');
+      return showErr('Pour le moment, utilisez cette fonction pour créer les comptes. La modification des comptes DRENAET sera activée après validation de la création.');
+    }
+
+    var structure_type=role==='directeur' ? 'ecole' : 'iepp';
+    var structure_val=role==='directeur' ? valEcole : valIepp;
+    var ecole_val=role==='directeur' ? valEcole : '';
+    var email=login+'@pgnep-menaet.ci';
+    var nu={
+      login:login, nom:nom,
+      pass:typeof hashPass==='function'?hashPass(pass):pass,
+      passPlain:pass,
+      role:role,
+      structure_type:structure_type,
+      structure_val:structure_val,
+      ecole_val:ecole_val,
+      telephone:valTel,
+      email:email,
+      actif:true,
+      drena:drena
+    };
+    if(role==='correspondant') nu.iepp=valIepp;
+    if(role==='directeur' && ec){
+      nu.ecole_id=ec.id; nu.ecole_nom=ec.nom; nu.iepp=ec.iepp||''; nu.drena=ec.drena||drena;
+    }
+
+    try{
+      var uid='';
+      if(window._firebaseReady && window._fb){
+        var cred=await window._fb.createUser(email,pass);
+        uid=cred && cred.user ? cred.user.uid : '';
+        if(window._fb.setUserProfile && uid) await window._fb.setUserProfile(uid,Object.assign({},nu,{uid:uid}));
+        await window._fb.set('users',login,Object.assign({},nu,{uid:uid}));
+      }
+      nu.uid=uid;
+      DB.users.push(nu);
+      if(typeof memoriserChamp==='function'){
+        memoriserChamp('drena',drena);
+        if(valIepp) memoriserChamp('iepp',valIepp);
+        if(valEcole) memoriserChamp('ecole',valEcole);
+      }
+      save('users');
+      if(typeof renderUsersList==='function') renderUsersList();
+      if(typeof resetCompteForm==='function') resetCompteForm();
+      showNotif(role==='directeur' ? '✅ Compte Directeur créé dans votre DRENAET.' : '✅ Compte Correspondant Fichier créé dans votre DRENAET.','success');
+    }catch(e){
+      console.error('Création compte DRENAET:',e);
+      showErr('Impossible de créer le compte : '+(e && e.message ? e.message : e));
+    }
+  };
+
+  /* Actualise l'interface dès que le formulaire est disponible. */
+  var tries=0;
+  var timer=setInterval(function(){
+    tries++;
+    if(isDrena()){
+      try{ window.updateStructureFields(); }catch(e){}
+      var title=document.getElementById('comptes-titre');
+      if(title) title.innerHTML='👥 Comptes de ma DRENAET <span style="display:inline-block;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;margin-left:8px;">✚ Création Directeur / Correspondant Fichier</span>';
+      var fs=document.getElementById('compte-form-section');
+      if(fs) fs.style.display='';
+    }
+    if(tries>200) clearInterval(timer);
+  },100);
+})();
+</script>
 </body>
 </html>
