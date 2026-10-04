@@ -127,30 +127,21 @@ window._fb = {
     try {
       const snap = await getDocs(collection(db, colName));
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    } catch(e) {
-      console.error('getAll', colName, e);
-      throw e;
-    }
+    } catch(e) { console.error('getAll', colName, e); return []; }
   },
 
   // ── Écrire / mettre à jour un doc ──
   async set(colName, id, data) {
     try {
       await setDoc(doc(db, colName, id), data, { merge: true });
-    } catch(e) {
-      console.error('set', colName, id, e);
-      throw e;
-    }
+    } catch(e) { console.error('set', colName, id, e); }
   },
 
   // ── Supprimer un doc ──
   async del(colName, id) {
     try {
       await deleteDoc(doc(db, colName, id));
-    } catch(e) {
-      console.error('del', colName, id, e);
-      throw e;
-    }
+    } catch(e) { console.error('del', colName, id, e); }
   },
 
   // ── Écoute temps réel d'une collection ──
@@ -208,18 +199,10 @@ window._loadFirebaseDB = async function() {
       window._fb.getAll('corbeille')
     ]);
 
-    // Initialiser uniquement une base réellement vierge.
-    // Une erreur de lecture ne doit jamais être convertie en collection vide,
-    // et une collection `users` vide ne doit pas déclencher une réinitialisation
-    // si les écoles/élèves/notes existent déjà.
-    const cloudCompletelyEmpty =
-      users.length===0 && ecoles.length===0 && eleves.length===0 &&
-      notes.length===0 && corbeille.length===0;
-    if (cloudCompletelyEmpty) {
+    // Si la base Firebase est vide → peupler avec les données par défaut
+    if (!users.length) {
       showSplash('Initialisation de la base de données…');
       await window._seedFirebase();
-      const seededUsers = await window._fb.getAll('users');
-      if (!seededUsers.length) throw new Error('Initialisation Firebase impossible : aucun compte n’a été enregistré.');
       return window._loadFirebaseDB();
     }
 
@@ -248,10 +231,8 @@ window._loadFirebaseDB = async function() {
   } catch(e) {
     console.error('Erreur chargement Firebase:', e);
     hideSplash();
-    showNotif('⚠️ Synchronisation cloud indisponible — les données actuellement affichées sont conservées.', 'warning');
-    // Ne surtout pas appeler loadDB() ici : une erreur de permission/réseau
-    // ne signifie pas que le cloud est vide. Réécrire DB depuis localStorage
-    // pouvait faire disparaître visuellement des enregistrements récents.
+    showNotif('⚠️ Mode hors ligne — données locales utilisées', 'warning');
+    loadDB(); // fallback localStorage
   }
 };
 
@@ -3144,13 +3125,9 @@ const DEFAUT_NOTES = [
 const DB = { users:[], ecoles:[], eleves:[], notes:[], corbeille:[] };
 function loadDB() {
   const savedUsers = JSON.parse(localStorage.getItem('pgnep_users') || 'null');
-  if (savedUsers && savedUsers.length>0 && savedUsers.every(u=>u && u.login)) {
-    // Certains comptes créés avec Firebase Authentication peuvent ne pas
-    // avoir l'ancien champ `pass`. Ils restent néanmoins des comptes valides.
-    // L'ancien test `u.pass` invalidait alors TOUT le cache des utilisateurs
-    // au rechargement et donnait l'impression que les comptes avaient disparu.
+  if (savedUsers && savedUsers.length>0 && savedUsers.every(u=>u.login&&u.pass)) {
     DB.users = savedUsers;
-    DEFAUT_USERS.forEach(du => { if (!DB.users.find(u => u.login===du.login)) DB.users.push(du); });
+    DEFAUT_USERS.forEach(du => { if (!DB.users.find(u=>u.login===du.login)) DB.users.push(du); });
   } else {
     DB.users = [...DEFAUT_USERS];
     localStorage.removeItem('pgnep_users');
@@ -6657,7 +6634,7 @@ async function saveCompte() {
     showNotif('✅ Compte modifié','success');
   } else {
     const email = login+'@pgnep-menaet.ci';
-    const newUser = {login,nom,pass:hashPass(pass),passPlain:pass,role,structure_type,structure_val,ecole_val,telephone:valTel,email};
+    const newUser = {login,nom,role,structure_type,structure_val,ecole_val,telephone:valTel,email};
     let uid = '';
     if(window._firebaseReady&&window._fb){
       try {
@@ -21048,7 +21025,7 @@ function secCpt(){
     var ac=isProt(u)?'<span class="csa-mut">protégé</span>':'<button class="csa-ib" title="'+(u.actif===false?'Activer':'Désactiver')+'" data-a="tg" data-l="'+esc(u.login)+'">'+(u.actif===false?'✅':'⛔')+'</button><button class="csa-ib" title="Modifier" data-a="ed" data-l="'+esc(u.login)+'">✏️</button><button class="csa-ib" title="Supprimer" data-a="rm" data-l="'+esc(u.login)+'">🗑</button>';
     return '<tr><td data-l="Compte"><b>'+esc(u.nom||u.login)+'</b><small>@'+esc(u.login)+(u.email?' · '+esc(u.email):'')+'</small></td><td data-l="Rôle"><span class="csa-b role">'+esc(roleLbl(u.role))+'</span></td><td data-l="IEPP / École">'+esc(ip||e.nom||'—')+(u.structure_type==='classe'?' · '+esc(u.structure_val):'')+'</td><td data-l="État"><span class="csa-b '+s[1]+'">'+s[0]+'</span></td><td data-l="Actions" class="csa-act">'+(adm?ac:'')+'</td></tr>';
   }).join('');
-  return '<div class="csa-row"><input class="csa-in" id="csa-q" placeholder="🔎 Rechercher un compte (nom, identifiant, rôle, IEPP…)" value="'+esc(fQ)+'"><select class="csa-in" id="csa-role">'+opts+'</select>'+exBtns()+'<button class="btn btn-primary" data-a="newAcc">+ Créer un compte</button></div>'+
+  return '<div class="csa-row"><input class="csa-in" id="csa-q" placeholder="🔎 Rechercher un compte (nom, identifiant, rôle, IEPP…)" value="'+esc(fQ)+'"><select class="csa-in" id="csa-role">'+opts+'</select>'+exBtns()+'<button class="btn btn-secondary" data-a="mdC">📋 Modèle Excel</button>'+(adm?'<button class="btn btn-secondary" data-a="impC">📥 Importer</button>':'')+'<button class="btn btn-primary" data-a="newAcc">+ Créer un compte</button></div>'+
     card('👥 Comptes <small>('+N(L.length)+')</small>','<table class="csa-tbl stack"><thead><tr><th>Compte</th><th>Rôle</th><th>IEPP / École</th><th>État</th><th>Actions</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5">Aucun compte.</td></tr>')+'</tbody></table>'+(L.length>shownC?'<div class="csa-row"><button class="btn btn-secondary" data-a="moreC">Afficher plus ('+(L.length-shownC)+' restants)</button></div>':''));
 }
 function secStruct(){
@@ -21085,7 +21062,7 @@ function secMat(){
     var cl={'À faire':'warn','En cours':'info','Réalisé':'on'}[x.s]||'warn';
     return '<tr><td data-l="N°">'+(i+1)+'</td><td data-l="Domaine"><b>'+esc(x.d)+'</b></td><td data-l="Actions principales">'+esc(x.a)+'</td><td data-l="Activités">'+esc(x.t)+'</td><td data-l="Indicateurs">'+esc(x.i)+'</td><td data-l="Fréquence">'+esc(x.f)+'</td><td data-l="Résultats attendus">'+esc(x.r)+'</td><td data-l="Statut"><span class="csa-b '+cl+'">'+esc(x.s)+'</span><select class="csa-sel" data-a="mStat" data-i="'+i+'">'+['À faire','En cours','Réalisé'].map(function(s){return '<option'+(s===x.s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></td><td data-l="Observations"><input class="csa-obs" data-a="mObs" data-i="'+i+'" value="'+esc(x.o)+'" placeholder="Observation…"></td><td class="csa-act"><button class="csa-ib" data-a="mEdit" data-i="'+i+'" title="Modifier">✏️</button><button class="csa-ib" data-a="mDel" data-i="'+i+'" title="Supprimer">🗑</button></td></tr>';
   }).join('');
-  return card("📋 Matrice d'action du Super Administrateur",'<p class="csa-mut">Matrice <b>entièrement modifiable</b> : ajoutez, modifiez ou supprimez des domaines, suivez le statut et les observations. Tout est enregistré automatiquement sur cet appareil.</p><div class="csa-row"><button class="btn btn-primary" data-a="mAdd">+ Ajouter un domaine</button>'+exBtns()+'<button class="btn btn-secondary" data-a="mReset">↺ Restaurer la matrice par défaut</button><span class="csa-mut">Avancement : <b>'+done+'/'+M.length+'</b> réalisé(s) ('+pct+'%)</span></div>'+
+  return card("📋 Matrice d'action du Super Administrateur",'<p class="csa-mut">Matrice <b>entièrement modifiable</b> : ajoutez, modifiez ou supprimez des domaines, suivez le statut et les observations. Tout est enregistré automatiquement sur cet appareil.</p><div class="csa-row"><button class="btn btn-primary" data-a="mAdd">+ Ajouter un domaine</button>'+exBtns()+'<button class="btn btn-secondary" data-a="mdM">📋 Modèle Excel</button><button class="btn btn-secondary" data-a="impM">📥 Importer</button><button class="btn btn-secondary" data-a="mReset">↺ Restaurer la matrice par défaut</button><span class="csa-mut">Avancement : <b>'+done+'/'+M.length+'</b> réalisé(s) ('+pct+'%)</span></div>'+
     '<table class="csa-tbl stack mat"><thead><tr><th>N°</th><th>Domaine</th><th>Actions principales</th><th>Activités à réaliser</th><th>Indicateurs</th><th>Fréquence</th><th>Résultats attendus</th><th>Statut</th><th>Observations</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>');
 }
 function secAud(){
@@ -21095,9 +21072,9 @@ function secAud(){
   return '<div class="csa-row">'+exBtns()+'<button class="btn btn-secondary" data-a="audClr">🧹 Vider le journal</button></div>'+card('📜 Journal d\'audit · '+A.length+' entrée(s)',(li||'<p class="csa-mut">Aucune action enregistrée pour l\'instant. Le journal consigne désormais les connexions, déconnexions et actions de la console sur cet appareil.</p>')+(A.length>shownA?'<div class="csa-row"><button class="btn btn-secondary" data-a="moreA">Afficher plus</button></div>':''));
 }
 function cloudState(){
-  var on=navigator.onLine!==false,P=window.PGSYNC?PGSYNC.state():null,fb=!!(window._firebaseReady&&window._fb);
+  var on=navigator.onLine!==false,P=window.PGSYNC?PGSYNC.state():null,fb=!!(window._firebaseReady&&window._fb);var bk=(window.PGSB&&PGSB.active)?'Supabase':'Firebase';
   var pend=P?P.pending:0,sync=!fb?'Local':pend===0?'Synchronisé':'En attente';
-  var sub=!fb?'Firebase non connecté':P?(pend===0?'Aucune écriture en attente':(P.failed+' en échec'+(P.lastErr?' · '+P.lastErr.code:''))):'Firebase connecté';
+  var sub=!fb?(bk+' non connecté'):P?(pend===0?'Aucune écriture en attente':(P.failed+' en échec'+(P.lastErr?' · '+P.lastErr.code:''))):'Firebase connecté';
   return '<div class="csa-kpis">'+kpi('Connexion',on?'En ligne':'Hors ligne',on?'Réseau disponible':'Travail en local','#2a9d8f')+kpi('Synchronisation',sync,sub,pend?'#e76f51':'#2563eb')+kpi('Écritures en attente',N(pend),P&&P.auth?P.auth:'file durable sur cet appareil',pend?'#f4a259':'#2a9d8f')+'</div>';
 }
 function secCloud(){
@@ -21112,7 +21089,7 @@ function secPar(){
   var s=setGet();
   function row(l,inp){return '<div class="csa-fr"><label>'+l+'</label><div>'+inp+'</div></div>';}
   return card('⚙️ Paramètres système',row('Année scolaire','<input class="csa-in" id="csa-p-annee" value="'+esc(s.annee)+'">')+row('En-tête officiel','<input class="csa-in" id="csa-p-entete" value="'+esc(s.entete)+'">')+row('Version de la plateforme','<span class="csa-mut">Perroquet v</span> <input class="csa-in" id="csa-p-version" style="width:90px" value="'+esc(s.version)+'"> <button class="btn btn-secondary" data-a="inc">+ Incrémenter</button>')+row('Référence','<input class="csa-in" id="csa-p-ref" value="'+esc(s.ref)+'">')+row('Pied de page','<textarea class="csa-in" id="csa-p-pied" rows="2">'+esc(s.pied)+'</textarea>')+'<div class="csa-row"><button class="btn btn-primary" data-a="parSave">💾 Enregistrer les paramètres</button></div><p class="csa-mut">L\'année scolaire et la version alimentent la synthèse du tableau récapitulatif (âges, pied de page d\'impression).</p>')+
-    card('🧰 Maintenance & supervision technique','<div class="csa-row"><button class="btn btn-secondary" data-a="go" data-s="cloud">☁️ État de la synchronisation</button><button class="btn btn-secondary" data-a="go" data-s="aud">📜 Journal d\'audit</button><button class="btn btn-secondary" data-a="trash">🗑 Corbeille (restauration)</button><button class="btn btn-secondary" data-a="svc">🧩 Services du système</button></div><div id="csa-diag"></div><p class="csa-mut">Version plateforme : Perroquet v'+esc(s.version)+' · '+esc(s.entete)+' · '+esc(s.annee)+'</p>');
+    card('🧰 Maintenance & supervision technique','<div class="csa-row"><button class="btn btn-secondary" data-a="go" data-s="cloud">☁️ État de la synchronisation</button><button class="btn btn-secondary" data-a="go" data-s="aud">📜 Journal d\'audit</button><button class="btn btn-secondary" data-a="trash">🗑 Corbeille (restauration)</button><button class="btn btn-secondary" data-a="svc">🧩 Services du système</button><button class="btn btn-primary" data-a="sbcfg">🔌 Connexion Supabase</button></div><div id="csa-diag"></div><p class="csa-mut">Version plateforme : Perroquet v'+esc(s.version)+' · '+esc(s.entete)+' · '+esc(s.annee)+'</p>');
 }
 var SEC_FN={dash:secDash,act:secAct,stat:secStat,cpt:secCpt,struct:secStruct,mat:secMat,aud:secAud,cloud:secCloud,bak:secBak,par:secPar};
 
@@ -21152,16 +21129,16 @@ function doRestore(){
     rd.onload=function(ev){
       try{
         var p=JSON.parse(ev.target.result);
-        if(!p||!Array.isArray(p.users)||!Array.isArray(p.ecoles)){alert('Fichier invalide : ce n\'est pas une sauvegarde Perroquet (comptes/écoles introuvables).');return;}
-        var msg='Restaurer « '+f.name+' » ?\n\n• '+p.users.length+' compte(s)\n• '+p.ecoles.length+' école(s)\n• '+(p.eleves||[]).length+' élève(s)\n• '+(p.notes||[]).length+' note(s)\n\nLes données actuelles seront REMPLACÉES. Une sauvegarde de sécurité sera téléchargée avant.';
+        var known=['users','ecoles','eleves','notes','corbeille'].filter(function(k){return Array.isArray(p&&p[k])&&p[k].length;});if(!p||!known.length){alert('Fichier invalide : aucune donnée Perroquet reconnue (comptes, écoles, élèves, notes).');return;}
+        var cnt=function(k){return Array.isArray(p[k])?p[k].length:0;};var msg='Restaurer « '+f.name+' » ?\n\n• '+cnt('users')+' compte(s)\n• '+cnt('ecoles')+' école(s)\n• '+cnt('eleves')+' élève(s)\n• '+cnt('notes')+' note(s)\n\nSeules les collections NON VIDES du fichier sont remplacées ; les autres restent intactes. Une sauvegarde de sécurité sera téléchargée avant.';
         if(!confirm(msg))return;
         doBackup('avant_restauration_');
         var d=DBx(),c=CU();
-        ['users','ecoles','eleves','notes','corbeille'].forEach(function(k){if(Array.isArray(p[k])){d[k].length=0;p[k].forEach(function(x){d[k].push(x);});}});
+        ['users','ecoles','eleves','notes','corbeille'].forEach(function(k){if(Array.isArray(p[k])&&p[k].length){d[k].length=0;p[k].forEach(function(x){d[k].push(x);});}});
         if(c&&!d.users.some(function(u){return u.login===c.login;})){var me=null;try{me=JSON.parse(localStorage.getItem('pgnep_users')||'[]').find(function(u){return u.login===c.login;});}catch(e){}if(me)d.users.push(me);}
         if(p.matrice)lsS(LS_MAT,p.matrice);if(p.parametres)lsS(LS_SET,p.parametres);
         ['users','ecoles','eleves','notes','corbeille'].forEach(function(k){try{save(k);}catch(e){console.warn(e);}});
-        audit('restauration',f.name+' — '+p.users.length+' comptes, '+(p.eleves||[]).length+' élèves');
+        audit('restauration',f.name+' — '+cnt('users')+' comptes, '+cnt('eleves')+' élèves');
         notif('✅ Restauration terminée','success');render();
       }catch(err){console.error(err);alert('Lecture impossible : '+((err&&err.message)||err));}
     };
@@ -21185,6 +21162,8 @@ function onClick(ev){
   var a=t.getAttribute('data-a'),ds=t.dataset,us;
   switch(a){
     case 'xl':exportX();break;case 'pr':printX();break;
+    case 'mdC':if(window.PGMODELES)PGMODELES.comptes();break;case 'impC':if(window.PGMODELES)PGMODELES.importComptes();break;
+    case 'mdM':if(window.PGMODELES)PGMODELES.matrice();break;case 'impM':if(window.PGMODELES)PGMODELES.importMatrice();break;
     case 'go':open(ds.s);break;
     case 'ipOff':case 'ipOn':us=ieppUsers(ds.ip);bulk(us,function(u){u.actif=(a==='ipOn');},(a==='ipOn'?'Activation':'Désactivation')+' IEPP '+ds.ip);break;
     case 'ipSave':{var root=$('csa-content'),q=function(k){return (root.querySelector('input[data-k="'+k+'"][data-ip="'+ds.ip.replace(/"/g,'\\"')+'"]')||{}).value||'';};var db=q('debut'),df=q('fin');if(db&&df&&df<db){notif('La date de fin précède la date de début','error');break;}bulk(ieppUsers(ds.ip),function(u){if(db)u.date_debut=db;else delete u.date_debut;if(df)u.date_fin=df;else delete u.date_fin;},'Période '+(db||'…')+' → '+(df||'…')+' IEPP '+ds.ip);break;}
@@ -21220,6 +21199,7 @@ function onClick(ev){
     case 'parSave':{var S={annee:$('csa-p-annee').value.trim(),entete:$('csa-p-entete').value.trim(),version:$('csa-p-version').value.trim(),ref:$('csa-p-ref').value.trim(),pied:$('csa-p-pied').value.trim()};lsS(LS_SET,S);applySettings();audit('paramètres','Année '+S.annee+' · v'+S.version);notif('✅ Paramètres enregistrés','success');render();break;}
     case 'trash':if(typeof showPage==='function')showPage('corbeille');break;
     case 'svc':services();break;
+    case 'sbcfg':if(window.PGSB)PGSB.openConfig();else notif('Module Supabase indisponible','error');break;
   }
 }
 function onChange(ev){
@@ -21375,6 +21355,456 @@ window.CSA={open:open,render:render,fit:fitAll,audit:audit};
 
 </script>
 
+<script id="pgnep-modeles">
+/* ══════════════════════════════════════════════════════════════════════
+   [pgnep-modeles] — MODÈLES EXCEL À RENSEIGNER + IMPORT (tous les espaces)
+   100 % additif. Chaque import/export de fichiers dispose d'un bouton
+   « 📋 Modèle Excel » (feuille « Modèle » + feuille « Notice ») dont les
+   colonnes sont reconnues par l'import correspondant.
+   ══════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+if(window.PGMODELES)return;
+
+var CLASSES=['CP1','CP2','CE1','CE2','CM1','CM2'];
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function nk(s){return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');}
+function notif(m,t){try{if(typeof showNotif==='function')showNotif(m,t||'info');else console.log(m);}catch(e){}}
+function DBo(){return (typeof DB!=='undefined')?DB:{users:[],ecoles:[],eleves:[],notes:[]};}
+function CU(){return (typeof currentUser!=='undefined')?currentUser:null;}
+function canE(){try{return (typeof canEdit==='function')?!!canEdit():true;}catch(e){return true;}}
+function isSA(){var u=CU();return !!(u&&(u.role==='admin'||u.login==='diomande'));}
+function today(){return new Date().toISOString().slice(0,10);}
+function XL(){if(typeof XLSX==='undefined'||!XLSX.utils){alert("Le module Excel n'a pas pu être chargé. Vérifiez la connexion puis réessayez.");return null;}return XLSX;}
+function g(row){var ks=Object.keys(row);for(var i=1;i<arguments.length;i++){var t=nk(arguments[i]);for(var j=0;j<ks.length;j++)if(nk(ks[j])===t)return row[ks[j]];}return '';}
+function S(v){return String(v==null?'':v).trim();}
+
+/* ───────── moteur ───────── */
+function writeBook(file,sheets){
+  var X=XL();if(!X)return false;
+  var wb=X.utils.book_new();
+  sheets.forEach(function(s){
+    var ws=X.utils.aoa_to_sheet(s.aoa);
+    ws['!cols']=(s.widths||(s.aoa[0]||[]).map(function(h){return Math.max(14,String(h).length+4);})).map(function(w){return {wch:w};});
+    X.utils.book_append_sheet(wb,ws,String(s.name).slice(0,31));
+  });
+  X.writeFile(wb,file+'.xlsx');return true;
+}
+function noticeSheet(title,where,cols,extra){
+  var a=[[title],[],['COMMENT UTILISER CE MODÈLE'],
+    ['1. Renseignez la feuille « Modèle » (une ligne par enregistrement). Supprimez les lignes d\'exemple.'],
+    ['2. Ne modifiez pas les titres de colonnes (ligne 1) et gardez cette feuille dans le fichier si vous voulez.'],
+    ['3. Enregistrez en .xlsx (ou .csv) puis importez le fichier : '+where],[],['COLONNES','OBLIGATOIRE','EXPLICATION / VALEURS ACCEPTÉES']];
+  cols.forEach(function(c){a.push([c[0],c[1]?'Oui':'Non',c[2]]);});
+  if(extra&&extra.length){a.push([]);extra.forEach(function(l){a.push([l]);});}
+  return{name:'Notice',aoa:a,widths:[30,14,90]};
+}
+function classesDispo(){var s={};(DBo().eleves||[]).forEach(function(e){if(e.classe)s[e.classe]=1;});var a=Object.keys(s);return a.length?a:CLASSES;}
+function scopeEleves(){try{if(typeof getScopeEleves==='function')return getScopeEleves()||[];}catch(e){}return [];}
+function niveauOf(c){c=String(c||'').toUpperCase().replace(/\s+/g,'');if(/^CP/.test(c))return'CP';if(/^CM2/.test(c))return'CM2_EXAMEN';if(/^(CE|CM)/.test(c))return'CECM';return'CP';}
+function ecoleNom(id){var e=(DBo().ecoles||[]).find(function(x){return x.id===id;});return e?e.nom:'';}
+
+/* ───────── MODÈLES ───────── */
+function modeleEleves(){
+  var sc=scopeEleves(),ec=sc.length?ecoleNom(sc[0].ecole_id):'';
+  var H=['Nom','Prénoms','Matricule','Sexe','Date de naissance','Lieu de naissance','Classe','École'];
+  var ex=[['BAMBA','Souleymane','24170578P','M','2019-03-12','Korhogo',classesDispo()[0],ec||'EPP EXEMPLE'],['KONÉ','Aminata','','F','2018-11-02','Niakara',classesDispo()[0],ec||'EPP EXEMPLE']];
+  return writeBook('modele_import_eleves',[{name:'Modèle',aoa:[H].concat(ex)},noticeSheet('MODÈLE — IMPORT DES ÉLÈVES','page « Export / Synchro » → Import → type « Élèves » (ou page Élèves → Import).',[
+    ['Nom',1,'Nom de famille (majuscules conseillées).'],['Prénoms',0,'Prénoms de l\'élève.'],['Matricule',0,'Identifiant unique : sert à éviter les doublons. Laisser vide si inconnu.'],['Sexe',1,'M ou F (Fille / Garçon acceptés).'],
+    ['Date de naissance',0,'Format AAAA-MM-JJ (ex. 2019-03-12) ou JJ/MM/AAAA.'],['Lieu de naissance',0,'Ville ou localité.'],['Classe',1,'Valeurs usuelles : '+classesDispo().join(', ')+'.'],['École',0,'Nom ou code de l\'école. Vide = votre école.']
+  ],['Modes d\'import : « Ajouter seulement » ignore les matricules déjà présents ; « Mettre à jour » les met à jour ; « Remplacer tout » efface puis remplace votre périmètre (à utiliser avec prudence).'])]);
+}
+function modeleNotes(){
+  var X=XL();if(!X)return;
+  var sc=scopeEleves(),niv={};
+  sc.forEach(function(e){niv[niveauOf(e.classe)]=1;});if(!Object.keys(niv).length)niv.CP=1;
+  var M=(typeof MATIERES!=='undefined')?MATIERES:{CP:[{key:'cp_dictee',label:'Dictée',max:10}]};
+  var cols=[],legend=[];
+  Object.keys(niv).forEach(function(n){(M[n]||[]).forEach(function(m){if(cols.indexOf(m.key)<0){cols.push(m.key);legend.push([m.key,0,m.label+' — note sur '+m.max+' (ABS ou 501 = absent)']);}});});
+  var H=['Matricule','Nom','Prénoms','Classe','Évaluation'].concat(cols),rows;
+  var evalDef='Composition 1';
+  if(sc.length)rows=sc.slice().sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'','fr');}).map(function(e){return [e.matricule||'',e.nom||'',e.prenoms||'',e.classe||'',evalDef].concat(cols.map(function(){return '';}));});
+  else rows=[['24170578P','BAMBA','Souleymane',classesDispo()[0],evalDef].concat(cols.map(function(){return 7.5;}))];
+  var evals=(typeof EVAL_LABELS!=='undefined')?Object.keys(EVAL_LABELS).map(function(k){return EVAL_LABELS[k];}):['Composition 1','Composition 2','Composition 3','Composition 4','Examen Blanc 1','Examen Blanc 2'];
+  return writeBook('modele_import_notes'+(sc.length&&sc[0].classe?'_'+sc[0].classe:''),[{name:'Modèle',aoa:[H].concat(rows)},noticeSheet('MODÈLE — IMPORT DES RÉSULTATS / NOTES PAR MATIÈRE','page « Export / Synchro » → Import → type « Résultats / Notes », ou bouton « Charger notes avec matières ».',[
+    ['Matricule',1,'Matricule de l\'élève (déjà enregistré). À défaut, le Nom sert à retrouver l\'élève.'],['Nom / Prénoms',0,'Pré-remplis avec les élèves de votre périmètre : ne pas modifier.'],['Classe',0,'Classe de l\'élève (information).'],
+    ['Évaluation',1,'Valeurs : '+evals.join(', ')+'. Une seule évaluation par ligne ; dupliquez la ligne d\'un élève pour une autre évaluation.']
+  ].concat(legend),['Les titres des matières (ex. cp_dictee) sont des codes techniques : ne pas les modifier. Laissez vide une matière non évaluée.','Les élèves absents peuvent être notés ABS (ou 501).'])]);
+}
+function modeleRegistre(){
+  var t=($('reg-admin-title')||{}).textContent||'',isDr=!/IEPP/i.test(t);
+  var H=isDr?['Nom','Code']:['Nom','Code','DRENAET'];
+  var ex=isDr?[['DRENAET Katiola','DRN-KAT'],['DRENAET Korhogo','DRN-KOR']]:[['IEPP Niakara','IEPP-NIA','DRENAET Katiola'],['IEPP Tengrela','IEPP-TEN','DRENAET Boundiali']];
+  return writeBook(isDr?'modele_import_drenaet':'modele_import_iepp',[{name:'Modèle',aoa:[H].concat(ex)},noticeSheet('MODÈLE — IMPORT '+(isDr?'DES DRENAET':'DES IEPP'),'fenêtre « '+(isDr?'Toutes les DRENAET':'Toutes les IEPP')+' » → bouton 📥 Importer.',[['Nom',1,'Nom officiel (les noms déjà présents sont ignorés).'],['Code',0,'Code de la structure.']].concat(isDr?[]:[['DRENAET',0,'Nom de la DRENAET de rattachement.']]),['Ne supprimez pas la ligne de titres : elle est ignorée à l\'import.'])]);
+}
+function modeleEcoles(){
+  var H=['Nom','Code','IEPP','DRENAET'];
+  var ex=[['EPP KANAWOLO 3','E016026','IEPP Niakara','DRENAET Katiola'],['EPP EXEMPLE 2','','IEPP Tengrela','DRENAET Boundiali']];
+  return writeBook('modele_import_ecoles',[{name:'Modèle',aoa:[H].concat(ex)},noticeSheet('MODÈLE — IMPORT DES ÉCOLES','page « Écoles » → bouton 📥 Importer Excel.',[['Nom',1,'Nom de l\'école.'],['Code',0,'Code de l\'école : sert d\'identifiant. Vide = identifiant généré.'],['IEPP',0,'Circonscription (IEPP).'],['DRENAET',0,'Direction régionale de rattachement.']],['Une école dont le code (ou le nom) existe déjà est mise à jour ; sinon elle est ajoutée.'])]);
+}
+function roleKeys(){var R=(typeof ROLE_LABELS!=='undefined')?ROLE_LABELS:{};return Object.keys(R).filter(function(k){return k!=='admin';}).map(function(k){return [k,R[k]];});}
+function modeleComptes(){
+  var rk=roleKeys();
+  var H=['Nom complet','Identifiant','Mot de passe','Rôle','Type de structure','Structure','École'];
+  var ex=[['KONE Awa','kone.awa','Changer@2026','instituteur','classe','CP1','ec1'],['DIABATE Souleymane','diabate.s','Changer@2026','directeur','ecole','ec1','']];
+  return writeBook('modele_import_comptes',[{name:'Modèle',aoa:[H].concat(ex)},noticeSheet('MODÈLE — IMPORT DES COMPTES UTILISATEURS','Gestion des comptes → bouton 📥 Importer (réservé à l\'administrateur).',[
+    ['Nom complet',1,'Nom et prénoms affichés.'],['Identifiant',1,'3 à 30 caractères : minuscules, chiffres, point, tiret, souligné. Doit être unique.'],['Mot de passe',1,'8 caractères minimum. À faire changer à la première connexion.'],
+    ['Rôle',1,'Code ou libellé parmi : '+rk.map(function(r){return r[0]+' ('+r[1]+')';}).join(' ; ')+'. Le rôle « admin » ne peut pas être créé par import.'],
+    ['Type de structure',0,'national, drena, iepp, ecole ou classe. Vide = déduit du rôle.'],['Structure',0,'Valeur associée : nom de la DRENAET/IEPP, code de l\'école ou classe (ex. CP1).'],['École',0,'Code de l\'école (pour instituteur / bénévole).']
+  ],['Les identifiants déjà existants sont ignorés (aucun compte n\'est modifié ni écrasé).'])]);
+}
+function modeleMatrice(){
+  var H=['Domaine','Actions principales','Activités à réaliser','Indicateurs','Fréquence','Résultats attendus','Statut','Observations'];
+  var ex=[['Administration générale','Administrer la plateforme','Configurer les paramètres et contrôler le fonctionnement','Plateforme fonctionnelle','Permanent','Plateforme disponible','À faire',''],['Sauvegarde','Protéger les données','Télécharger la sauvegarde complète','Date de la dernière sauvegarde','Hebdomadaire','Données récupérables','En cours','Prochaine sauvegarde vendredi']];
+  return writeBook('modele_import_matrice_action',[{name:'Modèle',aoa:[H].concat(ex)},noticeSheet("MODÈLE — MATRICE D'ACTION",'Console Super Admin → Matrice d\'action → bouton 📥 Importer.',[['Domaine',1,'Intitulé du domaine.'],['Statut',0,'À faire, En cours ou Réalisé.'],['Autres colonnes',0,'Texte libre.']],['À l\'import, vous choisissez de remplacer la matrice ou d\'ajouter à la suite.'])]);
+}
+function modeleSynthese(scope){
+  var R=window.SYNR;if(!R||!R._model){alert('Synthèse indisponible.');return;}
+  var els=(typeof affEleves==='function')?affEleves(scope):[],M=R._model(scope,els);
+  var H=['MATRICULE','NOM','PRÉNOMS','SEXE','DATE DE NAISSANCE','CLASSE','REDOUBLANT (Oui/Non)','ANNÉES DANS LA CLASSE (1-3)','ANNÉES DE SCOLARITÉ (1-9)'];
+  var rows=M.rows.map(function(r){return [r.mat,r.nom,r.pre,r.sexe,r.ddn,M.cl,r.red?'Oui':'Non',r.ac,r.at];});
+  if(!rows.length)rows=[['24170578P','BAMBA','Souleymane','M','12/03/2019',M.cl||'CP1','Non',1,1]];
+  return writeBook('modele_synthese_recapitulatif_'+(M.cl||'classe'),[{name:'Modèle',aoa:[H].concat(rows)},noticeSheet('MODÈLE — SYNTHÈSE DU TABLEAU RÉCAPITULATIF '+(M.cl||''),'Tableau récapitulatif → bouton 📥 Importer (en haut de l\'onglet).',[
+    ['MATRICULE / NOM / PRÉNOMS',1,'Pré-remplis avec les élèves de la classe : servent à retrouver chaque élève. Ne pas modifier.'],['SEXE / DATE DE NAISSANCE / CLASSE',0,'Information (non modifiées à l\'import).'],
+    ['REDOUBLANT (Oui/Non)',0,'Oui si l\'élève redouble.'],['ANNÉES DANS LA CLASSE (1-3)',0,'1 = première année, 2 = a redoublé une fois, 3 = deux fois.'],['ANNÉES DE SCOLARITÉ (1-9)',0,'Nombre total d\'années de scolarité.']
+  ],['L\'import ne modifie que ces trois dernières colonnes ; aucun élève n\'est créé ni supprimé.'])]);
+}
+
+/* ───────── lecture de fichier ───────── */
+function pick(accept){return new Promise(function(res){var i=document.createElement('input');i.type='file';i.accept=accept||'.xlsx,.xls,.csv';i.onchange=function(){res(i.files&&i.files[0]||null);};i.click();});}
+function readRows(file){
+  return new Promise(function(res,rej){
+    var X=XL();if(!X){rej(new Error('Excel indisponible'));return;}
+    var csv=/\.csv$/i.test(file.name),rd=new FileReader();
+    rd.onerror=function(){rej(new Error('Lecture impossible'));};
+    rd.onload=function(e){try{var wb=csv?X.read(e.target.result,{type:'string'}):X.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});var ws=wb.Sheets[wb.SheetNames[0]];res(X.utils.sheet_to_json(ws,{defval:''}));}catch(err){rej(err);}};
+    if(csv)rd.readAsText(file,'utf-8');else rd.readAsArrayBuffer(file);
+  });
+}
+function persist(cols){cols.forEach(function(c){try{if(typeof save==='function')save(c);}catch(e){console.warn(e);}});}
+function dstr(v){if(v instanceof Date)return v.toISOString().slice(0,10);return S(v);}
+
+/* ───────── IMPORTS nouveaux ───────── */
+function importEcoles(){
+  if(!canE()){notif('🔒 Import non autorisé pour ce profil','error');return;}
+  pick().then(function(f){if(!f)return;return readRows(f).then(function(rows){
+    var E=DBo().ecoles,add=[],upd=[],bad=0;
+    rows.forEach(function(r){
+      var nom=S(g(r,'Nom','École','Ecole','Nom de l\'école')),code=S(g(r,'Code')),iepp=S(g(r,'IEPP')),dr=S(g(r,'DRENAET','DRENA'));
+      if(!nom){bad++;return;}
+      var ex=E.find(function(e){return (code&&String(e.code||e.id)===code)||nk(e.nom)===nk(nom);});
+      if(ex)upd.push({e:ex,nom:nom,code:code,iepp:iepp,drena:dr});else add.push({nom:nom,code:code,iepp:iepp,drena:dr});
+    });
+    if(!add.length&&!upd.length){alert('Aucune école exploitable dans ce fichier.');return;}
+    if(!confirm('Import de « '+f.name+' »\n\n• '+add.length+' école(s) à ajouter\n• '+upd.length+' école(s) à mettre à jour\n• '+bad+' ligne(s) ignorée(s) (nom manquant)\n\nAppliquer ?'))return;
+    add.forEach(function(a){var id=a.code||('ec'+Date.now().toString(36)+Math.random().toString(36).slice(2,5));E.push({id:id,code:a.code,nom:a.nom,iepp:a.iepp,drena:a.drena});});
+    upd.forEach(function(u){u.e.nom=u.nom;if(u.code)u.e.code=u.code;if(u.iepp)u.e.iepp=u.iepp;if(u.drena)u.e.drena=u.drena;});
+    persist(['ecoles']);try{if(typeof updateStats==='function')updateStats();if(typeof renderEcoles==='function')renderEcoles();}catch(e){}
+    notif('✅ '+add.length+' école(s) ajoutée(s), '+upd.length+' mise(s) à jour','success');
+  });}).catch(function(e){alert('Import impossible : '+((e&&e.message)||e));});
+}
+function exportEcoles(){
+  var X=XL();if(!X)return;var rows=[['Nom','Code','IEPP','DRENAET']].concat((DBo().ecoles||[]).map(function(e){return [e.nom||'',e.code||'',e.iepp||'',e.drena||''];}));
+  writeBook('ecoles_'+today(),[{name:'Écoles',aoa:rows}]);
+}
+function importComptes(){
+  if(!isSA()){notif('🔒 Import des comptes réservé à l\'administrateur','error');return;}
+  pick().then(function(f){if(!f)return;return readRows(f).then(function(rows){
+    var U=DBo().users,R=(typeof ROLE_LABELS!=='undefined')?ROLE_LABELS:{},byLabel={};Object.keys(R).forEach(function(k){byLabel[nk(k)]=k;byLabel[nk(R[k])]=k;});
+    var ok=[],bad=[],seen={};
+    rows.forEach(function(r,i){
+      var nom=S(g(r,'Nom complet','Nom','Nom et prénoms')),login=S(g(r,'Identifiant','Login')).toLowerCase(),pw=S(g(r,'Mot de passe','Password','MDP')),role=byLabel[nk(g(r,'Rôle','Role'))],st=S(g(r,'Type de structure','Structure type')).toLowerCase(),sv=S(g(r,'Structure','Valeur structure')),ec=S(g(r,'École','Ecole','Code école'));
+      var err='';
+      if(!nom||!login)err='nom ou identifiant manquant';else if(!/^[a-z0-9._-]{3,30}$/.test(login))err='identifiant invalide';else if(U.some(function(u){return u.login===login;})||seen[login])err='identifiant déjà existant';
+      else if(pw.length<8)err='mot de passe < 8 caractères';else if(!role)err='rôle inconnu';else if(role==='admin')err='rôle admin interdit';
+      if(err){bad.push('ligne '+(i+2)+' ('+(login||nom||'?')+') : '+err);return;}
+      seen[login]=1;
+      if(!st)st={coordinateur:'drena',correspondant:'iepp',directeur:'ecole',instituteur:'classe',benevole:'classe'}[role]||'national';
+      var u={login:login,nom:nom,pass:(typeof hashPass==='function'?hashPass(pw):pw),role:role,structure_type:st,structure_val:sv,actif:true};
+      if(ec)u.ecole_val=ec;ok.push(u);
+    });
+    if(!ok.length){alert('Aucun compte valide.'+(bad.length?'\n\n'+bad.slice(0,8).join('\n'):''));return;}
+    if(!confirm('Import de « '+f.name+' »\n\n• '+ok.length+' compte(s) à créer\n• '+bad.length+' ligne(s) refusée(s)'+(bad.length?' :\n   '+bad.slice(0,6).join('\n   ')+(bad.length>6?'\n   …':''):'')+'\n\nCréer ces comptes ?'))return;
+    ok.forEach(function(u){U.push(u);});persist(['users']);
+    try{if(window.CSA){window.CSA.audit('import','Comptes importés : '+ok.length);window.CSA.render();}if(typeof renderComptes==='function')renderComptes();}catch(e){}
+    notif('✅ '+ok.length+' compte(s) créé(s)','success');
+  });}).catch(function(e){alert('Import impossible : '+((e&&e.message)||e));});
+}
+function importMatrice(){
+  if(!isSA()){notif('🔒 Réservé au super-administrateur','error');return;}
+  pick().then(function(f){if(!f)return;return readRows(f).then(function(rows){
+    var items=[];rows.forEach(function(r){var d=S(g(r,'Domaine'));if(!d)return;var s=S(g(r,'Statut'));s=/r[ée]alis/i.test(s)?'Réalisé':/cours/i.test(s)?'En cours':'À faire';items.push({d:d,a:S(g(r,'Actions principales','Actions')),t:S(g(r,'Activités à réaliser','Activités')),i:S(g(r,'Indicateurs')),f:S(g(r,'Fréquence')),r:S(g(r,'Résultats attendus','Résultats')),s:s,o:S(g(r,'Observations'))});});
+    if(!items.length){alert('Aucun domaine exploitable (colonne « Domaine » manquante).');return;}
+    var replace=confirm('Import de « '+f.name+' » : '+items.length+' domaine(s).\n\nOK = REMPLACER la matrice actuelle\nAnnuler = AJOUTER à la suite');
+    var cur=[];try{cur=JSON.parse(localStorage.getItem('pgnep_csa_matrice'))||[];}catch(e){}
+    localStorage.setItem('pgnep_csa_matrice',JSON.stringify(replace||!cur.length?items:cur.concat(items)));
+    try{if(window.CSA){window.CSA.audit('import','Matrice importée : '+items.length+' domaine(s)');window.CSA.render();}}catch(e){}
+    notif('✅ Matrice mise à jour ('+items.length+' domaine(s))','success');
+  });}).catch(function(e){alert('Import impossible : '+((e&&e.message)||e));});
+}
+
+/* ───────── injection des boutons « Modèle Excel » ───────── */
+function mk(label,fn,small,title){var b=document.createElement('button');b.type='button';b.className='btn btn-secondary'+(small?' btn-sm':'');b.setAttribute('data-pgm','1');b.textContent=label;if(title)b.title=title;b.onclick=function(ev){ev.preventDefault();ev.stopPropagation();try{fn();}catch(e){console.error(e);notif('❌ '+((e&&e.message)||e),'error');}};return b;}
+var RULES=[
+ {m:/importElevesCSV\(/,make:function(b){return [mk('📋 Modèle Excel',modeleEleves,/btn-sm/.test(b.className),'Télécharger le modèle à renseigner (élèves)')];}},
+ {m:/import-matieres-file'\)\.click\(\)/,make:function(b){return [mk('📋 Modèle Excel — notes par matière',modeleNotes,false)];}},
+ {m:/regImport\(\)/,make:function(b){return [mk('📋 Modèle',modeleRegistre,true,'Télécharger le modèle à renseigner')];}},
+ {m:/openAddEcole\(\)/,make:function(b){return [mk('📋 Modèle Excel',modeleEcoles,true),mk('📥 Importer Excel',importEcoles,true),mk('⬇️ Exporter Excel',exportEcoles,true)];}},
+ {m:/exportUsersExcel\(\)/,make:function(b){var a=[mk('📋 Modèle Excel',modeleComptes,true)];if(isSA())a.push(mk('📥 Importer',importComptes,true));return a;}},
+ {m:/SYNR\.importData\(\s*'([^']+)'/,make:function(b,mm){var sc=mm[1];return [mk('📋 Modèle Excel',function(){modeleSynthese(sc);},false,'Télécharger le modèle pré-rempli avec les élèves de la classe')];}}
+];
+function injectButtons(){
+  var bs=document.querySelectorAll('button[onclick]');
+  for(var i=0;i<bs.length;i++){
+    var b=bs[i];if(b.hasAttribute('data-pgm')||b.getAttribute('data-pgm-done'))continue;
+    var oc=b.getAttribute('onclick')||'';
+    for(var j=0;j<RULES.length;j++){
+      var mm=RULES[j].m.exec(oc);
+      if(mm){b.setAttribute('data-pgm-done','1');var arr=RULES[j].make(b,mm)||[];arr.forEach(function(x){b.parentNode.insertBefore(x,b);});break;}
+    }
+  }
+  /* page Export / Synchro : bandeau de modèles au-dessus de la zone de dépôt */
+  var drop=$('import-drop');
+  if(drop&&!$('pgm-bar')){
+    var bar=document.createElement('div');bar.id='pgm-bar';bar.style.cssText='display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px;padding:10px 12px;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:10px;font-size:12px;';
+    bar.innerHTML='<b>📋 Modèles Excel à renseigner :</b>';
+    bar.appendChild(mk('👦 Élèves',modeleEleves,true));bar.appendChild(mk('📊 Résultats / Notes',modeleNotes,true));
+    var s=document.createElement('span');s.style.cssText='color:#475569';s.textContent='Téléchargez, renseignez, puis déposez le fichier ci-dessous.';bar.appendChild(s);
+    drop.parentNode.insertBefore(bar,drop);
+  }
+}
+var t=null;function sched(){clearTimeout(t);t=setTimeout(injectButtons,250);}
+function boot(){injectButtons();try{new MutationObserver(sched).observe(document.body,{childList:true,subtree:true});}catch(e){setInterval(injectButtons,2000);}}
+if(document.readyState!=='loading')boot();else document.addEventListener('DOMContentLoaded',boot);
+
+window.PGMODELES={eleves:modeleEleves,notes:modeleNotes,registre:modeleRegistre,ecoles:modeleEcoles,comptes:modeleComptes,matrice:modeleMatrice,synthese:modeleSynthese,
+  importEcoles:importEcoles,exportEcoles:exportEcoles,importComptes:importComptes,importMatrice:importMatrice,inject:injectButtons,_readRows:readRows,_write:writeBook};
+})();
+
+</script>
+
+<script src="supabase-config.js"></script>
+<script id="pgnep-supabase">
+/* ══════════════════════════════════════════════════════════════════════
+   [pgnep-supabase] — CONNEXION DU PERROQUET À SUPABASE (opt-in)
+   100 % additif. Désactivé tant qu'il n'est pas configuré ET activé
+   (Console Super Admin → Paramètres & maintenance → 🔌 Connexion Supabase).
+   Quand il est actif, il remplace la couche cloud « window._fb » (mêmes
+   fonctions) : le reste de l'application ne change pas.
+   Protections : aucune donnée locale n'est remplacée par une liste vide ;
+   les erreurs ne sont plus avalées ; la file de Firestore est gelée.
+   ══════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+if(window.PGSB)return;
+var KEY='pgnep_sb_cfg',LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
+var SQL="-- ════════════════════════════════════════════════════════════════════\n--  LE PERROQUET · PGNEP — Schéma Supabase (version 1)\n--  À coller dans Supabase → SQL Editor → New query → Run\n--  Principe : une table « docs » qui reprend fidèlement les collections\n--  actuelles (users, ecoles, eleves, notes, corbeille, drenaets, iepps…).\n--  Sécurité : RLS activée ; AUCUN accès anonyme ; seuls les utilisateurs\n--  connectés (Supabase Auth) peuvent lire/écrire.\n-- ════════════════════════════════════════════════════════════════════\n\ncreate table if not exists public.docs (\n  col         text        not null,\n  id          text        not null,\n  data        jsonb       not null default '{}'::jsonb,\n  updated_at  timestamptz not null default now(),\n  updated_by  uuid        default auth.uid(),\n  primary key (col, id)\n);\n\ncreate index if not exists docs_col_idx    on public.docs (col);\ncreate index if not exists docs_ecole_idx  on public.docs (col, (data->>'ecole_id'));\ncreate index if not exists docs_updated_ix on public.docs (col, updated_at desc);\n\n-- Sécurité : RLS obligatoire\nalter table public.docs enable row level security;\n\ndrop policy if exists docs_select on public.docs;\ndrop policy if exists docs_insert on public.docs;\ndrop policy if exists docs_update on public.docs;\ndrop policy if exists docs_delete on public.docs;\n\ncreate policy docs_select on public.docs for select to authenticated using (true);\ncreate policy docs_insert on public.docs for insert to authenticated with check (true);\ncreate policy docs_update on public.docs for update to authenticated using (true) with check (true);\ncreate policy docs_delete on public.docs for delete to authenticated using (true);\n-- (aucune politique pour le rôle « anon » : accès public refusé)\n\n-- Écriture avec fusion des champs (équivalent de setDoc(..., {merge:true}))\ncreate or replace function public.upsert_doc(p_col text, p_id text, p_data jsonb)\nreturns void language sql security invoker as $$\n  insert into public.docs (col, id, data) values (p_col, p_id, coalesce(p_data,'{}'::jsonb))\n  on conflict (col, id) do update\n    set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n$$;\n\n-- Écriture par lots : p_rows = [{\"id\":\"...\",\"data\":{...}}, ...]\ncreate or replace function public.upsert_docs(p_col text, p_rows jsonb)\nreturns integer language plpgsql security invoker as $$\ndeclare n integer := 0; r jsonb;\nbegin\n  for r in select * from jsonb_array_elements(coalesce(p_rows,'[]'::jsonb)) loop\n    insert into public.docs (col, id, data)\n    values (p_col, r->>'id', coalesce(r->'data','{}'::jsonb))\n    on conflict (col, id) do update\n      set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n    n := n + 1;\n  end loop;\n  return n;\nend $$;\n\n-- Temps réel (les suppressions doivent transporter la colonne « col »)\nalter table public.docs replica identity full;\ndo $$ begin\n  alter publication supabase_realtime add table public.docs;\nexception when duplicate_object then null; when undefined_object then null; end $$;\n\n-- ────────────────────────────────────────────────────────────────────\n--  PHASE 2 (plus tard, après tests) : droits par rôle et par école.\n--  Les comptes Supabase utilisent l'e-mail  <identifiant>@pgnep-menaet.ci ;\n--  l'identifiant se retrouve avec  split_part(auth.jwt()->>'email','@',1).\n--  Le profil (rôle, école) se lit dans docs(col='users', id=<identifiant>).\n--  ⚠ Ne pas activer sans test : cela remplacera les politiques ci-dessus.\n-- ────────────────────────────────────────────────────────────────────\n";
+function lsg(){
+  var l={};try{l=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){l={};}
+  if(l&&l.url&&l.anon)return l;                 /* la configuration de cet appareil prime */
+  var B=window.PGNEP_SB_DEFAULT||{};            /* sinon : fichier supabase-config.js (tous les utilisateurs) */
+  if(B.url&&B.anon)return{url:String(B.url).replace(/\/+$/,''),anon:B.anon,enabled:!!B.enabled,baked:true};
+  return l;
+}
+function $(i){return document.getElementById(i);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function notif(m,t){try{if(typeof showNotif==='function')showNotif(m,t||'info');else console.log(m);}catch(e){}}
+function DBo(){return (typeof DB!=='undefined')?DB:null;}
+function me(){try{return (typeof currentUser!=='undefined')?currentUser:null;}catch(e){return null;}}
+var CFG=lsg(),ON=!!(CFG.enabled&&CFG.url&&CFG.anon);
+var API={active:ON,installed:false,client:null,sec:null,sql:SQL,state:{lastErr:'',session:false}};
+window.PGSB=API;
+
+/* ───── bibliothèque + clients ───── */
+var libP=null,readyP=null;
+function loadLib(){
+  if(window.supabase&&window.supabase.createClient)return Promise.resolve();
+  if(libP)return libP;
+  libP=new Promise(function(res,rej){var s=document.createElement('script');s.src=LIB;s.onload=function(){res();};s.onerror=function(){libP=null;rej(new Error('Bibliothèque Supabase introuvable (connexion requise)'));};document.head.appendChild(s);});
+  return libP;
+}
+function ready(){
+  if(readyP)return readyP;
+  readyP=loadLib().then(function(){
+    var c=lsg();if(!c.url||!c.anon)throw new Error('Supabase non configuré');
+    API.client=window.supabase.createClient(c.url,c.anon,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'pgnep-sb-auth'}});
+    API.sec=window.supabase.createClient(c.url,c.anon,{auth:{persistSession:false,autoRefreshToken:false,storageKey:'pgnep-sb-sec'}});
+    API.client.auth.onAuthStateChange(function(ev,s){API.state.session=!!s;});
+    return API.client.auth.getSession().then(function(r){API.state.session=!!(r&&r.data&&r.data.session);return API.client;});
+  }).catch(function(e){readyP=null;throw e;});
+  return readyP;
+}
+function fail(err,ctx){var e=new Error((err&&err.message)||String(err));e.code=(err&&(err.code||err.status))||'supabase';e.ctx=ctx;API.state.lastErr=String(e.code)+' '+e.message;return e;}
+
+/* ───── lecture / écriture ───── */
+function getAll(col){
+  return ready().then(function(c){
+    var out=[],from=0,PAGE=1000;
+    function next(){
+      return c.from('docs').select('id,data').eq('col',col).order('id',{ascending:true}).range(from,from+PAGE-1).then(function(r){
+        if(r.error)throw fail(r.error,'getAll '+col);
+        (r.data||[]).forEach(function(x){out.push(Object.assign({},x.data,{id:x.id}));});
+        if((r.data||[]).length===PAGE){from+=PAGE;return next();}
+        return out;
+      });
+    }
+    return next();
+  });
+}
+function write(rec){
+  return ready().then(function(c){
+    var id=String(rec.i!==undefined?rec.i:rec.id);
+    if(rec.op==='del')return c.from('docs').delete().eq('col',rec.c).eq('id',id).then(function(r){if(r.error)throw fail(r.error,'del');return true;});
+    return c.rpc('upsert_doc',{p_col:rec.c,p_id:id,p_data:rec.d}).then(function(r){if(r.error)throw fail(r.error,'set');return true;});
+  });
+}
+function listen(col,cb){
+  var cache=new Map(),ch=null,dead=false,t=null;
+  function emit(){clearTimeout(t);t=setTimeout(function(){if(!dead)cb(Array.from(cache.values()));},120);}
+  getAll(col).then(function(a){if(dead)return;a.forEach(function(x){cache.set(String(x.id),x);});cb(a);return ready().then(function(c){
+    if(dead)return;
+    ch=c.channel('pg-'+col+'-'+Math.random().toString(36).slice(2,7)).on('postgres_changes',{event:'*',schema:'public',table:'docs',filter:'col=eq.'+col},function(p){
+      if(p.eventType==='DELETE'){var id=p.old&&p.old.id;if(id!=null)cache.delete(String(id));}
+      else if(p.new){cache.set(String(p.new.id),Object.assign({},p.new.data,{id:p.new.id}));}
+      emit();}).subscribe();
+  });}).catch(function(e){console.error('[supabase] listen',col,e);});
+  return function(){dead=true;try{if(ch&&API.client)API.client.removeChannel(ch);}catch(e){}};
+}
+function countDocs(cols){
+  return ready().then(function(c){return c.from('docs').select('id',{count:'exact',head:true}).in('col',cols).then(function(r){if(r.error)throw fail(r.error,'count');return r.count||0;});});
+}
+
+/* ───── authentification ───── */
+function signIn(email,pass){return ready().then(function(c){return c.auth.signInWithPassword({email:email,password:pass}).then(function(r){if(r.error)throw fail(r.error,'signIn');API.state.session=true;return r.data;});});}
+function createUser(email,pass){return ready().then(function(){return API.sec.auth.signUp({email:email,password:pass}).then(function(r){if(r.error)throw fail(r.error,'signUp');return r.data;});});}
+function signInOrCreate(email,pass){
+  return signIn(email,pass).catch(function(e1){
+    return createUser(email,pass).then(function(){return signIn(email,pass);}).catch(function(e2){throw e1;});
+  });
+}
+function afterLogin(loginId,pass){
+  var idn=String(loginId||'').toLowerCase().trim(),d=DBo(),u=d&&(d.users||[]).find(function(x){return x.login===idn;}),email=(u&&u.email)||(idn+'@pgnep-menaet.ci');
+  return ready().then(function(c){return c.auth.getSession();}).then(function(s){
+    if(s&&s.data&&s.data.session)return;
+    return signInOrCreate(email,pass);
+  }).then(function(){return typeof window._loadFirebaseDB==='function'?window._loadFirebaseDB():null;}).then(function(){
+    try{if(typeof updateStats==='function')updateStats();if(typeof renderDashboard==='function')renderDashboard();if(typeof refreshUI==='function')refreshUI();}catch(e){}
+  }).catch(function(e){
+    console.warn('[supabase] session non établie',e);
+    notif('⚠️ Supabase : connexion impossible ('+(e&&e.code||'')+' '+(e&&e.message||'')+'). Vos données locales restent affichées.','error');
+  });
+}
+
+/* ───── envoi des données de l'appareil vers Supabase ───── */
+function docId(c,x){return String(c==='users'?(x.login||x.id||''):(x.id||''));}
+function pushLocal(cols,progress){
+  var d=DBo();if(!d)return Promise.reject(new Error('Données indisponibles'));
+  cols=cols||['users','ecoles','eleves','notes','corbeille'];
+  var total=0,ok=0,errs=[];
+  return ready().then(function(c){
+    return cols.reduce(function(p,col){return p.then(function(){
+      var rows=(d[col]||[]).map(function(x){return {id:docId(col,x),data:JSON.parse(JSON.stringify(x))};}).filter(function(r){return r.id;}),i=0;total+=rows.length;
+      function nx(){
+        if(i>=rows.length)return null;
+        var part=rows.slice(i,i+300);i+=300;
+        return c.rpc('upsert_docs',{p_col:col,p_rows:part}).then(function(r){
+          if(r.error){errs.push(col+' : '+((r.error.code||'')+' '+r.error.message));}else ok+=part.length;
+          if(progress)progress(col,Math.min(i,rows.length),rows.length);return nx();
+        });
+      }
+      return nx();
+    });},Promise.resolve());
+  }).then(function(){return{total:total,ok:ok,errors:errs};});
+}
+function ping(){
+  return ready().then(function(c){return c.auth.getSession().then(function(s){var has=!!(s&&s.data&&s.data.session);return c.from('docs').select('id',{count:'exact',head:true}).then(function(r){return{session:has,count:r.error?null:(r.count||0),error:r.error?((r.error.code||'')+' '+r.error.message):''};});});});
+}
+
+/* ───── installation (remplace window._fb) ───── */
+function localHasData(){var d=DBo();return !!(d&&((d.eleves||[]).length||(d.ecoles||[]).length||(d.notes||[]).length));}
+function install(){
+  var fb=window._fb;if(!fb||API.installed)return !!API.installed;
+  fb.getAll=getAll;
+  fb.set=function(col,id,data){return write({op:'set',c:col,i:id,d:JSON.parse(JSON.stringify(data||{}))});};
+  fb.del=function(col,id){return write({op:'del',c:col,i:id});};
+  fb.listen=listen;fb.signIn=signIn;fb.createUser=createUser;
+  fb.signOut=function(){return ready().then(function(c){return c.auth.signOut();});};
+  fb.onAuthState=function(cb){var un=null;ready().then(function(c){un=c.auth.onAuthStateChange(function(ev,s){cb(s?{uid:s.user&&s.user.id,email:s.user&&s.user.email}:null);});});return function(){try{un&&un.data&&un.data.subscription.unsubscribe();}catch(e){}};};
+  fb.getCurrentUserProfile=function(){return ready().then(function(c){return c.auth.getUser();}).then(function(r){var u=r&&r.data&&r.data.user;if(!u)return null;return getAll('users').then(function(a){var p=a.find(function(x){return x.uid===u.id||x.id===u.id;});return p?Object.assign({uid:u.id},p):null;});});};
+  fb.setUserProfile=function(uid,data){if(!uid)return Promise.reject(new Error('UID manquant'));return write({op:'set',c:'users',i:uid,d:Object.assign({},data,{uid:uid})});};
+  window._firebaseReady=true;
+  /* chargement initial protégé : jamais de remplacement par du vide */
+  var oLoad=window._loadFirebaseDB;
+  window._loadFirebaseDB=function(){
+    var self=this,args=arguments;
+    return ready().then(function(c){return c.auth.getSession();}).then(function(s){
+      if(!(s&&s.data&&s.data.session)){console.log('[supabase] pas de session : données locales conservées');return;}
+      return countDocs(['users','ecoles','eleves','notes']).then(function(n){
+        if(n===0&&localHasData()){
+          notif('ℹ️ Supabase est vide alors que cet appareil contient des données : utilisez « Envoyer les données de cet appareil » (Console → Paramètres → Connexion Supabase).','info');return;
+        }
+        return typeof oLoad==='function'?oLoad.apply(self,args):null;
+      });
+    }).catch(function(e){console.warn('[supabase] chargement ignoré (données locales conservées)',e);});
+  };
+  /* après connexion locale : établir la session Supabase puis recharger */
+  var oLogin=window._doLoginFirebase;
+  if(typeof oLogin==='function')window._doLoginFirebase=function(loginId,pass){
+    var res=oLogin.apply(this,arguments);
+    Promise.resolve(res).then(function(){if(window.currentUser)afterLogin(loginId,pass);});
+    return res;
+  };
+  /* gel de la file d'écritures Firestore (évite qu'elle soit purgée par un refus) */
+  try{import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js').then(function(m){if(window._fbDB&&m.disableNetwork)return m.disableNetwork(window._fbDB);}).catch(function(){});}catch(e){}
+  API.installed=true;console.log('[supabase] couche cloud Supabase active');return true;
+}
+if(ON){
+  var tries=0,iv=setInterval(function(){tries++;try{if(install()||tries>200)clearInterval(iv);}catch(e){console.error('[supabase] install',e);clearInterval(iv);}},300);
+}
+
+/* ───── fenêtre de configuration ───── */
+var CSS='#pgsb-ov{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9700;display:none;align-items:center;justify-content:center;padding:14px}#pgsb-ov.open{display:flex}'+
+'#pgsb-box{background:#fff;color:#0f172a;border-radius:16px;max-width:780px;width:100%;max-height:92vh;overflow:auto;padding:18px 20px;font-family:inherit;font-size:13px}#pgsb-box h3{margin:0 0 8px;font-size:17px}'+
+'#pgsb-box input[type=text],#pgsb-box input[type=password],#pgsb-box textarea{width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;margin:3px 0 8px}'+
+'#pgsb-box .r{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}#pgsb-box .n{color:#64748b;font-size:12px;line-height:1.5}#pgsb-box .ok{color:#047857}#pgsb-box .ko{color:#b91c1c}#pgsb-box textarea{font-family:monospace;font-size:11px;height:140px}';
+function openConfig(){
+  if(!$('pgsb-ov')){var st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);var o=document.createElement('div');o.id='pgsb-ov';o.innerHTML='<div id="pgsb-box"></div>';o.onclick=function(e){if(e.target===o)o.classList.remove('open');};document.body.appendChild(o);}
+  var c=lsg(),b=$('pgsb-box');$('pgsb-ov').classList.add('open');
+  b.innerHTML='<h3>🔌 Connexion à Supabase</h3>'+
+   '<p class="n"><b>Étapes :</b> (1) créez un projet sur supabase.com ; (2) collez le script SQL ci-dessous dans <i>SQL Editor</i> puis <i>Run</i> ; (3) dans <i>Authentication → Providers → Email</i>, <b>désactivez « Confirm email »</b> ; (4) copiez ici l\'URL du projet et la clé <b>« publishable »</b> (<code>sb_publishable_…</code>) ou, sur un ancien projet, la clé <b>« anon / public »</b> (<i>Project Settings → API Keys</i>) ; (5) Testez, puis activez.<br>⚠️ N\'utilisez <b>jamais</b> une clé secrète ici (<code>sb_secret_…</code> ou « service_role »).</p>'+
+   '<label>URL du projet<input type="text" id="sb-url" placeholder="https://xxxx.supabase.co" value="'+esc(c.url||'')+'"></label>'+
+   '<label>Clé publique (« publishable » ou « anon »)<input type="password" id="sb-key" placeholder="sb_publishable_… ou eyJ…" value="'+esc(c.anon||'')+'"></label>'+
+   '<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sb-on" '+(c.enabled?'checked':'')+'> <b>Activer Supabase comme base de données</b> (après actualisation de la page ; décochez pour revenir à Firebase)</label>'+
+   '<div class="r"><button class="btn btn-primary" id="sb-save">💾 Enregistrer</button><button class="btn btn-secondary" id="sb-test">🧪 Tester la connexion</button><button class="btn btn-secondary" id="sb-push">📤 Envoyer les données de cet appareil vers Supabase</button><button class="btn btn-secondary" id="sb-close">Fermer</button></div>'+
+   '<div id="sb-msg" class="n"></div>'+
+   '<details><summary><b>Script SQL à coller dans Supabase</b></summary><textarea id="sb-sql" readonly></textarea><div class="r"><button class="btn btn-secondary" id="sb-copy">📋 Copier le script</button></div></details>'+
+   '<p class="n">'+(c.baked?'ℹ️ Configuration lue dans <b>supabase-config.js</b> (valable pour tous les utilisateurs). Enregistrer ici ne change que cet appareil.<br>':'Pour activer Supabase chez <b>tous</b> les utilisateurs, renseignez le fichier <b>supabase-config.js</b> sur GitHub (une fois les données migrées).<br>')+'Statut actuel : '+(ON?(API.installed?'<span class="ok">Supabase actif</span>':'activé, chargement…'):'<span class="ko">inactif (Firebase)</span>')+'.</p>';
+  $('sb-sql').value=SQL;
+  function msg(t){$('sb-msg').innerHTML=t;}
+  function save(){var u=$('sb-url').value.trim().replace(/\/+$/,''),k=$('sb-key').value.trim(),on=$('sb-on').checked;
+    if(on&&(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(u)||k.length<20)){msg('<span class="ko">URL ou clé invalide (format attendu : https://xxxx.supabase.co).</span>');return false;}
+    if(/^sb_secret_/i.test(k)){msg('<span class="ko">⛔ Cette clé est une clé <b>secrète</b> (sb_secret_…). Utilisez la clé <b>publishable</b> (sb_publishable_…) ou « anon ».</span>');return false;}
+    if(/service_role/i.test(k)||(function(){try{return JSON.parse(atob(k.split('.')[1])).role==='service_role';}catch(e){return false;}})()){msg('<span class="ko">⛔ Cette clé est une clé « service_role » (secrète). Utilisez la clé « publishable » ou « anon ».</span>');return false;}
+    try{localStorage.setItem(KEY,JSON.stringify({url:u,anon:k,enabled:on}));}catch(e){msg('<span class="ko">Enregistrement impossible : '+esc(e.message)+'</span>');return false;}
+    readyP=null;API.client=null;msg('<span class="ok">✅ Enregistré.</span>'+(on?' Actualisez la page pour activer Supabase.':''));return true;}
+  $('sb-save').onclick=save;$('sb-close').onclick=function(){$('pgsb-ov').classList.remove('open');};
+  $('sb-copy').onclick=function(){try{navigator.clipboard.writeText(SQL);msg('📋 Script copié.');}catch(e){$('sb-sql').select();}};
+  $('sb-test').onclick=function(){if(!save())return;msg('⏳ Test…');ping().then(function(r){msg(r.error?'<span class="ko">❌ '+esc(r.error)+(/42P01|relation/i.test(r.error)?' — la table « docs » n\'existe pas : exécutez le script SQL.':'')+'</span>':'<span class="ok">✅ Connexion établie.</span> Session : '+(r.session?'<b>ouverte</b>':'<b>non ouverte</b> (se reconnecter à l\'application)')+' · documents : <b>'+r.count+'</b>.');}).catch(function(e){msg('<span class="ko">❌ '+esc(e.message||e)+'</span>');});};
+  $('sb-push').onclick=function(){if(!save())return;var d=DBo();if(!d)return;
+    if(!confirm('Envoyer vers Supabase les données de cet appareil ?\n\n• comptes : '+(d.users||[]).length+'\n• écoles : '+(d.ecoles||[]).length+'\n• élèves : '+(d.eleves||[]).length+'\n• notes : '+(d.notes||[]).length+'\n\nLes fiches de même identifiant seront fusionnées (rien n\'est supprimé).'))return;
+    msg('⏳ Envoi…');
+    ready().then(function(c){return c.auth.getSession();}).then(function(s){
+      if(s&&s.data&&s.data.session)return;
+      var u=me();var pw=window.prompt('Mot de passe du compte « '+((u&&u.login)||'')+' » pour ouvrir la session Supabase :','');if(!pw)throw new Error('Session Supabase requise');
+      return signInOrCreate(((u&&u.login)||'')+'@pgnep-menaet.ci',pw);
+    }).then(function(){return pushLocal(null,function(c,i,n){msg('⏳ '+c+' : '+i+'/'+n);});}).then(function(r){msg((r.errors.length?'<span class="ko">⚠️ ':'<span class="ok">✅ ')+r.ok+'/'+r.total+' fiche(s) envoyée(s)</span>'+(r.errors.length?'<br>'+r.errors.slice(0,3).map(esc).join('<br>'):''));}).catch(function(e){msg('<span class="ko">❌ '+esc(e.message||e)+'</span>');});};
+}
+API.openConfig=openConfig;API.getAll=getAll;API.write=write;API.listen=listen;API.pushLocal=pushLocal;API.ping=ping;API.afterLogin=afterLogin;API.install=install;API.signIn=signIn;API.createUser=createUser;API.countDocs=countDocs;
+})();
+
+</script>
+
 <script id="pgnep-sync-guard">
 /* ══════════════════════════════════════════════════════════════════════
    [pgnep-sync-guard] — FIABILISATION DE LA SYNCHRONISATION FIREBASE
@@ -21466,9 +21896,12 @@ function rel(){run--;var n=waitQ.shift();if(n){run++;n();}}
 function withTmo(p,ms){return new Promise(function(res,rej){var t=setTimeout(function(){var e=new Error('timeout');e.code='timeout';rej(e);},ms);p.then(function(v){clearTimeout(t);res(v);},function(e){clearTimeout(t);rej(e);});});}
 function attempt(k){
   var rec=Q.get(k);if(!rec)return Promise.resolve(true);var ver=rec.t;
-  return acq().then(function(){return loadSDK();}).then(function(){
-    var ref=FS.doc(window._fbDB,rec.c,String(rec.i));
-    return withTmo(rec.op==='del'?FS.deleteDoc(ref):FS.setDoc(ref,rec.d,{merge:true}),TMO);
+  return acq().then(function(){
+    if(SB())return withTmo(window.PGSB.write(rec),TMO);
+    return loadSDK().then(function(){
+      var ref=FS.doc(window._fbDB,rec.c,String(rec.i));
+      return withTmo(rec.op==='del'?FS.deleteDoc(ref):FS.setDoc(ref,rec.d,{merge:true}),TMO);
+    });
   }).then(function(){
     var cur=Q.get(k);if(cur&&cur.t===ver)qdel(k);
     if(rec.op==='set'&&rec.s)last.set(k,rec.s);else last.delete(k);
@@ -21484,8 +21917,10 @@ function retryLater(){ if(Q.size&&navigator.onLine!==false)flushAll(false); }
 function onFail(code){/* aucune action automatique sur l'authentification : l'utilisateur décide */}
 
 /* ───────── session Firebase Auth ───────── */
+function SB(){return !!(window.PGSB&&window.PGSB.active);}
 function isReal(u){return !!(u&&!u.isAnonymous);}
 function cleanAnon(){
+  if(SB())return Promise.resolve(false);
   /* supprime une éventuelle session anonyme laissée par une version précédente du module */
   return loadSDK().then(function(){
     var auth=window._fbAuth;if(!auth)return false;
@@ -21514,6 +21949,7 @@ function ensureAuth(login,pass){
 /* ───────── enrobage de window._fb ───────── */
 function wrap(){
   var fb=window._fb;if(!fb||S.wrapped||!window._fbDB)return false;
+  if(window.PGSB&&window.PGSB.active&&!window.PGSB.installed)return false;
   var oSet=fb.set,oDel=fb.del,oListen=fb.listen;
   fb.set=function(col,id,data){
     if(MANAGED.indexOf(col)<0||id==null||id==='')return oSet.apply(this,arguments);
@@ -21555,8 +21991,8 @@ function seed(col,data){
 function syncNow(opts){
   opts=opts||{};var d=DBo();if(!d)return Promise.resolve({err:'Données indisponibles'});
   var cols=opts.cols||['users','ecoles','eleves','notes'],n=0;
-  return ensureAuth(null,null).then(function(a){
-    if(!window._fb||!window._firebaseReady)return{err:'Firebase non initialisé'};
+  return (SB()?Promise.resolve({ok:true,info:'Supabase'}):ensureAuth(null,null)).then(function(a){
+    if(!window._fb||!window._firebaseReady)return{err:'Couche cloud non initialisée'};
     cols.forEach(function(c){(d[c]||[]).forEach(function(x){var id=c==='users'?(x.login||x.id):x.id;if(id==null)return;n++;window._fb.set(c,id,x);});});
     return flushAll(true).then(function(r){return{scanned:n,pending:Q.size,sentOk:S.ok,auth:a.info,authErr:a.err||'',lastErr:S.lastErr};});
   });
@@ -21570,11 +22006,28 @@ function advice(code){
    'resource-exhausted':"Quota Firestore atteint (plan gratuit : environ 20 000 écritures par jour). Les données restent en file d'attente et partiront automatiquement quand le quota sera rétabli (ou en passant au plan Blaze).",
    'invalid-argument':"Une fiche contient une valeur refusée par Firestore (champ vide non supporté, taille > 1 Mo…). Les champs « undefined » sont déjà nettoyés ; vérifiez la fiche indiquée.",
    'unavailable':"Serveur injoignable (réseau). Nouvelle tentative automatique.",'timeout':"Réponse trop lente (réseau faible). Nouvelle tentative automatique.",
+   '42501':"Supabase refuse l'opération (RLS) : la session Supabase n'est pas ouverte. Reconnectez-vous à l'application, ou exécutez le script SQL complet.",'PGRST301':"Session Supabase expirée ou absente : reconnectez-vous.",'42P01':"La table « docs » n'existe pas dans Supabase : exécutez le script SQL.",'PGRST116':"Réponse Supabase inattendue.",
    'auth/operation-not-allowed':"La connexion anonyme/e-mail n'est pas activée dans Firebase Authentication."};
   return m[code]||'';
 }
 function lsUsage(){var t=0;try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);t+=k.length+(localStorage.getItem(k)||'').length;}}catch(e){}return t*2;}
+function diagnoseSB(){
+  var rows=[],add=function(l,ok,det){rows.push({l:l,ok:ok,d:det||''});};
+  add('Réseau',navigator.onLine!==false,navigator.onLine!==false?'En ligne':'Hors ligne');
+  return window.PGSB.ping().then(function(r){
+    add('Supabase — connexion',!r.error,r.error?r.error:'Joignable');
+    add('Supabase — session',r.session,r.session?'Ouverte':'Non ouverte : reconnectez-vous à l\'application');
+    add('Supabase — documents visibles',r.count!=null,r.count!=null?String(r.count):'illisible');
+  },function(e){add('Supabase — connexion',false,(e&&e.message)||String(e));}).then(function(){
+    var by={};Q.forEach(function(x){by[x.c]=(by[x.c]||0)+1;});
+    add('File d\'attente',Q.size===0,Q.size?(Q.size+' élément(s) non confirmé(s)'):'Vide — tout est synchronisé');
+    add('Dernières écritures',S.fail===0||S.ok>0,S.ok+' réussie(s) · '+S.fail+' échec(s)'+(S.lastErr?(' · dernier échec : '+S.lastErr.code):''));
+    var u=lsUsage();add('Stockage local',u<4.5e6,(u/1e6).toFixed(1)+' Mo utilisés');
+    var code=(S.lastErr&&S.lastErr.code)||'';return{rows:rows,advice:advice(code),code:code};
+  });
+}
 function diagnose(){
+  if(SB())return diagnoseSB();
   var rows=[],add=function(l,ok,det){rows.push({l:l,ok:ok,d:det||''});};
   add('Réseau',navigator.onLine!==false,navigator.onLine!==false?'En ligne':'Hors ligne');
   var auth=window._fbAuth;
@@ -21609,9 +22062,10 @@ function lsKeys(){
 function inventory(){
   var d=DBo()||{},res=[];
   var cnt={};Q.forEach(function(r){var o=cnt[r.c]||(cnt[r.c]={set:0,old:0});if(r.op==='set'){o.set++;if(r.old)o.old++;}});
-  return loadSDK().catch(function(){}).then(function(){
+  return (SB()?Promise.resolve():loadSDK().catch(function(){})).then(function(){
     return Promise.all(MANAGED.map(function(c){
       var row={c:c,mem:Array.isArray(d[c])?d[c].length:null,ls:lsCount(c),q:(cnt[c]||{}).set||0,qold:(cnt[c]||{}).old||0,cloud:'—'};
+      if(SB()){return window.PGSB.countDocs([c]).then(function(n){row.cloud=n;},function(e){row.cloud='refusé ('+((e&&e.code)||'?')+')';}).then(function(){return row;});}
       if(FS&&FS.getCountFromServer&&window._fbDB){
         return withTmo(FS.getCountFromServer(FS.collection(window._fbDB,c)),8000).then(function(s){row.cloud=s.data().count;},function(e){row.cloud='refusé ('+((e&&e.code)||'?')+')';}).then(function(){return row;});
       }
@@ -21694,249 +22148,5 @@ if(document.readyState!=='loading')boot();else document.addEventListener('DOMCon
 
 </script>
 
-
-<!-- ════════════════════════════════════════════════════════════════
-     MODULE DRENAET — CRÉATION DE COMPTES DIRECTEUR / CORRESPONDANT
-     Perroquet 3.1
-     Le Coordonnateur DRENAET peut créer :
-       • Directeur d'école de sa DRENAET
-       • Correspondant Fichier / IEPP de sa DRENAET
-     Il ne peut pas créer de compte national, administrateur, cabinet,
-     CPPP, instituteur ou bénévole depuis cet espace.
-     ════════════════════════════════════════════════════════════════ -->
-<script id="pgnep-drena-account-creation">
-(function(){
-  'use strict';
-
-  function me(){
-    try { return (typeof getCurrentUserData==='function' ? getCurrentUserData() : null) || window.currentUser || null; }
-    catch(e){ return window.currentUser || null; }
-  }
-  function isDrena(){ var u=me(); return !!(u && u.role==='coordinateur'); }
-  function myDrena(){ var u=me(); return String((u && (u.structure_val || u.drena || u.drenaet)) || '').trim(); }
-  function ecolesDrena(){
-    var d=myDrena();
-    return (Array.isArray(DB.ecoles)?DB.ecoles:[]).filter(function(e){
-      return String(e.drena || e.drenaet || e.drenaet_id || '').trim()===d;
-    });
-  }
-  function ieppsDrena(){
-    return Array.from(new Set(ecolesDrena().map(function(e){ return e.iepp; }).filter(Boolean)));
-  }
-  function schoolById(id){ return (DB.ecoles||[]).find(function(e){ return String(e.id)===String(id); }) || null; }
-  function showErr(msg){
-    var el=document.getElementById('compte-error');
-    if(el){ el.textContent=msg; el.style.display='block'; }
-  }
-
-  /* Le coordinateur DRENAET dispose maintenant de la page de gestion
-     des comptes, au même titre que le directeur et le correspondant,
-     mais avec un périmètre strictement limité à sa DRENAET. */
-  var oldCanManage = window.canManageComptes;
-  window.canManageComptes=function(){
-    var u=me();
-    if(!u) return false;
-    return ['admin','directeur','correspondant','coordinateur'].indexOf(u.role)!==-1;
-  };
-
-  /* Le coordinateur n'est plus en lecture seule sur la gestion des comptes. */
-  window.isReadonlyComptes=function(){
-    var u=me();
-    return !!(u && u.role==='coordinateur' && u.login!=='diomande' && false);
-  };
-
-  /* Prépare le formulaire pour le coordinateur DRENAET. */
-  var oldUpdateStructureFields=window.updateStructureFields;
-  window.updateStructureFields=function(){
-    if(typeof oldUpdateStructureFields==='function') oldUpdateStructureFields.apply(this,arguments);
-    if(!isDrena()) return;
-
-    var roleSel=document.getElementById('new-role');
-    var drena=document.getElementById('new-drena');
-    var iepp=document.getElementById('new-iepp');
-    var ecole=document.getElementById('new-ecole-user');
-    var classe=document.getElementById('field-classe');
-    var fieldDrena=document.getElementById('field-drena');
-    var fieldIepp=document.getElementById('field-iepp');
-    var fieldEcole=document.getElementById('field-ecole');
-
-    if(drena){
-      drena.disabled=true;
-      drena.value=myDrena();
-      drena.style.background='#F1F5F9';
-    }
-    if(fieldDrena) fieldDrena.style.display='block';
-    if(classe) classe.style.display='none';
-
-    /* Seuls Directeur et Correspondant Fichier sont proposés au DRENA. */
-    if(roleSel){
-      Array.from(roleSel.options).forEach(function(o){
-        o.hidden=['directeur','correspondant'].indexOf(o.value)===-1;
-      });
-      if(['directeur','correspondant'].indexOf(roleSel.value)===-1) roleSel.value='directeur';
-    }
-
-    var role=roleSel ? roleSel.value : 'directeur';
-    var schools=ecolesDrena();
-    var iepps=ieppsDrena();
-
-    if(role==='correspondant'){
-      if(fieldIepp) fieldIepp.style.display='block';
-      if(fieldEcole) fieldEcole.style.display='none';
-      if(iepp){
-        iepp.disabled=false;
-        iepp.style.background='';
-        iepp.innerHTML=iepps.length
-          ? iepps.map(function(x){ return '<option value="'+String(x).replace(/"/g,'&quot;')+'">'+x+'</option>'; }).join('')
-          : '<option value="">Aucun IEPP dans cette DRENAET</option>';
-        if(iepps.length && !iepps.includes(iepp.value)) iepp.value=iepps[0];
-      }
-    }else{
-      if(fieldIepp) fieldIepp.style.display='none';
-      if(fieldEcole) fieldEcole.style.display='block';
-      if(ecole){
-        ecole.disabled=false;
-        ecole.style.background='';
-        ecole.innerHTML='<option value="">— Sélectionner une école de ma DRENAET —</option>'+
-          schools.map(function(e){ return '<option value="'+String(e.id).replace(/"/g,'&quot;')+'">'+(e.nom||e.id)+'</option>'; }).join('');
-      }
-    }
-  };
-
-  /* Lorsque le rôle change, on réapplique immédiatement les restrictions DRENA. */
-  var roleSelect=document.getElementById('new-role');
-  if(roleSelect){ roleSelect.addEventListener('change',function(){ setTimeout(window.updateStructureFields,0); }); }
-
-  /* Remplace uniquement la création pour le coordinateur DRENAET.
-     Les autres rôles conservent le comportement existant. */
-  var oldSaveCompte=window.saveCompte;
-  window.saveCompte=async function(){
-    if(!isDrena()){
-      return oldSaveCompte.apply(this,arguments);
-    }
-
-    var errEl=document.getElementById('compte-error');
-    if(errEl) errEl.style.display='none';
-
-    var orig=(window.editingLoginOrig || (typeof editingLoginOrig!=='undefined' ? editingLoginOrig : null));
-    var login=(document.getElementById('new-login')||{}).value||'';
-    login=login.trim().toLowerCase();
-    var nom=(document.getElementById('new-nom-user')||{}).value||'';
-    nom=nom.trim();
-    var pass=(document.getElementById('new-pass')||{}).value||'';
-    var pass2=(document.getElementById('new-pass2')||{}).value||'';
-    var role=(document.getElementById('new-role')||{}).value||'directeur';
-    var valIepp=(document.getElementById('new-iepp')||{}).value||'';
-    valIepp=valIepp.trim();
-    var valEcole=(document.getElementById('new-ecole-user')||{}).value||'';
-    valEcole=valEcole.trim();
-    var valTel=(document.getElementById('new-telephone')||{}).value||'';
-    valTel=valTel.trim();
-    var drena=myDrena();
-
-    if(!login || !nom) return showErr('Identifiant et nom complet sont obligatoires.');
-    if(!orig && !pass) return showErr('Mot de passe obligatoire pour un nouveau compte.');
-    if(pass && pass.length<6) return showErr('Mot de passe : 6 caractères minimum.');
-    if(pass && pass!==pass2) return showErr('Les deux mots de passe sont différents.');
-    if(['directeur','correspondant'].indexOf(role)===-1) return showErr('Le DRENAET peut créer uniquement un Directeur ou un Correspondant Fichier.');
-    if(!drena) return showErr('Votre compte DRENAET n\'est pas correctement rattaché à une DRENAET.');
-
-    var schools=ecolesDrena();
-    var iepps=ieppsDrena();
-    var ec=null;
-    if(role==='directeur'){
-      ec=schoolById(valEcole);
-      if(!ec || String(ec.drena||'').trim()!==drena){
-        return showErr('Cette école n\'appartient pas à votre DRENAET.');
-      }
-    }else{
-      if(iepps.indexOf(valIepp)===-1){
-        return showErr('Cet IEPP n\'appartient pas à votre DRENAET.');
-      }
-    }
-
-    if(!orig && DB.users.some(function(u){ return String(u.login||'').toLowerCase()===login; })){
-      return showErr('Identifiant déjà utilisé.');
-    }
-
-    /* Modification : le DRENAET ne modifie que Directeur/Correspondant de son périmètre. */
-    if(orig){
-      var target=DB.users.find(function(u){ return u.login===orig; });
-      if(!target) return showErr('Compte introuvable.');
-      var targetRole=target.role;
-      if(['directeur','correspondant'].indexOf(targetRole)===-1) return showErr('Vous ne pouvez modifier que les comptes Directeur et Correspondant Fichier.');
-      var inScope=false;
-      if(targetRole==='directeur'){
-        var te=schoolById(target.structure_val);
-        inScope=!!(te && String(te.drena||'').trim()===drena);
-      }else{
-        inScope=iepps.indexOf(String(target.structure_val||'').trim())!==-1;
-      }
-      if(!inScope) return showErr('Ce compte est hors de votre DRENAET.');
-      return showErr('Pour le moment, utilisez cette fonction pour créer les comptes. La modification des comptes DRENAET sera activée après validation de la création.');
-    }
-
-    var structure_type=role==='directeur' ? 'ecole' : 'iepp';
-    var structure_val=role==='directeur' ? valEcole : valIepp;
-    var ecole_val=role==='directeur' ? valEcole : '';
-    var email=login+'@pgnep-menaet.ci';
-    var nu={
-      login:login, nom:nom,
-      pass:typeof hashPass==='function'?hashPass(pass):pass,
-      passPlain:pass,
-      role:role,
-      structure_type:structure_type,
-      structure_val:structure_val,
-      ecole_val:ecole_val,
-      telephone:valTel,
-      email:email,
-      actif:true,
-      drena:drena
-    };
-    if(role==='correspondant') nu.iepp=valIepp;
-    if(role==='directeur' && ec){
-      nu.ecole_id=ec.id; nu.ecole_nom=ec.nom; nu.iepp=ec.iepp||''; nu.drena=ec.drena||drena;
-    }
-
-    try{
-      var uid='';
-      if(window._firebaseReady && window._fb){
-        var cred=await window._fb.createUser(email,pass);
-        uid=cred && cred.user ? cred.user.uid : '';
-        if(window._fb.setUserProfile && uid) await window._fb.setUserProfile(uid,Object.assign({},nu,{uid:uid}));
-        await window._fb.set('users',login,Object.assign({},nu,{uid:uid}));
-      }
-      nu.uid=uid;
-      DB.users.push(nu);
-      if(typeof memoriserChamp==='function'){
-        memoriserChamp('drena',drena);
-        if(valIepp) memoriserChamp('iepp',valIepp);
-        if(valEcole) memoriserChamp('ecole',valEcole);
-      }
-      save('users');
-      if(typeof renderUsersList==='function') renderUsersList();
-      if(typeof resetCompteForm==='function') resetCompteForm();
-      showNotif(role==='directeur' ? '✅ Compte Directeur créé dans votre DRENAET.' : '✅ Compte Correspondant Fichier créé dans votre DRENAET.','success');
-    }catch(e){
-      console.error('Création compte DRENAET:',e);
-      showErr('Impossible de créer le compte : '+(e && e.message ? e.message : e));
-    }
-  };
-
-  /* Actualise l'interface dès que le formulaire est disponible. */
-  var tries=0;
-  var timer=setInterval(function(){
-    tries++;
-    if(isDrena()){
-      try{ window.updateStructureFields(); }catch(e){}
-      var title=document.getElementById('comptes-titre');
-      if(title) title.innerHTML='👥 Comptes de ma DRENAET <span style="display:inline-block;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:700;margin-left:8px;">✚ Création Directeur / Correspondant Fichier</span>';
-      var fs=document.getElementById('compte-form-section');
-      if(fs) fs.style.display='';
-    }
-    if(tries>200) clearInterval(timer);
-  },100);
-})();
-</script>
 </body>
 </html>

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Récupération des données — Le Perroquet</title>
+<style>
+:root{--g:#0f766e;--b:#1d4ed8;--r:#b91c1c;--o:#b45309;--t:#0f172a;--m:#64748b;--l:#e2e8f0}
+*{box-sizing:border-box}html,body{margin:0;max-width:100%;overflow-x:hidden}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#f1f5f9;color:var(--t);padding:14px}
+.w{max-width:980px;margin:0 auto}h1{font-size:22px;margin:0 0 4px}.sub{color:var(--m);font-size:13px;margin:0 0 14px;line-height:1.5}
+.c{background:#fff;border:1px solid var(--l);border-radius:14px;padding:16px 18px;margin-bottom:14px;min-width:0}.c h2{font-size:16px;margin:0 0 8px}
+.bt{border:0;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;margin:0 6px 6px 0;font-family:inherit}
+.p{background:var(--b);color:#fff}.s{background:#e2e8f0;color:var(--t)}.d{background:var(--r);color:#fff}.ok{background:var(--g);color:#fff}.bt:disabled{opacity:.5;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:auto}th{background:#f1f5f9;text-align:left;padding:7px 8px;font-size:11px;text-transform:uppercase;color:#475569}
+td{padding:7px 8px;border-bottom:1px solid #eef2f7;vertical-align:top;overflow-wrap:anywhere}
+.n{font-weight:800}.z{color:var(--m)}.e{color:var(--r);font-size:11px}.v{border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55;margin-top:10px}
+.v.g{background:#ecfdf5;border:1px solid #6ee7b7}.v.o{background:#fffbeb;border:1px solid #fde68a}.v.r{background:#fef2f2;border:1px solid #fecaca}
+.note{font-size:12px;color:var(--m);line-height:1.5}.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}
+input[type=text],select{padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;min-width:0}
+pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:10px;font-size:11.5px;white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 0}
+</style></head><body><div class="w">
+<h1>🛟 Récupération des données — Le Perroquet</h1>
+<div class="v r" style="margin:0 0 12px">🛑 <b>Avant tout :</b> n'ouvrez plus l'application (ni la Plateforme IEPP) et n'effacez rien dans le navigateur tant que vous n'avez pas téléchargé les sauvegardes de la section 2. Si Firebase refuse les écritures en attente, le navigateur peut les <b>supprimer définitivement</b>.</div>
+<p class="sub">Cet outil <b>ne modifie rien</b> tant que vous ne cliquez pas sur un bouton rouge « Renvoyer vers le cloud ». Il cherche vos élèves, notes et comptes à trois endroits : le <b>cloud</b> (Firebase), le <b>cache hors ligne</b> du navigateur et le <b>stockage local</b>.<br>
+⚠️ Pour voir les données de l'appareil, ouvrez cette page <b>depuis le même site que l'application</b> (même adresse, même navigateur) et <b>fermez les autres onglets</b> de l'application. N'effacez pas les données du navigateur.</p>
+
+<div class="c" style="border:2px solid #0f766e"><h2>📦 Récupérer mes données du Perroquet</h2>
+<p class="note">Un seul clic : l'outil analyse ce navigateur, rassemble <b>uniquement les données du Perroquet</b> (élèves, notes, écoles, comptes — la Plateforme IEPP est ignorée) et télécharge un classeur <b>Excel</b> + un fichier <b>JSON</b> de restauration. Rien n'est modifié ni envoyé. Le fichier <b>SQL</b> permet de charger directement ces données dans Supabase (SQL Editor).</p>
+<button class="bt ok" id="rec" style="font-size:15px;padding:13px 20px">📦 Récupérer maintenant (Excel + JSON)</button><div class="note" id="recmsg"></div></div>
+<div class="c"><h2>1. Analyser (détails)</h2>
+<button class="bt p" id="go">🔍 Lancer l'analyse</button><span class="note" id="st"></span>
+<div class="row" style="margin-top:6px"><span class="note">Lecture du cloud avec votre compte (facultatif) :</span><input type="text" id="sl" placeholder="identifiant (ex. diomande)"><input type="password" id="sp" placeholder="mot de passe" style="padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px"><button class="bt s" id="sb">🔑 Se connecter et relire le cloud</button></div><div class="note" id="sm"></div>
+<div id="res"></div></div>
+
+<div class="c" id="dl" style="display:none"><h2>2. Sauvegarder (lecture seule, sans risque)</h2>
+<p class="note">Téléchargez d'abord une copie de ce qui a été trouvé. Les fichiers sont des JSON lisibles et réutilisables.</p>
+<div id="dlb"></div><div class="note" id="dlmsg"></div></div>
+
+<div class="c" id="rs" style="display:none"><h2>3. Restaurer</h2>
+<p class="note">Choisissez pour chaque collection la source à utiliser (la plus complète est présélectionnée), puis soit téléchargez un fichier de restauration (à charger dans l'application : Console Super Admin → Sauvegarde &amp; restauration → Restauration), soit renvoyez directement vers le cloud.</p>
+<div id="rsb"></div><div class="row" id="rsa"></div><div class="note" id="rsmsg"></div></div>
+
+<div class="c" id="ck" style="display:none"><h2>4. Pourquoi l'application affiche zéro ? Vérifier un compte</h2>
+<p class="note">L'application filtre les élèves selon le rôle et l'école du compte. Saisissez l'identifiant d'un compte pour voir ce que le cloud contient pour lui.</p>
+<div class="row"><input type="text" id="lg" placeholder="identifiant (ex. diomande)"><button class="bt s" id="lgb">Vérifier</button></div><div id="lgr"></div></div>
+</div>
+
+<script>
+var CFG={apiKey:"AIzaSyB0r1_VHBn3EYu73LsHzR1E8QEuk57uO8w",authDomain:"perroquet-pgnep-menaet.firebaseapp.com",projectId:"perroquet-pgnep-menaet",storageBucket:"perroquet-pgnep-menaet.firebasestorage.app",messagingSenderId:"303217621491",appId:"1:303217621491:web:df7c6609e1396d62177a86"};
+var COLS=['users','ecoles','eleves','notes','corbeille','drenaets','iepps','pointage_ens','docpnapas','doclib','deleted_users'];
+var CORE=['users','ecoles','eleves','notes','corbeille'];
+var FS=null,AUTH=null,auth=null,db=null,R={};
+function reset(){R={cloud:{},cache:{},local:{},idb:[],outbox:[],raw:{},rawTmp:{},muts:[],ovs:[],pending:{},pendingDel:{},delIds:{},rawCache:{},done:false};}reset();
+function $(i){return document.getElementById(i);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function code(e){return (e&&e.code)||(e&&e.message)||String(e);}
+function today(){return new Date().toISOString().slice(0,10);}
+function dl(obj,name){var b=new Blob([JSON.stringify(obj)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href);},1500);}
+function docId(c,x){return String(c==='users'?(x.login||x.id||''):(x.id||''));}
+function mo(b){return (b/1e6).toFixed(2)+' Mo';}
+
+/* ───── SDK ───── */
+function loadSDK(){
+  if(FS)return Promise.resolve();
+  if(window.__RECUP_SDK){FS=window.__RECUP_SDK;db=FS.db;AUTH=FS.AUTH||null;auth=FS.auth||null;return Promise.resolve();}
+  var B='https://www.gstatic.com/firebasejs/10.12.2/';
+  return Promise.all([import(B+'firebase-app.js'),import(B+'firebase-firestore.js'),import(B+'firebase-auth.js')]).then(function(m){
+    FS=m[1];AUTH=m[2];var app=m[0].initializeApp(CFG);db=FS.getFirestore(app);auth=AUTH.getAuth(app);
+    return FS.enableIndexedDbPersistence(db).catch(function(e){R.persistErr=code(e);});
+  });
+}
+
+/* ───── 1. cloud ───── */
+function scanCloud(){
+  return Promise.all(COLS.map(function(c){
+    return FS.getCountFromServer(FS.collection(db,c)).then(function(s){R.cloud[c]={n:s.data().count};},function(e){R.cloud[c]={n:null,err:code(e)};});
+  }));
+}
+function scanCache(){
+  return Promise.all(COLS.map(function(c){
+    return FS.getDocsFromCache(FS.collection(db,c)).then(function(s){R.cache[c]={docs:s.docs.map(function(d){return Object.assign({id:d.id},d.data());})};},function(e){R.cache[c]={docs:[],err:code(e)};});
+  }));
+}
+
+/* ───── 3. stockage local (classé par application) ───── */
+function appOf(k){return /^pgnep_/i.test(k)?'pgnep':(/^iepp_/i.test(k)?'iepp':'autre');}
+function scanLocal(){
+  var out={},tot=0;
+  try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i),v=localStorage.getItem(k)||'';tot+=(k.length+v.length)*2;R.raw[k]=v;
+    var p=null;try{p=JSON.parse(v);}catch(e){}
+    var o={app:appOf(k),bytes:(k.length+v.length)*2,n:Array.isArray(p)?p.length:null,items:Array.isArray(p)?p:null};
+    out[k]=o;
+  }}catch(e){R.localErr=code(e);}
+  R.local=out;R.lsBytes=tot;
+}
+function dec(v){
+  if(v==null)return null;var k=Object.keys(v)[0];
+  switch(k){case'stringValue':return v.stringValue;case'integerValue':return +v.integerValue;case'doubleValue':return v.doubleValue;case'booleanValue':return v.booleanValue;case'nullValue':return null;case'timestampValue':return v.timestampValue;case'referenceValue':return v.referenceValue;
+   case'mapValue':var o={};Object.keys((v.mapValue&&v.mapValue.fields)||{}).forEach(function(f){o[f]=dec(v.mapValue.fields[f]);});return o;
+   case'arrayValue':return ((v.arrayValue&&v.arrayValue.values)||[]).map(dec);default:return v[k];}
+}
+function pathOf(nm){var m=/\/documents\/([^\/]+)\/([^\/]+)$/.exec(String(nm||''));return m?{c:m[1],id:decodeURIComponent(m[2])}:null;}
+function handleRec(db_,sn,v){
+  if(db_==='pgnep-sync'){R.outbox.push(v);return;}
+  if(/^remoteDocuments/i.test(sn)){var doc=v&&(v.document||v),p=doc&&pathOf(doc.name);if(p&&doc.fields){(R.rawTmp[p.c]=R.rawTmp[p.c]||[]).push(Object.assign({id:p.id},dec({mapValue:{fields:doc.fields}})));}return;}
+  if(sn==='mutations'){R.muts.push(v);return;}
+  if(sn==='documentOverlays'){R.ovs.push(v);return;}
+}
+function openScan(name){
+  return new Promise(function(res){
+    var info={name:name,stores:{}},rq=indexedDB.open(name);
+    rq.onerror=function(){info.err='ouverture refusée';R.idb.push(info);res();};
+    rq.onblocked=function(){info.err='bloquée (fermez les autres onglets)';R.idb.push(info);res();};
+    rq.onsuccess=function(){
+      var dbh=rq.result,names=Array.from(dbh.objectStoreNames);
+      if(!names.length){dbh.close();R.idb.push(info);res();return;}
+      var tx;try{tx=dbh.transaction(names,'readonly');}catch(e){dbh.close();R.idb.push(info);res();return;}
+      var fsdb=/firestore/i.test(name);
+      var jobs=names.map(function(sn){return new Promise(function(done){
+        var st=tx.objectStore(sn),c=st.count();
+        c.onerror=function(){done();};
+        c.onsuccess=function(){
+          info.stores[sn]=c.result;
+          var want=(name==='pgnep-sync'&&sn==='q')||(fsdb&&((/^remoteDocuments/i.test(sn)&&sn!=='remoteDocumentGlobal'&&c.result<=80000)||((sn==='mutations'||sn==='documentOverlays')&&c.result<=150000)));
+          if(!want){done();return;}
+          var cur=st.openCursor();cur.onerror=function(){done();};
+          cur.onsuccess=function(){var cs=cur.result;if(!cs){done();return;}try{handleRec(name,sn,cs.value);}catch(e){}cs.continue();};
+        };
+      });});
+      Promise.all(jobs).then(function(){dbh.close();R.idb.push(info);res();});
+    };
+  });
+}
+function scanIDB(){
+  if(!window.indexedDB||!window.indexedDB.databases)return Promise.resolve();
+  return indexedDB.databases().then(function(list){return Promise.all((list||[]).map(function(d){return openScan(d.name);}));}).catch(function(e){R.idbErr=code(e);});
+}
+function postProcess(){
+  /* cache brut -> dédoublonné */
+  Object.keys(R.rawTmp).forEach(function(c){var m={};R.rawTmp[c].forEach(function(x){m[x.id]=x;});R.rawCache[c]=Object.keys(m).map(function(k){return m[k];});});
+  /* rejeu des écritures en attente, dans l'ordre */
+  var P={},D={},bs=R.muts.slice().sort(function(a,b){return (a.batchId||0)-(b.batchId||0);});
+  bs.forEach(function(b){(b.mutations||[]).forEach(function(w){
+    var p=pathOf((w.update&&w.update.name)||w.delete||(w.transform&&w.transform.document));if(!p)return;
+    P[p.c]=P[p.c]||{};D[p.c]=D[p.c]||{};
+    if(w.delete){delete P[p.c][p.id];D[p.c][p.id]=1;return;}
+    if(w.update){
+      var f=dec({mapValue:{fields:w.update.fields||{}}})||{},mask=w.updateMask&&w.updateMask.fieldPaths,cur=P[p.c][p.id];
+      if(mask){cur=cur||{};mask.forEach(function(fp){var sg=String(fp).split('.')[0].replace(/`/g,'');if(f[sg]!==undefined)cur[sg]=f[sg];});}
+      else cur=f;
+      P[p.c][p.id]=Object.assign({id:p.id},cur);delete D[p.c][p.id];
+    }
+  });});
+  /* repli : surcouches locales si aucune mutation lisible */
+  if(!bs.length&&R.ovs.length){R.ovs.forEach(function(o){var m=o.overlayMutation||o.mutation,w=m&&m.update,c=o.collectionPath,id=o.documentId;if(!w||!c||c.indexOf('/')>=0)return;P[c]=P[c]||{};P[c][id]=Object.assign({id:id},dec({mapValue:{fields:w.fields||{}}})||{});});}
+  R.pending={};R.pendingDel={};R.delIds={};
+  Object.keys(P).forEach(function(c){R.pending[c]=Object.keys(P[c]).map(function(k){return P[c][k];});});
+  Object.keys(D).forEach(function(c){R.pendingDel[c]=Object.keys(D[c]).length;R.delIds[c]=D[c];});
+  var sample=R.muts[0]||R.ovs[0]||null;R.sample=sample?Object.keys(sample).join(', '):'';
+}
+
+/* ───── lecture des comptages ───── */
+function pgKey(c){return 'pgnep_'+c;}
+function nLocal(c){var o=R.local[pgKey(c)];return {n:(o&&o.n)||0,key:o?pgKey(c):'',exists:!!o};}
+function merged(c){
+  var m={};((R.rawCache||{})[c]||[]).forEach(function(x){m[x.id]=Object.assign({},x);});
+  ((R.cache[c]||{docs:[]}).docs).forEach(function(x){m[x.id]=Object.assign(m[x.id]||{},x);});
+  (R.pending[c]||[]).forEach(function(x){m[x.id]=Object.assign(m[x.id]||{},x);});
+  var dd=(R.delIds&&R.delIds[c])||{};Object.keys(dd).forEach(function(k){if(!(R.pending[c]||[]).some(function(x){return x.id===k;}))delete m[k];});
+  return Object.keys(m).map(function(k){return m[k];});
+}
+
+/* ───── affichage ───── */
+function render(){
+  var any=COLS.filter(function(c){return (R.cloud[c]||{}).n||(R.rawCache[c]||[]).length||(R.pending[c]||[]).length||nLocal(c).n||CORE.indexOf(c)>=0;});
+  var h='<table><thead><tr><th>Collection</th><th>☁️ Cloud</th><th>📱 Cache (serveur)</th><th>✍️ Écritures en attente</th><th>💾 Local Perroquet</th></tr></thead><tbody>';
+  any.forEach(function(c){
+    var cl=R.cloud[c]||{},ra=(R.rawCache[c]||[]).length,ca=(R.cache[c]||{docs:[]}).docs.length,pe=(R.pending[c]||[]).length,pd=R.pendingDel[c]||0,lo=nLocal(c);
+    h+='<tr><td><b>'+c+'</b></td><td>'+(cl.n==null?'<span class="e">illisible : '+esc(cl.err)+'</span>':'<span class="n '+(cl.n?'':'z')+'">'+cl.n+'</span>')+'</td><td><span class="n '+((ra||ca)?'':'z')+'">'+Math.max(ra,ca)+'</span></td><td><span class="n '+(pe?'':'z')+'">'+pe+'</span>'+(pd?' <span class="note">(+'+pd+' suppr.)</span>':'')+'</td><td><span class="n '+(lo.n?'':'z')+'">'+(lo.exists?lo.n:'—')+'</span>'+(lo.exists?'':' <span class="e">clé absente</span>')+'</td></tr>';
+  });
+  h+='</tbody></table>';
+  var pgk=Object.keys(R.local).filter(function(k){return R.local[k].app==='pgnep';}).sort();
+  h+='<p class="note"><b>Clés du Perroquet (pgnep_…) trouvées :</b> '+(pgk.length?pgk.map(function(k){var o=R.local[k];return esc(k)+' = '+(o.n==null?mo(o.bytes):o.n);}).join(' · '):'<span class="e">aucune</span>')+'</p>';
+  /* autre application du même site */
+  var ie=Object.keys(R.local).filter(function(k){return R.local[k].app==='iepp';}),circ={},tb=0;
+  ie.forEach(function(k){tb+=R.local[k].bytes;var m=/^iepp_c_(.+?)_(elevesFichier|ecoles|personnel|corbeille|audit|audit__gtomb|elevesFichierDeleted)$/.exec(k);if(m&&R.local[k].n!=null){circ[m[1]]=circ[m[1]]||{};circ[m[1]][m[2]]=R.local[k].n;}});
+  if(ie.length){h+='<div class="v o"><b>🏫 Une autre application utilise le même site : la Plateforme IEPP</b> (clés <code>iepp_…</code>, '+ie.length+' éléments, <b>'+mo(tb)+'</b> sur '+mo(R.lsBytes)+' de stockage local au total).<br>Élèves « fichier » par circonscription : '+(Object.keys(circ).filter(function(c){return circ[c].elevesFichier;}).map(function(c){return esc(c)+' = '+circ[c].elevesFichier;}).join(' · ')||'—')+'.<br><span class="note">Le stockage local du navigateur est <b>partagé</b> entre toutes les applications d\'un même site (environ 5 à 10 Mo en tout). Ces données volumineuses peuvent saturer l\'espace et empêcher le Perroquet d\'enregistrer sa propre copie locale.</span></div>';}
+  if(R.idb.length)h+='<p class="note"><b>Bases IndexedDB :</b> '+R.idb.map(function(d){return esc(d.name)+' ['+Object.keys(d.stores).map(function(s){return s+':'+d.stores[s];}).join(', ')+']'+(d.err?' ('+esc(d.err)+')':'');}).join(' · ')+'</p>';
+  if(R.outbox.length)h+='<p class="note"><b>File d\'attente du module de synchronisation :</b> '+R.outbox.length+' fiche(s) récupérables.</p>';
+  if(R.persistErr)h+='<p class="note e">Lecture par le SDK : '+esc(R.persistErr)+' (normal si l\'application est ouverte dans un autre onglet). La lecture directe du cache ci-dessus reste valable.</p>';
+  if(R.sample&&!Object.keys(R.pending).length&&(R.muts.length||R.ovs.length))h+='<p class="note e">Des écritures en attente existent mais leur format n\'a pas pu être décodé (champs : '+esc(R.sample)+'). Envoyez-moi cette ligne.</p>';
+  h+=verdict();$('res').innerHTML=h;
+  $('dl').style.display='block';$('ck').style.display='block';buildDl();buildRestore();
+}
+function verdict(){
+  var den=0,ok=0,tot=0;COLS.forEach(function(c){var x=R.cloud[c];if(!x)return;tot++;if(x.n==null&&/permission/i.test(x.err||''))den++;else if(x.n!=null)ok++;});
+  var L=[];
+  if(den>=Math.max(1,tot-1)&&!ok)L.push('🔒 <b>Le cloud refuse la lecture (permission-denied) pour toutes les collections.</b> C\'est très probablement la raison de l\'affichage à zéro : l\'application reçoit une liste vide. Cela ne prouve <b>pas</b> que les données du serveur sont supprimées : elles ne sont simplement pas lisibles pour l\'instant. → Dans la console Firebase : Firestore → <b>Règles</b> : vérifiez les règles actuellement <b>publiées</b> et leur date (elles ont changé depuis votre dernière capture). Vous pouvez aussi essayer « Se connecter et relire le cloud » ci-dessus pour tester la lecture avec votre compte.');
+  else if(ok){var ce=(R.cloud.eleves||{}).n;L.push('☁️ Le cloud est lisible : élèves <b>'+(ce==null?'?':ce)+'</b>, notes <b>'+((R.cloud.notes||{}).n==null?'?':R.cloud.notes.n)+'</b>, comptes <b>'+((R.cloud.users||{}).n==null?'?':R.cloud.users.n)+'</b>.');}
+  var rc=CORE.map(function(c){var n=(R.rawCache[c]||[]).length;return n?c+' '+n:null;}).filter(Boolean);
+  if(rc.length)L.push('📱 <b>Le cache du navigateur contient des copies de ce que le serveur avait</b> : '+rc.join(' · ')+'. Elles sont <b>exportables maintenant</b> (section 2).');
+  var pe=COLS.map(function(c){var n=(R.pending[c]||[]).length;return n?c+' '+n:null;}).filter(Boolean);
+  var nm=R.muts.length;
+  if(pe.length||nm)L.push('✍️ <b>'+nm+' écriture(s) en attente d\'envoi</b> sont stockées dans ce navigateur'+(pe.length?' (documents : '+pe.join(' · ')+')':'')+'. Ce sont des modifications faites ici mais jamais confirmées par le serveur. <b>Si le serveur les refuse, le navigateur les supprime définitivement</b> : exportez-les avant tout.');
+  var pg=CORE.map(function(c){var l=nLocal(c);return l.exists?c+' '+l.n:null;}).filter(Boolean);
+  L.push(pg.length?'💾 Copie locale du Perroquet : '+pg.join(' · ')+'.':'💾 <b>Aucune copie locale du Perroquet</b> (pgnep_users / ecoles / eleves / notes absentes) : elles ont pu être supprimées lorsque le stockage local était plein.');
+  return '<div class="v o">'+L.map(function(x){return '<p style="margin:0 0 8px">'+x+'</p>';}).join('')+'</div>';
+}
+
+/* ───── 2. téléchargements ───── */
+function fetchAllCloud(c){return FS.getDocs(FS.collection(db,c)).then(function(s){return s.docs.map(function(d){return Object.assign({id:d.id},d.data());});});}
+function buildDl(){
+  var b=$('dlb');b.innerHTML='';
+  function btn(t,cls,f){var x=document.createElement('button');x.className='bt '+cls;x.textContent=t;x.onclick=function(){x.disabled=true;Promise.resolve().then(f).catch(function(e){$('dlmsg').textContent='❌ '+code(e);}).then(function(){x.disabled=false;});};b.appendChild(x);}
+  btn('⬇ Écritures en attente + cache serveur (priorité)','ok',function(){var o={};COLS.forEach(function(c){var a=merged(c);if(a.length)o[c]=a;});dl({meta:{type:'cache-et-ecritures-en-attente',date:new Date().toISOString(),origine:location.origin,ecrituresEnAttente:R.muts.length},collections:o,suppressionsEnAttente:R.pendingDel,cacheServeur:R.rawCache,ecrituresEnAttente:R.pending},'Recuperation_cache_et_attente_'+today()+'.json');$('dlmsg').textContent='✅ Téléchargé : '+Object.keys(o).map(function(c){return c+' '+o[c].length;}).join(' · ');});
+  btn('⬇ Stockage local complet (toutes applications)','ok',function(){dl({meta:{type:'stockage-local-brut',date:new Date().toISOString(),origine:location.origin},localStorage:R.raw,fileAttente:R.outbox},'Recuperation_stockage_local_'+today()+'.json');$('dlmsg').textContent='✅ Stockage local téléchargé ('+Object.keys(R.raw).length+' clés, '+mo(R.lsBytes)+').';});
+  btn('⬇ Cloud (si lisible)','p',function(){$('dlmsg').textContent='⏳ Lecture du cloud…';var o={},cs=COLS.filter(function(c){return (R.cloud[c]||{}).n>0;});if(!cs.length){$('dlmsg').textContent='Le cloud n\'est pas lisible ou vide pour le moment.';return;}return cs.reduce(function(p,c){return p.then(function(){return fetchAllCloud(c).then(function(a){o[c]=a;$('dlmsg').textContent='⏳ '+c+' : '+a.length;});});},Promise.resolve()).then(function(){R.cloudDocs=o;dl({meta:{type:'cloud',date:new Date().toISOString(),projet:CFG.projectId},collections:o},'Recuperation_cloud_'+today()+'.json');$('dlmsg').textContent='✅ Cloud téléchargé : '+cs.map(function(c){return c+' '+(o[c]||[]).length;}).join(' · ');buildRestore();});});
+}
+
+/* ───── 3. restauration ───── */
+function sources(c){
+  var s=[],m=merged(c);
+  if(m.length&&((R.rawCache[c]||[]).length||(R.pending[c]||[]).length))s.push({k:'merge',l:'Cache serveur + écritures en attente (le plus récent)',a:m});
+  if(R.cloudDocs&&R.cloudDocs[c])s.push({k:'cloud',l:'Cloud',a:R.cloudDocs[c]});
+  Object.keys(R.local).forEach(function(k){var o=R.local[k];if(o.app==='pgnep'&&o.n&&new RegExp('^pgnep_'+c+'($|_)','i').test(k))s.push({k:'local:'+k,l:'Stockage local « '+k+' »',a:o.items});});
+  var ob=R.outbox.filter(function(x){return x.c===c&&x.op==='set'&&x.d;}).map(function(x){return x.d;});if(ob.length)s.push({k:'outbox',l:'File d\'attente de synchronisation',a:ob});
+  return s;
+}
+function buildRestore(){
+  var h='<table><thead><tr><th>Collection</th><th>Source à utiliser</th></tr></thead><tbody>';
+  CORE.forEach(function(c){
+    var ss=sources(c),best=ss[0];
+    h+='<tr><td><b>'+c+'</b></td><td><select data-c="'+c+'"><option value="">— ne pas toucher —</option>'+ss.map(function(x){return '<option value="'+esc(x.k)+'"'+(best&&x.k===best.k&&c!=='users'&&c!=='corbeille'?' selected':'')+'>'+esc(x.l)+' ('+x.a.length+')</option>';}).join('')+'</select></td></tr>';
+  });
+  h+='</tbody></table><p class="note">Les comptes (mots de passe) et la corbeille ne sont pas présélectionnés pour ne rien écraser.</p>';
+  $('rsb').innerHTML=h;$('rs').style.display='block';
+  var a=$('rsa');a.innerHTML='';
+  var b1=document.createElement('button');b1.className='bt ok';b1.textContent='📦 Télécharger le fichier de restauration';b1.onclick=function(){var f=buildFile();if(!f)return;dl(f,'Sauvegarde_recuperee_Perroquet_'+today()+'.json');$('rsmsg').textContent='✅ Fichier prêt : '+CORE.map(function(c){return f[c]?c+' '+f[c].length:null;}).filter(Boolean).join(' · ')+'. À charger dans l\'application : Console Super Admin → Sauvegarde & restauration → Restauration.';};
+  var b2=document.createElement('button');b2.className='bt d';b2.textContent='☁️ Renvoyer vers le cloud';b2.onclick=pushCloud;
+  a.appendChild(b1);a.appendChild(b2);
+}
+function chosen(c){var sel=document.querySelector('select[data-c="'+c+'"]');if(!sel||!sel.value)return null;var s=sources(c).find(function(x){return x.k===sel.value;});return s?s.a:null;}
+function buildFile(){var f={meta:{app:'Le Perroquet PGNEP',type:'recuperation',date:new Date().toISOString()}},any=false;CORE.forEach(function(c){var a=chosen(c);if(a&&a.length){f[c]=a;any=true;}});if(!any){alert('Aucune source sélectionnée.');return null;}return f;}
+function pushCloud(){
+  var f=buildFile();if(!f)return;
+  if(!confirm('Renvoyer vers le cloud ?\n\n'+CORE.filter(function(c){return f[c];}).map(function(c){return '• '+c+' : '+f[c].length+' fiche(s)';}).join('\n')+'\n\nChaque fiche remplacera la fiche du cloud de même identifiant. Rien n\'est supprimé. Avez-vous bien téléchargé les sauvegardes de la section 2 ?'))return;
+  var cols=CORE.filter(function(c){return f[c];}),msg=$('rsmsg'),done=0,fail=0,last='';
+  function pushCol(c){
+    var arr=f[c].filter(function(x){return docId(c,x);}),i=0;
+    function next(){
+      if(i>=arr.length)return Promise.resolve();
+      var b=FS.writeBatch(db),part=arr.slice(i,i+400);
+      part.forEach(function(x){b.set(FS.doc(db,c,docId(c,x)),JSON.parse(JSON.stringify(x)),{merge:true});});
+      i+=400;
+      return b.commit().then(function(){done+=part.length;msg.textContent='⏳ '+c+' : '+Math.min(i,arr.length)+'/'+arr.length;},function(e){fail+=part.length;last=code(e);}).then(next);
+    }
+    return next();
+  }
+  cols.reduce(function(p,c){return p.then(function(){return pushCol(c);});},Promise.resolve()).then(function(){
+    msg.innerHTML=(fail?'⚠️ ':'✅ ')+done+' fiche(s) envoyée(s)'+(fail?', <b>'+fail+' en échec</b> ('+esc(last)+')'+(/permission/i.test(last)?' — les règles Firestore refusent l\'écriture : corrigez-les puis recommencez (rien n\'est perdu).':''):'. Rechargez l\'application pour les voir.');
+  });
+}
+
+/* ───── 4. vérifier un compte ───── */
+function checkLogin(){
+  var l=($('lg').value||'').trim().toLowerCase(),o=$('lgr');if(!l)return;o.innerHTML='<p class="note">⏳…</p>';
+  FS.getDoc(FS.doc(db,'users',l)).then(function(s){
+    if(!s.exists()){o.innerHTML='<div class="v r">Aucun compte « '+esc(l)+' » dans le cloud.</div>';return;}
+    var u=s.data(),safe=Object.assign({},u);delete safe.pass;delete safe.password;
+    var sc=[];['ecole_val','structure_val'].forEach(function(k){if(u[k]&&sc.indexOf(u[k])<0)sc.push(u[k]);});
+    var qs=sc.map(function(v){return FS.getCountFromServer(FS.query(FS.collection(db,'eleves'),FS.where('ecole_id','==',v))).then(function(x){return v+' → '+x.data().count+' élève(s)';},function(e){return v+' → illisible ('+code(e)+')';});});
+    return Promise.all(qs).then(function(r){o.innerHTML='<div class="v g"><b>Compte trouvé.</b> Rôle : <b>'+esc(u.role)+'</b> · structure : '+esc(u.structure_type)+' / '+esc(u.structure_val)+' · école : '+esc(u.ecole_val)+' · actif : '+esc(u.actif)+(u.date_debut||u.date_fin?' · période : '+esc(u.date_debut||'…')+' → '+esc(u.date_fin||'…'):'')+'<br>'+(r.length?'Élèves rattachés à ses écoles : '+r.map(esc).join(' ; '):'Aucune école renseignée sur ce compte.')+'</div><pre>'+esc(JSON.stringify(safe,null,1))+'</pre>';});
+  }).catch(function(e){o.innerHTML='<div class="v r">Lecture impossible : '+esc(code(e))+(/permission/i.test(code(e))?' — les règles Firestore refusent la lecture (essayez de vous connecter plus haut).':'')+'</div>';});
+}
+
+/* ───── connexion facultative pour lire le cloud ───── */
+function signIn(){
+  var l=($('sl').value||'').trim().toLowerCase(),p=$('sp').value||'',m=$('sm');if(!l||!p){m.textContent='Saisissez identifiant et mot de passe.';return;}
+  m.textContent='⏳ Connexion…';
+  loadSDK().then(function(){return AUTH.signInWithEmailAndPassword(auth,l.indexOf('@')>=0?l:l+'@pgnep-menaet.ci',p);}).then(function(){
+    m.textContent='✅ Connecté : relecture du cloud…';R.cloud={};return scanCloud().then(function(){render();m.textContent='✅ Connecté. Le cloud a été relu avec votre compte.';});
+  }).catch(function(e){m.textContent='❌ '+code(e)+(/invalid|wrong|user-not-found|credential/i.test(code(e))?' — identifiant ou mot de passe cloud non reconnu (le mot de passe cloud peut différer de celui de l\'application).':'');});
+}
+
+/* ───── démarrage ───── */
+function analyse(){
+  var b=$('go');b.disabled=true;$('st').textContent=' Analyse en cours… (peut prendre quelques secondes)';reset();
+  return loadSDK().then(function(){scanLocal();return Promise.all([scanCloud(),scanCache(),scanIDB()]);}).then(function(){postProcess();R.done=true;$('st').textContent=' Terminé.';render();}).catch(function(e){$('st').textContent='';$('res').innerHTML='<div class="v r">❌ '+esc(code(e))+'<br><span class="note">Vérifiez la connexion Internet puis réessayez.</span></div>';throw e;}).then(function(){b.disabled=false;},function(e){b.disabled=false;throw e;});
+}
+$('go').onclick=function(){analyse().catch(function(){});};
+
+/* ───── récupération en un clic : données du Perroquet uniquement ───── */
+var EVL={composition1:'Composition 1',composition2:'Composition 2',composition3:'Composition 3',composition4:'Composition 4',examen_blanc1:'Examen Blanc 1',examen_blanc2:'Examen Blanc 2',entree6:'Entrée en 6ème (Examen Final)'};
+function loadXLSX(){
+  if(window.XLSX&&window.XLSX.utils)return Promise.resolve(window.XLSX);
+  return new Promise(function(res,rej){var sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';sc.onload=function(){res(window.XLSX);};sc.onerror=function(){rej(new Error('Module Excel indisponible (connexion requise)'));};document.head.appendChild(sc);});
+}
+function best(c){
+  var m={},dd=(R.delIds&&R.delIds[c])||{};
+  function add(a,override){(a||[]).forEach(function(x){if(!x)return;var id=docId(c,x);if(!id)return;m[id]=override?Object.assign(m[id]||{},x):(m[id]||Object.assign({},x));});}
+  add((R.cloudDocs||{})[c]);add((R.rawCache||{})[c]);add((R.cache[c]||{docs:[]}).docs,true);
+  Object.keys(R.local).forEach(function(k){var o=R.local[k];if(o.app==='pgnep'&&o.items&&new RegExp('^pgnep_'+c+'($|_)','i').test(k))add(o.items);});
+  add(R.outbox.filter(function(x){return x.c===c&&x.op==='set'&&x.d;}).map(function(x){return x.d;}));
+  add(R.pending[c],true);
+  Object.keys(dd).forEach(function(k){if(!(R.pending[c]||[]).some(function(x){return x.id===k;}))delete m[k];});
+  return Object.keys(m).map(function(k){return m[k];});
+}
+function dlText(txt,name){var b=new Blob([txt],{type:'text/plain;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href);},1500);}
+function sqlFrom(cols){
+  var q=function(x){return String(x).replace(/'/g,"''");},out=['-- Le Perroquet : données récupérées -> Supabase','-- À exécuter APRÈS le script de création des tables (supabase_schema.sql).','-- ⚠ Ce fichier contient des empreintes de mots de passe : ne le partagez pas.','begin;'];
+  Object.keys(cols).forEach(function(c){var rows=cols[c].filter(function(x){return docId(c,x);});
+    for(var i=0;i<rows.length;i+=300){var v=rows.slice(i,i+300).map(function(x){return "('"+q(c)+"','"+q(docId(c,x))+"','"+q(JSON.stringify(x))+"'::jsonb)";});
+      out.push("insert into public.docs (col, id, data) values\n"+v.join(',\n')+"\non conflict (col, id) do update set data = public.docs.data || excluded.data, updated_at = now();");}});
+  out.push('commit;');return out.join('\n');
+}
+function fetchCloudForRecovery(msg){
+  var cs=COLS.filter(function(c){var n=(R.cloud[c]||{}).n;return n>0&&n<=60000;});
+  if(!cs.length)return Promise.resolve();
+  R.cloudDocs=R.cloudDocs||{};
+  return cs.reduce(function(p,c){return p.then(function(){return fetchAllCloud(c).then(function(a){R.cloudDocs[c]=a;msg.textContent='⏳ Lecture du cloud : '+c+' ('+a.length+')';},function(){});});},Promise.resolve());
+}
+function recoverAll(){
+  var msg=$('recmsg'),btn=$('rec');btn.disabled=true;msg.textContent='⏳ Analyse du navigateur…';
+  return (R.done?Promise.resolve():analyse().catch(function(e){throw e;})).then(function(){return fetchCloudForRecovery(msg);}).then(function(){return loadXLSX();}).then(function(X){
+    var E=best('eleves'),N=best('notes'),EC=best('ecoles'),U=best('users');
+    var ecN={};EC.forEach(function(e){ecN[e.id]=e.nom||e.id;});
+    var elById={};E.forEach(function(e){elById[e.id]=e;});
+    var aoaE=[['Nom','Prénoms','Matricule','Sexe','Date de naissance','Lieu de naissance','Classe','École','Redoublant','Années dans la classe','Années de scolarité','Identifiant interne']];
+    E.slice().sort(function(a,b){return String(a.classe||'').localeCompare(String(b.classe||''))||String(a.nom||'').localeCompare(String(b.nom||''),'fr');}).forEach(function(e){aoaE.push([e.nom||'',e.prenoms||'',e.matricule||'',e.sexe||'',e.ddn||'',e.lieu||'',e.classe||'',ecN[e.ecole_id]||e.ecole_id||'',e.redoublant===true?'Oui':(e.redoublant===false?'Non':''),e.annees_classe||'',e.annees_scol||'',e.id]);});
+    var keys={};N.forEach(function(n){Object.keys(n.notes||{}).forEach(function(k){keys[k]=1;});});var mk=Object.keys(keys).sort();
+    var aoaN=[['Matricule','Nom','Prénoms','Classe','Évaluation'].concat(mk)];
+    N.forEach(function(n){var e=elById[n.eleve_id]||{};aoaN.push([e.matricule||'',e.nom||n.nom_display||n.eleve_id||'',e.prenoms||'',n.classe||e.classe||'',EVL[n.eval_type]||n.eval_type||''].concat(mk.map(function(k){var v=(n.notes||{})[k];return v==null?'':v;})));});
+    var aoaS=[['Nom','Code','IEPP','DRENAET','Identifiant interne']].concat(EC.map(function(e){return [e.nom||'',e.code||'',e.iepp||'',e.drena||'',e.id];}));
+    var aoaU=[['Nom complet','Identifiant','Rôle','Type de structure','Structure','École','Actif']].concat(U.map(function(u){return [u.nom||u.nom_complet||'',u.login||u.id||'',u.role||'',u.structure_type||'',u.structure_val||'',u.ecole_val||'',u.actif===false?'Non':'Oui'];}));
+    var wb=X.utils.book_new();
+    [['Élèves',aoaE],['Notes',aoaN],['Écoles',aoaS],['Comptes',aoaU]].forEach(function(p){var ws=X.utils.aoa_to_sheet(p[1]);ws['!cols']=(p[1][0]||[]).map(function(h){return {wch:Math.max(14,String(h).length+4)};});X.utils.book_append_sheet(wb,ws,p[0]);});
+    X.writeFile(wb,'Perroquet_donnees_recuperees_'+today()+'.xlsx');
+    var json={meta:{app:'Le Perroquet PGNEP',type:'recuperation',date:new Date().toISOString(),origine:location.origin},users:U,ecoles:EC,eleves:E,notes:N};
+    json.autresCollections=autres;dl(json,'Perroquet_donnees_recuperees_'+today()+'.json');
+    var tot=E.length+N.length+EC.length+U.length;
+    var ALL={},autres={};COLS.forEach(function(c){var core={users:U,ecoles:EC,eleves:E,notes:N};var a=core[c]||best(c);if(a&&a.length){ALL[c]=a;if(!core[c])autres[c]=a;}});
+    if(Object.keys(ALL).length)dlText(sqlFrom(ALL),'Perroquet_vers_Supabase_'+today()+'.sql');
+    var cloudInfo=Object.keys(R.cloudDocs||{}).map(function(c){return c+' '+R.cloudDocs[c].length;}).join(' · ');
+    msg.innerHTML=tot?('✅ <b>Récupéré : '+E.length+' élève(s), '+N.length+' note(s), '+EC.length+' école(s), '+U.length+' compte(s).</b>'+(cloudInfo?' <span class="note">(cloud lu : '+cloudInfo+')</span>':' <span class="note">(le cloud n\'était pas lisible : données du cache et de l\'appareil uniquement)</span>')+' Fichiers téléchargés (Excel + JSON + SQL pour Supabase). <br>Pour les remettre dans l\'application : page <b>Export / Synchro → Import</b> (élèves, puis notes) avec le fichier Excel, ou <b>Console Super Admin → Sauvegarde &amp; restauration</b> avec le fichier JSON.'):'❌ <b>Aucune donnée du Perroquet trouvée dans ce navigateur.</b> Vérifiez que vous ouvrez cette page avec <b>la même adresse que l\'application</b>, dans le même navigateur et sur le même appareil, et fermez les autres onglets de l\'application.';
+    render();
+  }).catch(function(e){msg.innerHTML='<span class="e">❌ '+esc(code(e))+'</span>';}).then(function(){btn.disabled=false;});
+}
+$('rec').onclick=recoverAll;
+$('lgb').onclick=function(){loadSDK().then(checkLogin).catch(function(e){$('lgr').textContent='❌ '+code(e);});};
+$('sb').onclick=signIn;
+window.RECUP={sqlFrom:sqlFrom,best:best,recoverAll:recoverAll,analyse:analyse,R:R,get state(){return R;},scanLocal:scanLocal,postProcess:postProcess,render:render,sources:sources,buildFile:buildFile,verdict:verdict,dec:dec,merged:merged,handleRec:handleRec,reset:reset};
+</script></body></html>
