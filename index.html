@@ -21092,6 +21092,8 @@ function secPar(){
     card('🧰 Maintenance & supervision technique','<div class="csa-row"><button class="btn btn-secondary" data-a="go" data-s="cloud">☁️ État de la synchronisation</button><button class="btn btn-secondary" data-a="go" data-s="aud">📜 Journal d\'audit</button><button class="btn btn-secondary" data-a="trash">🗑 Corbeille (restauration)</button><button class="btn btn-secondary" data-a="svc">🧩 Services du système</button><button class="btn btn-primary" data-a="sbcfg">🔌 Connexion Supabase</button></div><div id="csa-diag"></div><p class="csa-mut">Version plateforme : Perroquet v'+esc(s.version)+' · '+esc(s.entete)+' · '+esc(s.annee)+'</p>');
 }
 var SEC_FN={dash:secDash,act:secAct,stat:secStat,cpt:secCpt,struct:secStruct,mat:secMat,aud:secAud,cloud:secCloud,bak:secBak,par:secPar};
+var AFTER={};
+function addSection(key,icon,label,fn,after){if(!SEC_FN[key])SECS.push([key,icon,label]);SEC_FN[key]=fn;if(after)AFTER[key]=after;}
 
 /* ───────── export / impression ───────── */
 function exportX(){
@@ -21232,6 +21234,7 @@ function render(){
   $('csa-menu').innerHTML=SECS.map(function(x){return '<button type="button" class="csa-mi'+(x[0]===cur?' active':'')+'" data-go="'+x[0]+'"><span>'+x[1]+'</span> '+x[2]+'</button>';}).join('');
   $('csa-menu').onclick=function(ev){var b=ev.target.closest('[data-go]');if(b)open(b.getAttribute('data-go'));};
   try{c.innerHTML=SEC_FN[cur]();}catch(e){console.error('[console-sa]',e);c.innerHTML='<div class="csa-card"><p>❌ Erreur d\'affichage : '+esc((e&&e.message)||e)+'</p></div>';}
+  try{if(AFTER[cur])AFTER[cur](c);}catch(e){console.error('[console-sa] section',e);}
   try{fitAll();}catch(e){}
 }
 function open(sec){
@@ -21350,7 +21353,7 @@ setInterval(function(){try{injectNav();buildPage();hooks();
   var u=CU(),l=u?u.login:null;
   if(l!==lastLogin){if(l)audit('login','Connexion',l);else if(lastLogin)audit('logout','Déconnexion',lastLogin);lastLogin=l;}
 }catch(e){}},3000);
-window.CSA={open:open,render:render,fit:fitAll,audit:audit};
+window.CSA={open:open,render:render,fit:fitAll,audit:audit,addSection:addSection};
 })();
 
 </script>
@@ -21584,6 +21587,447 @@ window.PGMODELES={eleves:modeleEleves,notes:modeleNotes,registre:modeleRegistre,
 
 </script>
 
+<script id="pgnep-doublons">
+/* ══════════════════════════════════════════════════════════════════════
+   [pgnep-doublons] — DÉTECTION DE DOUBLONS, SÉLECTION AVANT SUPPRESSION,
+   DIAGNOSTIC « ÉLÈVES INTROUVABLES ». 100 % additif.
+   • Critères : matricule, nom+prénoms (ordre indifférent), date de naissance,
+     téléphone, code (école / DRENAET / IEPP), identifiant, e-mail, noms proches.
+   • Rien n'est supprimé sans sélection explicite ; au moins une fiche est
+     toujours conservée par groupe ; élèves → Corbeille (restaurable) ;
+     autres → sauvegarde JSON téléchargée avant suppression.
+   ══════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+if(window.PGDUP)return;
+
+/* ───────── utilitaires ───────── */
+function $(i){return document.getElementById(i);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function notif(m,t){try{if(typeof showNotif==='function')showNotif(m,t||'info');else console.log(m);}catch(e){}}
+function DBo(){return (typeof DB!=='undefined')?DB:{users:[],ecoles:[],eleves:[],notes:[],corbeille:[],drenaets:[],iepps:[]};}
+function CU(){try{return (typeof currentUser!=='undefined')?currentUser:null;}catch(e){return null;}}
+function isSA(){var u=CU();return !!(u&&(u.role==='admin'||u.login==='diomande'));}
+function today(){return new Date().toISOString().slice(0,10);}
+function resId(v){try{return (typeof resolveEcoleId==='function')?resolveEcoleId(v):v;}catch(e){return v;}}
+function strip(s){return String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+function toks(s){return strip(s).replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(Boolean);}
+function nameKey(parts,stop){var t=toks(parts.join(' '));if(stop)t=t.filter(function(w){return stop.indexOf(w)<0;});return t.sort().join(' ');}
+function alnum(s){return strip(s).replace(/[^a-z0-9]/g,'');}
+function phones(s){
+  var out=[];String(s==null?'':s).split(/[\/,;|]+/).forEach(function(p){var d=p.replace(/\D/g,'');if(d.indexOf('00225')===0)d=d.slice(5);else if(d.indexOf('225')===0&&d.length>=11)d=d.slice(3);if(d.length>=8)out.push(d.slice(-10));});
+  return out;
+}
+function isoDate(v){
+  if(v instanceof Date)return v.toISOString().slice(0,10);
+  var s=String(v==null?'':v).trim();if(!s)return '';
+  var m=/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/.exec(s);if(m)return m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2);
+  m=/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/.exec(s);if(m)return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+  return '';
+}
+function lev(a,b,max){
+  if(a===b)return 0;if(Math.abs(a.length-b.length)>max)return max+1;
+  var p=[],i,j;for(j=0;j<=b.length;j++)p[j]=j;
+  for(i=1;i<=a.length;i++){var c=[i],mn=i;for(j=1;j<=b.length;j++){c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));if(c[j]<mn)mn=c[j];}if(mn>max)return max+1;p=c;}
+  return p[b.length];
+}
+function digitsOf(s){return String(s).replace(/\D/g,'');}
+function closeNames(a,b){if(!a||!b||a===b)return false;if(digitsOf(a)!==digitsOf(b))return false;var m=Math.max(a.length,b.length);return lev(a,b,m>14?2:1)<=(m>14?2:1);}
+function filled(o,ks){var n=0;ks.forEach(function(k){if(o[k]!=null&&String(o[k]).trim()!=='')n++;});return n;}
+
+/* ───────── contexte (comptages) ───────── */
+function context(){
+  var d=DBo(),ec={},nn={},ee={},uu={};
+  (d.ecoles||[]).forEach(function(e){ec[e.id]=e.nom||e.id;});
+  (d.notes||[]).forEach(function(n){nn[n.eleve_id]=(nn[n.eleve_id]||0)+1;});
+  (d.eleves||[]).forEach(function(e){ee[e.ecole_id]=(ee[e.ecole_id]||0)+1;});
+  (d.users||[]).forEach(function(u){[u.ecole_val,u.structure_val].forEach(function(v){if(v!=null&&v!=='')uu[v]=(uu[v]||0)+1;});});
+  var eco={};(d.ecoles||[]).forEach(function(e){var k=(e.drena||'')+'|'+(e.iepp||'');});
+  return {ec:ec,notes:nn,eleveByEcole:ee,usersByEcole:uu,d:d};
+}
+
+/* ───────── entités ───────── */
+var STOP_ECOLE=['epp','eppu','epv','ecole','primaire','publique','privee','groupe','scolaire','de','du','la','le','les','des','et','ep'];
+var STOP_REG=['drenaet','drena','iepp','direction','regionale','inspection','circonscription','de','du','la','le','les','des','et'];
+var ENT={
+ eleves:{label:'Élèves',get:function(d){return d.eleves||[];},
+  keys:function(e){
+    var o=[],m=alnum(e.matricule),nk=nameKey([e.nom,e.prenoms]),dd=isoDate(e.ddn),ec=e.ecole_id||'';
+    if(m.length>=4&&!/^(nc|na|none|inconnu|sans|xxx)/.test(m))o.push({k:'mat|'+m,l:3,w:'même matricule'});
+    if(nk&&dd)o.push({k:'nd|'+nk+'|'+dd,l:2,w:'même nom, prénoms et date de naissance'});
+    if(nk)o.push({k:'ne|'+nk+'|'+ec,l:1,w:'même nom et prénoms dans la même école'});
+    if(nk)phones(e.tel||e.telephone).forEach(function(p){o.push({k:'tn|'+p+'|'+nk,l:2,w:'même téléphone et même nom'});});
+    return o;},
+  fuzzy:function(e){var dd=isoDate(e.ddn),s=nameKey([e.nom,e.prenoms]);return (dd&&s)?{bucket:(e.ecole_id||'')+'|'+dd,s:s}:null;},
+  fuzzyWhy:'noms très proches, même date de naissance et même école',
+  score:function(e,c){return filled(e,['nom','prenoms','matricule','sexe','ddn','lieu','classe','ecole_id','tel'])+5*(c.notes[e.id]||0);},
+  cells:function(e,c){return [['Nom',((e.nom||'')+' '+(e.prenoms||'')).trim()],['Matricule',e.matricule],['Né(e)',isoDate(e.ddn)||e.ddn],['Classe',e.classe],['École',c.ec[e.ecole_id]||e.ecole_id],['Notes',c.notes[e.id]||0],['Tél',e.tel||e.telephone]];}},
+ ecoles:{label:'Écoles',get:function(d){return d.ecoles||[];},
+  keys:function(e){
+    var o=[],cd=alnum(e.code),nk=nameKey([e.nom],STOP_ECOLE);
+    if(cd.length>=3)o.push({k:'code|'+cd,l:3,w:'même code'});
+    if(nk)o.push({k:'nom|'+nk,l:2,w:'même nom'});
+    phones(e.tel||e.telephone).forEach(function(p){o.push({k:'tel|'+p,l:1,w:'même téléphone'});});
+    return o;},
+  fuzzy:function(e){var s=nameKey([e.nom],STOP_ECOLE);return s.length>=6?{bucket:'all',s:s}:null;},
+  fuzzyWhy:'noms très proches',
+  score:function(e,c){return filled(e,['nom','code','iepp','drena','tel'])+0.1*(c.eleveByEcole[e.id]||0)+0.5*(c.usersByEcole[e.id]||0);},
+  cells:function(e,c){return [['École',e.nom],['Code',e.code],['IEPP',e.iepp],['DRENAET',e.drena],['Élèves',c.eleveByEcole[e.id]||0],['Comptes',c.usersByEcole[e.id]||0],['Tél',e.tel||e.telephone]];}},
+ users:{label:'Utilisateurs, maîtres et enseignants',get:function(d){return d.users||[];},
+  keys:function(u){
+    var o=[],lg=String(u.login||'').trim().toLowerCase(),em=String(u.email||'').trim().toLowerCase(),nk=nameKey([u.nom||u.nom_complet]);
+    if(lg)o.push({k:'login|'+lg,l:3,w:'même identifiant'});
+    if(em)o.push({k:'mail|'+em,l:3,w:'même e-mail'});
+    phones(u.tel||u.telephone).forEach(function(p){o.push({k:'tel|'+p,l:1,w:'même téléphone'});if(nk)o.push({k:'tn|'+p+'|'+nk,l:2,w:'même téléphone et même nom'});});
+    if(nk)o.push({k:'ne|'+nk+'|'+(u.ecole_val||u.structure_val||''),l:2,w:'même nom dans la même école'});
+    if(nk)o.push({k:'n|'+nk,l:1,w:'même nom'});
+    return o;},
+  fuzzy:null,
+  score:function(u){return filled(u,['nom','login','email','tel','role','ecole_val','structure_val'])+(u.actif===false?0:1);},
+  cells:function(u,c){return [['Nom',u.nom||u.nom_complet],['Identifiant',u.login],['Rôle',u.role],['Tél',u.tel||u.telephone],['École',c.ec[u.ecole_val]||u.ecole_val||u.structure_val],['État',u.actif===false?'inactif':'actif']];}},
+ drenaets:{label:'DRENAET',get:function(d){return d.drenaets||[];},
+  keys:function(r){var o=[],cd=alnum(r.code),nk=nameKey([r.nom],STOP_REG);if(cd.length>=2)o.push({k:'code|'+cd,l:3,w:'même code'});if(nk)o.push({k:'nom|'+nk,l:2,w:'même nom'});return o;},
+  fuzzy:function(r){var s=nameKey([r.nom],STOP_REG);return s.length>=5?{bucket:'all',s:s}:null;},fuzzyWhy:'noms très proches',
+  score:function(r,c){var n=0;(c.d.ecoles||[]).forEach(function(e){if(strip(e.drena)===strip(r.nom))n++;});return filled(r,['nom','code'])+n;},
+  cells:function(r,c){var n=0;(c.d.ecoles||[]).forEach(function(e){if(strip(e.drena)===strip(r.nom))n++;});return [['Nom',r.nom],['Code',r.code],['Écoles liées',n]];}},
+ iepps:{label:'IEPP',get:function(d){return d.iepps||[];},
+  keys:function(r){var o=[],cd=alnum(r.code),nk=nameKey([r.nom],STOP_REG);if(cd.length>=2)o.push({k:'code|'+cd,l:3,w:'même code'});if(nk)o.push({k:'nom|'+nk,l:2,w:'même nom'});return o;},
+  fuzzy:function(r){var s=nameKey([r.nom],STOP_REG);return s.length>=5?{bucket:'all',s:s}:null;},fuzzyWhy:'noms très proches',
+  score:function(r,c){var n=0;(c.d.ecoles||[]).forEach(function(e){if(strip(e.iepp)===strip(r.nom))n++;});return filled(r,['nom','code','drena'])+n;},
+  cells:function(r,c){var n=0;(c.d.ecoles||[]).forEach(function(e){if(strip(e.iepp)===strip(r.nom))n++;});return [['Nom',r.nom],['Code',r.code],['DRENAET',r.drena],['Écoles liées',n]];}}
+};
+
+/* ───────── moteur de détection ───────── */
+function analyse(entKey,items,ctx,minL){
+  minL=minL||1;var E=ENT[entKey],n=items.length,par=new Array(n),i;
+  for(i=0;i<n;i++)par[i]=i;
+  function find(x){while(par[x]!==x){par[x]=par[par[x]];x=par[x];}return x;}
+  function union(a,b){a=find(a);b=find(b);if(a!==b)par[b]=a;}
+  var buckets={},reasons=[];
+  items.forEach(function(it,ix){E.keys(it,ctx).forEach(function(k){if(k.l<minL)return;var b=buckets[k.k]||(buckets[k.k]={l:k.l,w:k.w,idx:[]});b.idx.push(ix);});});
+  Object.keys(buckets).forEach(function(k){var b=buckets[k];if(b.idx.length>1){for(var j=1;j<b.idx.length;j++)union(b.idx[0],b.idx[j]);reasons.push({a:b.idx[0],l:b.l,w:b.w});}});
+  if(E.fuzzy&&minL<=1){
+    var fb={};items.forEach(function(it,ix){var f=E.fuzzy(it,ctx);if(f)(fb[f.bucket]=fb[f.bucket]||[]).push({i:ix,s:f.s});});
+    Object.keys(fb).forEach(function(b){var a=fb[b];if(a.length<2||a.length>300)return;
+      for(var x=0;x<a.length;x++)for(var y=x+1;y<a.length;y++){if(find(a[x].i)!==find(a[y].i)&&closeNames(a[x].s,a[y].s)){union(a[x].i,a[y].i);reasons.push({a:a[x].i,l:1,w:E.fuzzyWhy});}}});
+  }
+  var gm={};for(i=0;i<n;i++){var r=find(i);(gm[r]=gm[r]||[]).push(i);}
+  var groups=[];
+  Object.keys(gm).forEach(function(r){
+    var m=gm[r];if(m.length<2)return;var set={};m.forEach(function(x){set[x]=1;});
+    var why={},lvl=1;reasons.forEach(function(rs){if(set[rs.a]){why[rs.w]=1;if(rs.l>lvl)lvl=rs.l;}});
+    var best=m[0],bs=-1;m.forEach(function(x){var s=E.score(items[x],ctx);if(s>bs){bs=s;best=x;}});
+    groups.push({members:m,lvl:lvl,why:Object.keys(why),best:best});
+  });
+  groups.sort(function(a,b){return b.lvl-a.lvl||b.members.length-a.members.length;});
+  return groups;
+}
+
+/* ───────── suppression sécurisée ───────── */
+function fbDel(col,id){try{if(window._firebaseReady&&window._fb&&window._fb.del){var p=window._fb.del(col,id);if(p&&p.catch)p.catch(function(){});}}catch(e){}}
+function fbSet(col,id,d){try{if(window._firebaseReady&&window._fb&&window._fb.set){var p=window._fb.set(col,id,d);if(p&&p.catch)p.catch(function(){});}}catch(e){}}
+function persist(keys){keys.forEach(function(k){try{if(typeof save==='function')save(k);}catch(e){console.warn(e);}});}
+function backupFile(entKey,removed,kept){
+  try{var b=new Blob([JSON.stringify({meta:{type:'sauvegarde-avant-suppression',entite:entKey,date:new Date().toISOString(),par:(CU()||{}).login||''},supprimes:removed,conserves:kept},null,1)],{type:'application/json'}),a=document.createElement('a');
+    a.href=URL.createObjectURL(b);a.download='Suppression_'+entKey+'_'+today()+'_'+Date.now().toString(36)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href);},1500);}catch(e){console.warn(e);}
+}
+function removeEleves(items,keptOf,opts){
+  var d=DBo(),rm=new Set(items),notes=d.notes||(d.notes=[]),byId={};
+  notes.forEach(function(n){(byId[String(n.eleve_id)]=byId[String(n.eleve_id)]||[]).push(n);});
+  var gone=new Set(),trash=[],moved=0,merged=0,when=new Date().toLocaleString('fr-FR');
+  items.forEach(function(e){
+    var id=String(e.id),nts=(byId[id]||[]).filter(function(n){return !gone.has(n);}),kept=keptOf.get(e),sameId=kept&&String(kept.id)===id,carried=[];
+    if(!sameId){
+      nts.forEach(function(n){
+        if(opts.transferNotes&&kept){
+          var kn=notes.find(function(x){return !gone.has(x)&&String(x.eleve_id)===String(kept.id)&&x.eval_type===n.eval_type;});
+          if(!kn){n.eleve_id=kept.id;moved++;fbSet('notes',n.id,n);}
+          else{var kk=kn.notes=kn.notes||{};Object.keys(n.notes||{}).forEach(function(k){if(kk[k]==null||kk[k]==='')kk[k]=n.notes[k];});fbSet('notes',kn.id,kn);gone.add(n);fbDel('notes',n.id);merged++;}
+        }else{carried.push(n);gone.add(n);fbDel('notes',n.id);}
+      });
+    }
+    var entry=Object.assign({},e,{_supprime_le:when,_notes:carried});if(kept&&kept.id!=null)entry._doublon_de=kept.id;
+    trash.push(entry);
+  });
+  d.eleves=d.eleves.filter(function(x){return !rm.has(x);});
+  d.notes=notes.filter(function(n){return !gone.has(n);});
+  if(!Array.isArray(d.corbeille))d.corbeille=[];
+  trash.forEach(function(t){d.corbeille.push(t);});
+  var remainIds={};d.eleves.forEach(function(x){remainIds[String(x.id)]=1;});
+  items.forEach(function(e){if(!remainIds[String(e.id)])fbDel('eleves',e.id);});
+  trash.forEach(function(t){fbSet('corbeille',t.id,t);});
+  persist(['eleves','notes','corbeille']);
+  return {removed:items.length,movedNotes:moved,mergedNotes:merged};
+}
+function removeEcoles(items,keptOf){
+  var d=DBo(),rm=new Set(items),re=0,ru=0;
+  items.forEach(function(r){
+    var k=keptOf.get(r);if(!k||k.id===r.id)return;
+    (d.eleves||[]).forEach(function(e){if(e.ecole_id===r.id){e.ecole_id=k.id;re++;fbSet('eleves',e.id,e);}});
+    (d.users||[]).forEach(function(u){var ch=false;if(u.ecole_val===r.id){u.ecole_val=k.id;ch=true;}if(u.structure_val===r.id){u.structure_val=k.id;ch=true;}if(ch){ru++;fbSet('users',u.login,u);}});
+  });
+  d.ecoles=d.ecoles.filter(function(x){return !rm.has(x);});
+  var remain={};d.ecoles.forEach(function(x){remain[x.id]=1;});
+  items.forEach(function(r){if(!remain[r.id])fbDel('ecoles',r.id);});
+  persist(['ecoles','eleves','users']);
+  return {removed:items.length,movedEleves:re,movedUsers:ru};
+}
+function removeUsers(items){
+  var d=DBo(),me=CU()||{},skipped=[],ok=[];
+  var admins=(d.users||[]).filter(function(u){return u.role==='admin';}).length;
+  items.forEach(function(u){
+    if(u.login===me.login||u.login==='diomande'||u.role==='admin'){skipped.push(u.login+' (protégé)');return;}
+    ok.push(u);
+  });
+  var rm=new Set(ok);d.users=d.users.filter(function(x){return !rm.has(x);});
+  var remain={};d.users.forEach(function(x){remain[x.login]=1;});
+  ok.forEach(function(u){if(!remain[u.login])fbDel('users',u.login);});
+  persist(['users']);
+  return {removed:ok.length,skipped:skipped};
+}
+function removeRegistry(key,items){
+  var d=DBo(),rm=new Set(items);d[key]=(d[key]||[]).filter(function(x){return !rm.has(x);});
+  var remain={};d[key].forEach(function(x){remain[x.id]=1;});
+  items.forEach(function(r){if(!remain[r.id])fbDel(key,r.id);});
+  persist([key]);return {removed:items.length};
+}
+/* validation + exécution : ids = indices sélectionnés dans items */
+function performDelete(entKey,items,groups,sel,opts){
+  var rm=[],keptOf=new Map(),blocked=[],keptList=[];
+  groups.forEach(function(g,gi){
+    var chosen=g.members.filter(function(i){return sel.has(i);});
+    if(!chosen.length)return;
+    var left=g.members.filter(function(i){return !sel.has(i);});
+    if(!left.length){blocked.push(gi+1);return;}
+    var E=ENT[entKey],c=opts.ctx,best=left[0],bs=-1;left.forEach(function(i){var s=E.score(items[i],c);if(s>bs){bs=s;best=i;}});
+    keptList.push(items[best]);
+    chosen.forEach(function(i){rm.push(items[i]);keptOf.set(items[i],items[best]);});
+  });
+  if(blocked.length)return {error:'Impossible : toutes les fiches du groupe n°'+blocked.slice(0,5).join(', ')+' sont sélectionnées. Gardez-en au moins une par groupe.'};
+  if(!rm.length)return {error:'Aucune fiche sélectionnée.'};
+  if(opts.backup!==false)backupFile(entKey,rm,keptList);
+  var res=entKey==='eleves'?removeEleves(rm,keptOf,opts):entKey==='ecoles'?removeEcoles(rm,keptOf):entKey==='users'?removeUsers(rm):removeRegistry(entKey,rm);
+  return {ok:true,res:res};
+}
+
+/* ───────── diagnostic « élèves introuvables » ───────── */
+function lostReport(logins,kws){
+  var d=DBo(),E=d.eleves||[],EC=d.ecoles||[],U=d.users||[],C=Array.isArray(d.corbeille)?d.corbeille:[];
+  var kwn=kws.map(strip).filter(Boolean);
+  function match(txt){var t=strip(txt);return kwn.some(function(k){return t.indexOf(k)>=0;});}
+  var ecById={};EC.forEach(function(e){ecById[e.id]=e;});
+  var ecolesKw=EC.filter(function(e){return match(e.nom)||match(e.code)||match(e.id);});
+  var ecolesInfo=ecolesKw.map(function(e){
+    var cl={};E.forEach(function(x){if(x.ecole_id===e.id)cl[x.classe||'?']=(cl[x.classe||'?']||0)+1;});
+    var us=U.filter(function(u){return u.ecole_val===e.id||u.structure_val===e.id;}).map(function(u){return u.login;});
+    return {id:e.id,nom:e.nom,code:e.code,iepp:e.iepp,eleves:Object.keys(cl).reduce(function(s,k){return s+cl[k];},0),classes:cl,comptes:us};
+  });
+  var accounts=logins.map(function(l){
+    var u=U.find(function(x){return String(x.login).toLowerCase()===l;});
+    if(!u)return {login:l,found:false};
+    var inst=(u.role==='instituteur'||u.role==='benevole'),dir=(u.role==='directeur');
+    var schoolId=dir?resId(u.structure_val):resId(u.ecole_val),cls=inst?u.structure_val:'',sch=ecById[schoolId];
+    var visible=E.filter(function(e){return dir?e.ecole_id===schoolId:(inst?(e.ecole_id===schoolId&&e.classe===cls):false);});
+    var inSchool=E.filter(function(e){return e.ecole_id===schoolId;});
+    return {login:u.login,found:true,role:u.role,schoolId:schoolId,schoolKnown:!!sch,schoolName:sch?sch.nom:'(école inconnue : '+schoolId+')',classe:cls,visible:visible.length,inSchool:inSchool.length,active:u.actif!==false};
+  });
+  /* candidats : élèves liés aux mots-clés (école trouvée, ou identifiant d'école orphelin contenant le mot) */
+  var cand=E.filter(function(e){var s=ecById[e.ecole_id];return s?(match(s.nom)||match(s.code)):(match(e.ecole_id));});
+  var trash=C.filter(function(e){var s=ecById[e.ecole_id];return s?(match(s.nom)||match(s.code)):match(e.ecole_id);});
+  var orphans=E.filter(function(e){return !ecById[e.ecole_id];}).length;
+  return {accounts:accounts,ecoles:ecolesInfo,candidates:cand,trash:trash,orphans:orphans,total:E.length,totalEcoles:EC.length,ecById:ecById};
+}
+function whyHidden(e,acc,ecById){
+  if(!acc||!acc.found)return '';
+  if(e.ecole_id!==acc.schoolId){var s=ecById[e.ecole_id];return 'autre école ('+(s?s.nom:'identifiant « '+e.ecole_id+' » inconnu')+')';}
+  if(acc.classe&&e.classe!==acc.classe)return alnum(e.classe)===alnum(acc.classe)?'classe écrite autrement (« '+e.classe+' » au lieu de « '+acc.classe+' »)':'autre classe ('+(e.classe||'vide')+')';
+  return '';
+}
+function reattach(students,acc){
+  var n=0;students.forEach(function(e){
+    var ch=false;if(e.ecole_id!==acc.schoolId){e.ecole_id=acc.schoolId;ch=true;}
+    if(acc.classe&&e.classe!==acc.classe){e.classe=acc.classe;ch=true;}
+    if(ch){n++;fbSet('eleves',e.id,e);}
+  });
+  persist(['eleves']);return n;
+}
+function restoreTrash(entries){
+  var d=DBo(),n=0;if(!Array.isArray(d.notes))d.notes=[];
+  entries.forEach(function(e){
+    (e._notes||[]).forEach(function(nt){if(!d.notes.find(function(x){return x.id===nt.id;})){d.notes.push(nt);fbSet('notes',nt.id,nt);}});
+    var clean=Object.assign({},e);['_supprime_le','_notes','_archive','_archive_le','_statut','_doublon_de'].forEach(function(k){delete clean[k];});
+    if(!d.eleves.some(function(x){return String(x.id)===String(clean.id);})){d.eleves.push(clean);fbSet('eleves',clean.id,clean);n++;}
+    fbDel('corbeille',e.id);
+  });
+  var rm=new Set(entries);d.corbeille=d.corbeille.filter(function(x){return !rm.has(x);});
+  persist(['eleves','notes','corbeille']);return n;
+}
+
+/* ───────── interface ───────── */
+var CSS='.pgd{font-family:inherit;color:#0f172a;font-size:13px}.pgd *{box-sizing:border-box}.pgd-tabs,.pgd-ents,.pgd-bar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;align-items:center}'+
+'.pgd button{border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:7px 11px;cursor:pointer;font:inherit;font-weight:600}.pgd button.on{background:#1d4ed8;color:#fff;border-color:#1d4ed8}.pgd button.red{background:#b91c1c;color:#fff;border-color:#b91c1c}.pgd button.grn{background:#047857;color:#fff;border-color:#047857}.pgd button:disabled{opacity:.45;cursor:not-allowed}'+
+'.pgd select,.pgd input[type=text]{padding:7px 9px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;min-width:0}.pgd .note{color:#64748b;font-size:12px;line-height:1.5;margin:0 0 8px}'+
+'.pgd .g{border:1px solid #e2e8f0;border-radius:12px;margin:0 0 10px;background:#fff;overflow:hidden}.pgd .gh{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px;background:#f8fafc;border-bottom:1px solid #e2e8f0}'+
+'.pgd .b{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700}.pgd .b3{background:#fee2e2;color:#b91c1c}.pgd .b2{background:#fef3c7;color:#b45309}.pgd .b1{background:#e0f2fe;color:#075985}'+
+'.pgd .r{display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-bottom:1px solid #f1f5f9}.pgd .r:last-child{border-bottom:0}.pgd .r.best{background:#f0fdf4}.pgd .r.sel{background:#fef2f2}'+
+'.pgd .cells{display:flex;flex-wrap:wrap;gap:4px 14px;min-width:0;flex:1}.pgd .cells span{overflow-wrap:anywhere}.pgd .cells em{font-style:normal;color:#64748b;font-size:11px;margin-right:3px}'+
+'.pgd .keep{color:#047857;font-weight:700;font-size:11px}.pgd table{width:100%;border-collapse:collapse;font-size:12.5px}.pgd td,.pgd th{padding:6px 8px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top;overflow-wrap:anywhere}.pgd th{background:#f1f5f9;font-size:11px;text-transform:uppercase;color:#475569}'+
+'.pgd .box{border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin:0 0 12px;background:#fff}.pgd .warn{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:9px 12px;margin:0 0 10px}'+
+'#pgd-ov{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9650;display:none;align-items:flex-start;justify-content:center;padding:14px;overflow:auto}#pgd-ov.open{display:flex}#pgd-box{background:#fff;border-radius:16px;max-width:980px;width:100%;padding:16px 18px;margin:auto}';
+function injectCSS(){if($('pgd-css'))return;var s=document.createElement('style');s.id='pgd-css';s.textContent=CSS;document.head.appendChild(s);}
+
+function mount(root,opt){
+  injectCSS();opt=opt||{};
+  var ents=opt.entities||['eleves','ecoles','users','drenaets','iepps'];
+  var st={tab:'dup',ent:ents[0],lvl:2,groups:[],items:[],ctx:null,sel:new Set(),shown:40,transfer:true,backup:true,diag:null,dsel:new Set(),tsel:new Set(),logins:'cp1bila2026, bakCM1',kws:'KANAWOLO, PEKAHA',target:''};
+  function canSel(it){if(opt.scope&&st.ent==='eleves'&&typeof canDeleteEleveRecord==='function')return !!canDeleteEleveRecord(it);return true;}
+  function load(){
+    var d=DBo(),E=ENT[st.ent];st.ctx=context();
+    st.items=(opt.scope&&st.ent==='eleves')?opt.scope().slice():E.get(d).slice();
+    st.groups=analyse(st.ent,st.items,st.ctx,st.lvl);st.sel=new Set();st.shown=40;
+  }
+  function visible(){return st.groups.filter(function(g){return g.lvl>=st.lvl;});}
+  function rowHtml(g,i){
+    var it=st.items[i],E=ENT[st.ent],on=st.sel.has(i),best=(g.best===i);
+    return '<div class="r'+(best&&!on?' best':'')+(on?' sel':'')+'"><input type="checkbox" data-a="row" data-i="'+i+'"'+(on?' checked':'')+(canSel(it)?'':' disabled')+'><div class="cells">'+E.cells(it,st.ctx).filter(function(c){return c[1]!=null&&String(c[1])!=='';}).map(function(c){return '<span><em>'+esc(c[0])+'</em>'+esc(c[1])+'</span>';}).join('')+'</div>'+(best?'<span class="keep">✅ à conserver (la plus complète)</span>':'')+'</div>';
+  }
+  function dupHtml(){
+    var vg=visible(),nfich=vg.reduce(function(s,g){return s+g.members.length;},0),lab={3:'Certain',2:'Probable',1:'Possible'};
+    var h='<div class="pgd-ents">'+ents.map(function(k){return '<button data-a="ent" data-k="'+k+'" class="'+(k===st.ent?'on':'')+'">'+esc(ENT[k].label)+'</button>';}).join('')+'</div>'+
+     '<div class="pgd-bar"><span>Niveau :</span><select data-a="lvl"><option value="3"'+(st.lvl===3?' selected':'')+'>Certains seulement (matricule, code, identifiant…)</option><option value="2"'+(st.lvl===2?' selected':'')+'>Certains et probables</option><option value="1"'+(st.lvl===1?' selected':'')+'>Tous (y compris possibles)</option></select><button data-a="rescan">🔄 Relancer l\'analyse</button></div>'+
+     '<p class="note"><b>'+vg.length+'</b> groupe(s) de doublons ('+nfich+' fiche(s)) parmi '+st.items.length+' '+esc(ENT[st.ent].label.toLowerCase())+'. Cochez les fiches à supprimer : <b>au moins une fiche par groupe est toujours conservée</b>.</p>';
+    if(!vg.length){var more=st.lvl>1?analyse(st.ent,st.items,st.ctx,1).length:0;return h+'<div class="box">✅ Aucun doublon détecté à ce niveau.'+(more?'<br><span class="note">'+more+' groupe(s) <b>possible(s)</b> (homonymes, même téléphone, noms proches…) existent : choisissez le niveau « Tous » pour les examiner.</span>':'')+'</div>';}
+    h+='<div class="pgd-bar"><button data-a="preall">☑ Présélectionner tous les doublons (garder la plus complète)</button><button data-a="clear">☐ Tout désélectionner</button>'+
+      (st.ent==='eleves'?'<label><input type="checkbox" data-a="transfer"'+(st.transfer?' checked':'')+'> Transférer les notes vers la fiche conservée</label>':'')+
+      (st.ent==='ecoles'?'<span class="note" style="margin:0">Les élèves et comptes des écoles supprimées sont rattachés à l\'école conservée.</span>':'')+
+      '<label><input type="checkbox" data-a="backup"'+(st.backup?' checked':'')+'> Télécharger une sauvegarde avant suppression</label>'+
+      '<button class="red" data-a="del"'+(st.sel.size?'':' disabled')+'>🗑 Supprimer la sélection ('+st.sel.size+')</button></div>';
+    vg.slice(0,st.shown).forEach(function(g,gi){
+      h+='<div class="g"><div class="gh"><span class="b b'+g.lvl+'">'+lab[g.lvl]+'</span><span class="note" style="margin:0">'+esc(g.why.join(' · '))+'</span><span style="flex:1"></span><button data-a="grpbest" data-g="'+st.groups.indexOf(g)+'">Cocher tout sauf la plus complète</button><button data-a="grpclr" data-g="'+st.groups.indexOf(g)+'">Décocher</button></div>'+g.members.map(function(i){return rowHtml(g,i);}).join('')+'</div>';
+    });
+    if(vg.length>st.shown)h+='<div class="pgd-bar"><button data-a="more">Afficher plus ('+(vg.length-st.shown)+' groupes restants)</button></div>';
+    return h;
+  }
+  /* — onglet « élèves introuvables » — */
+  function lostHtml(){
+    var h='<p class="note">Un compte instituteur ne voit que les élèves dont l\'<b>école</b> ET la <b>classe</b> correspondent exactement à son compte ; un directeur, ceux de son école. Cet outil cherche les élèves d\'une école, dit pourquoi ils sont cachés et permet de les <b>rattacher</b> au bon compte ou de les <b>restaurer</b> depuis la Corbeille.</p>'+
+     '<div class="pgd-bar"><label>Comptes : <input type="text" id="pgd-logins" value="'+esc(st.logins)+'" style="width:230px"></label><label>Écoles (mots-clés) : <input type="text" id="pgd-kws" value="'+esc(st.kws)+'" style="width:230px"></label><button class="on" data-a="lost">🔎 Rechercher</button></div>';
+    var R=st.diag;if(!R)return h;
+    h+='<div class="box"><b>Base chargée sur cet appareil :</b> '+R.total+' élève(s), '+R.totalEcoles+' école(s), '+R.trash.length+' élève(s) correspondant(s) dans la Corbeille.'+(R.total===0?'<div class="warn">⚠️ Aucun élève n\'est chargé du tout : le problème est le <b>chargement des données</b> (cloud/stockage), pas un rattachement. Utilisez l\'outil de récupération (recuperation.html).</div>':'')+(R.orphans?'<div class="warn">⚠️ '+R.orphans+' élève(s) pointent vers une école inexistante (identifiant orphelin).</div>':'')+'</div>';
+    h+='<div class="box"><b>Comptes</b><table><thead><tr><th>Compte</th><th>Rôle</th><th>École du compte</th><th>Classe</th><th>Élèves visibles</th><th>Dans l\'école</th></tr></thead><tbody>'+R.accounts.map(function(a){return a.found?'<tr><td>'+esc(a.login)+(a.active?'':' <em>(inactif)</em>')+'</td><td>'+esc(a.role)+'</td><td>'+esc(a.schoolName)+(a.schoolKnown?'':' ⚠️')+'</td><td>'+esc(a.classe||'—')+'</td><td><b>'+a.visible+'</b></td><td>'+a.inSchool+'</td></tr>':'<tr><td>'+esc(a.login)+'</td><td colspan="5"><span style="color:#b91c1c">compte introuvable dans la base chargée</span></td></tr>';}).join('')+'</tbody></table></div>';
+    h+='<div class="box"><b>Écoles trouvées</b>'+(R.ecoles.length?'<table><thead><tr><th>École</th><th>Code</th><th>IEPP</th><th>Élèves</th><th>Classes</th><th>Comptes rattachés</th></tr></thead><tbody>'+R.ecoles.map(function(e){return '<tr><td>'+esc(e.nom)+'<br><small>'+esc(e.id)+'</small></td><td>'+esc(e.code||'')+'</td><td>'+esc(e.iepp||'')+'</td><td>'+e.eleves+'</td><td>'+Object.keys(e.classes).map(function(k){return esc(k)+' : '+e.classes[k];}).join('<br>')+'</td><td>'+(e.comptes.map(esc).join(', ')||'—')+'</td></tr>';}).join('')+'</tbody></table>'+(R.ecoles.length>1?'<p class="note">Plusieurs écoles correspondent : si ce sont des doublons d\'une même école, utilisez l\'onglet Doublons → Écoles pour les fusionner (élèves et comptes sont rattachés à l\'école conservée).</p>':''):'<p class="note">Aucune école ne correspond à ces mots-clés dans la base chargée.</p>')+'</div>';
+    var accs=R.accounts.filter(function(a){return a.found;});
+    if(R.candidates.length&&accs.length){
+      if(!st.target||!accs.some(function(a){return a.login===st.target;}))st.target=accs[0].login;
+      var acc=accs.find(function(a){return a.login===st.target;});
+      h+='<div class="box"><b>Élèves liés à ces écoles : '+R.candidates.length+'</b> — rattacher au compte : <select data-a="target">'+accs.map(function(a){return '<option value="'+esc(a.login)+'"'+(a.login===st.target?' selected':'')+'>'+esc(a.login)+' ('+esc(a.schoolName)+(a.classe?' · '+esc(a.classe):'')+')</option>';}).join('')+'</select>'+
+       '<div class="pgd-bar"><button data-a="dselhid">☑ Cocher les élèves cachés de la bonne classe</button><button data-a="dclr">☐ Décocher</button><button class="grn" data-a="attach"'+(st.dsel.size?'':' disabled')+'>🔗 Rattacher la sélection ('+st.dsel.size+')</button></div>'+
+       '<table><thead><tr><th></th><th>Élève</th><th>Matricule</th><th>Classe</th><th>École</th><th>Visible par '+esc(acc.login)+' ?</th></tr></thead><tbody>'+R.candidates.slice(0,300).map(function(e,ix){var w=whyHidden(e,acc,R.ecById),sch=R.ecById[e.ecole_id];return '<tr><td><input type="checkbox" data-a="drow" data-i="'+ix+'"'+(st.dsel.has(e)?' checked':'')+(w?'':' disabled')+'></td><td>'+esc(((e.nom||'')+' '+(e.prenoms||'')).trim())+'</td><td>'+esc(e.matricule||'')+'</td><td>'+esc(e.classe||'')+'</td><td>'+esc(sch?sch.nom:e.ecole_id)+'</td><td>'+(w?'<span style="color:#b45309">non — '+esc(w)+'</span>':'<span style="color:#047857">oui</span>')+'</td></tr>';}).join('')+'</tbody></table>'+(R.candidates.length>300?'<p class="note">300 premiers affichés.</p>':'')+'</div>';
+    }
+    if(R.trash.length){
+      h+='<div class="box"><b>Dans la Corbeille : '+R.trash.length+' élève(s) de ces écoles</b> (supprimés mais récupérables)<div class="pgd-bar"><button data-a="tselall">☑ Tout cocher</button><button class="grn" data-a="restore"'+(st.tsel.size?'':' disabled')+'>♻️ Restaurer la sélection ('+st.tsel.size+')</button></div><table><thead><tr><th></th><th>Élève</th><th>Matricule</th><th>Classe</th><th>Supprimé le</th></tr></thead><tbody>'+R.trash.slice(0,300).map(function(e,ix){return '<tr><td><input type="checkbox" data-a="trow" data-i="'+ix+'"'+(st.tsel.has(e)?' checked':'')+'></td><td>'+esc(((e.nom||'')+' '+(e.prenoms||'')).trim())+'</td><td>'+esc(e.matricule||'')+'</td><td>'+esc(e.classe||'')+'</td><td>'+esc(e._supprime_le||'')+'</td></tr>';}).join('')+'</tbody></table></div>';
+    }
+    return h;
+  }
+  function render(){
+    var h='';
+    if(!opt.scope)h+='<div class="pgd-tabs"><button data-a="tab" data-k="dup" class="'+(st.tab==='dup'?'on':'')+'">🧹 Doublons</button><button data-a="tab" data-k="lost" class="'+(st.tab==='lost'?'on':'')+'">🔎 Élèves introuvables</button></div>';
+    root.innerHTML='<div class="pgd">'+h+(st.tab==='lost'&&!opt.scope?lostHtml():dupHtml())+'</div>';
+  }
+  function after(){try{if(window.CSA&&CSA.fit)CSA.fit();}catch(e){}}
+  root.onclick=function(ev){
+    var t=ev.target.closest?ev.target.closest('[data-a]'):null;if(!t||t.tagName==='SELECT')return;
+    var a=t.getAttribute('data-a'),g;
+    if(t.tagName==='INPUT'&&t.type==='checkbox'){
+      if(a==='row'){var i=+t.getAttribute('data-i');if(t.checked)st.sel.add(i);else st.sel.delete(i);render();return;}
+      if(a==='transfer'){st.transfer=t.checked;return;}if(a==='backup'){st.backup=t.checked;return;}
+      if(a==='drow'){var e=st.diag.candidates[+t.getAttribute('data-i')];if(t.checked)st.dsel.add(e);else st.dsel.delete(e);render();return;}
+      if(a==='trow'){var e2=st.diag.trash[+t.getAttribute('data-i')];if(t.checked)st.tsel.add(e2);else st.tsel.delete(e2);render();return;}
+      return;
+    }
+    switch(a){
+      case 'tab':st.tab=t.getAttribute('data-k');if(st.tab==='dup'&&!st.groups.length)load();render();break;
+      case 'ent':st.ent=t.getAttribute('data-k');load();render();break;
+      case 'rescan':load();render();break;
+      case 'more':st.shown+=40;render();break;
+      case 'clear':st.sel=new Set();render();break;
+      case 'preall':st.sel=new Set();visible().forEach(function(gr){gr.members.forEach(function(i){if(i!==gr.best&&canSel(st.items[i]))st.sel.add(i);});});render();break;
+      case 'grpbest':g=st.groups[+t.getAttribute('data-g')];g.members.forEach(function(i){if(i!==g.best&&canSel(st.items[i]))st.sel.add(i);});render();break;
+      case 'grpclr':g=st.groups[+t.getAttribute('data-g')];g.members.forEach(function(i){st.sel.delete(i);});render();break;
+      case 'del':doDelete();break;
+      case 'lost':st.logins=($('pgd-logins')||{}).value||st.logins;st.kws=($('pgd-kws')||{}).value||st.kws;st.diag=lostReport(st.logins.split(/[,;\s]+/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean),st.kws.split(/[,;]+/).map(function(x){return x.trim();}).filter(Boolean));st.dsel=new Set();st.tsel=new Set();render();break;
+      case 'dselhid':{var acc=st.diag.accounts.find(function(x){return x.login===st.target;});st.dsel=new Set();st.diag.candidates.forEach(function(e){var w=whyHidden(e,acc,st.diag.ecById);if(w&&(!acc.classe||alnum(e.classe)===alnum(acc.classe)))st.dsel.add(e);});render();break;}
+      case 'dclr':st.dsel=new Set();render();break;
+      case 'attach':doAttach();break;
+      case 'tselall':st.diag.trash.forEach(function(e){st.tsel.add(e);});render();break;
+      case 'restore':doRestore();break;
+    }
+    after();
+  };
+  root.onchange=function(ev){
+    var t=ev.target;if(t.tagName!=='SELECT')return;var a=t.getAttribute('data-a');
+    if(a==='lvl'){st.lvl=+t.value;load();render();}
+    if(a==='target'){st.target=t.value;st.dsel=new Set();render();}
+  };
+  function doDelete(){
+    var vg=visible(),sel=st.sel,n=sel.size;if(!n)return;
+    var msg='Supprimer '+n+' fiche(s) — '+ENT[st.ent].label+' ?\n\n'+(st.ent==='eleves'?'Les fiches vont dans la Corbeille (restaurables)'+(st.transfer?' ; leurs notes sont transférées vers la fiche conservée.':' avec leurs notes.'):st.ent==='ecoles'?'Les élèves et comptes rattachés passent à l\'école conservée.':'Une sauvegarde JSON est téléchargée.')+'\n\nConfirmer ?';
+    if(!confirm(msg))return;
+    var r=performDelete(st.ent,st.items,vg,sel,{transferNotes:st.transfer,backup:st.backup,ctx:st.ctx});
+    if(r.error){alert(r.error);return;}
+    var x=r.res,info=x.removed+' supprimée(s)'+(x.movedNotes?' · '+x.movedNotes+' note(s) transférée(s)':'')+(x.mergedNotes?' · '+x.mergedNotes+' note(s) fusionnée(s)':'')+(x.movedEleves?' · '+x.movedEleves+' élève(s) rattaché(s)':'')+(x.movedUsers?' · '+x.movedUsers+' compte(s) rattaché(s)':'')+(x.skipped&&x.skipped.length?' · ignorés : '+x.skipped.join(', '):'');
+    notif('✅ '+info,'success');try{if(window.CSA&&CSA.audit)CSA.audit('doublons',ENT[st.ent].label+' : '+info);}catch(e){}
+    try{if(typeof updateStats==='function')updateStats();if(typeof renderEleves==='function')renderEleves();}catch(e){}
+    load();render();
+  }
+  function doAttach(){
+    var acc=st.diag.accounts.find(function(x){return x.login===st.target;});if(!acc||!st.dsel.size)return;
+    if(!confirm('Rattacher '+st.dsel.size+' élève(s) au compte « '+acc.login+' » ?\n\nÉcole : '+acc.schoolName+(acc.classe?'\nClasse : '+acc.classe:'')+'\n\nLeur école'+(acc.classe?' et leur classe':'')+' seront modifiées pour correspondre au compte.'))return;
+    var n=reattach(Array.from(st.dsel),acc);notif('✅ '+n+' élève(s) rattaché(s) à '+acc.login,'success');try{if(window.CSA&&CSA.audit)CSA.audit('rattachement',n+' élève(s) → '+acc.login);}catch(e){}
+    try{if(typeof updateStats==='function')updateStats();if(typeof renderEleves==='function')renderEleves();}catch(e){}
+    st.diag=lostReport(st.logins.split(/[,;\s]+/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean),st.kws.split(/[,;]+/).map(function(x){return x.trim();}).filter(Boolean));st.dsel=new Set();render();
+  }
+  function doRestore(){
+    if(!st.tsel.size)return;if(!confirm('Restaurer '+st.tsel.size+' élève(s) depuis la Corbeille ?'))return;
+    var n=restoreTrash(Array.from(st.tsel));notif('✅ '+n+' élève(s) restauré(s)','success');try{if(window.CSA&&CSA.audit)CSA.audit('restauration',n+' élève(s) depuis la Corbeille');}catch(e){}
+    try{if(typeof updateStats==='function')updateStats();if(typeof renderEleves==='function')renderEleves();}catch(e){}
+    st.diag=lostReport(st.logins.split(/[,;\s]+/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean),st.kws.split(/[,;]+/).map(function(x){return x.trim();}).filter(Boolean));st.tsel=new Set();render();
+  }
+  load();render();
+  return {reload:function(){load();render();},state:st,render:render};
+}
+
+/* ───────── fenêtre pour directeurs / instituteurs (page Élèves) ───────── */
+function openModal(){
+  if(typeof canDelete==='function'&&!canDelete()){notif('🔒 Accès refusé','error');return;}
+  injectCSS();
+  if(!$('pgd-ov')){var o=document.createElement('div');o.id='pgd-ov';o.innerHTML='<div id="pgd-box"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="margin:0">🧹 Doublons parmi vos élèves</h3><button class="btn btn-secondary" id="pgd-x">Fermer</button></div><div id="pgd-root"></div></div>';o.onclick=function(e){if(e.target===o)o.classList.remove('open');};document.body.appendChild(o);$('pgd-x').onclick=function(){o.classList.remove('open');};}
+  $('pgd-ov').classList.add('open');
+  mount($('pgd-root'),{entities:['eleves'],scope:function(){try{return getScopeEleves();}catch(e){return [];}}});
+}
+function injectButtons(){
+  var bs=document.querySelectorAll('button[onclick*="importElevesCSV("]');
+  for(var i=0;i<bs.length;i++){var b=bs[i];if(b.getAttribute('data-pgd'))continue;b.setAttribute('data-pgd','1');
+    var x=document.createElement('button');x.type='button';x.className=b.className||'btn btn-secondary';x.setAttribute('data-pgd-btn','1');x.textContent='🧹 Doublons';x.title='Détecter et supprimer les doublons';x.onclick=function(ev){ev.preventDefault();ev.stopPropagation();openModal();};
+    b.parentNode.insertBefore(x,b);}
+}
+
+/* ───────── branchement sur la Console ───────── */
+function register(){
+  if(!(window.CSA&&window.CSA.addSection))return false;
+  window.CSA.addSection('dup','🧹','Doublons & nettoyage',function(){return '<div id="pgd-console"></div>';},function(c){var r=c.querySelector('#pgd-console');if(r)mount(r,{});});
+  return true;
+}
+var tries=0,iv=setInterval(function(){tries++;if(register()||tries>120)clearInterval(iv);},400);
+var t=null;function sched(){clearTimeout(t);t=setTimeout(injectButtons,300);}
+try{new MutationObserver(sched).observe(document.body,{childList:true,subtree:true});}catch(e){setInterval(injectButtons,2500);}
+setTimeout(injectButtons,500);
+
+window.PGDUP={analyse:analyse,ENT:ENT,context:context,performDelete:performDelete,lostReport:lostReport,whyHidden:whyHidden,reattach:reattach,restoreTrash:restoreTrash,mount:mount,openModal:openModal,_u:{nameKey:nameKey,phones:phones,isoDate:isoDate,closeNames:closeNames,alnum:alnum}};
+})();
+
+</script>
+
 <script src="supabase-config.js"></script>
 <script id="pgnep-supabase">
 /* ══════════════════════════════════════════════════════════════════════
@@ -21599,7 +22043,7 @@ window.PGMODELES={eleves:modeleEleves,notes:modeleNotes,registre:modeleRegistre,
 'use strict';
 if(window.PGSB)return;
 var KEY='pgnep_sb_cfg',LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
-var SQL="-- ════════════════════════════════════════════════════════════════════\n--  LE PERROQUET · PGNEP — Schéma Supabase (version 1)\n--  À coller dans Supabase → SQL Editor → New query → Run\n--  Principe : une table « docs » qui reprend fidèlement les collections\n--  actuelles (users, ecoles, eleves, notes, corbeille, drenaets, iepps…).\n--  Sécurité : RLS activée ; AUCUN accès anonyme ; seuls les utilisateurs\n--  connectés (Supabase Auth) peuvent lire/écrire.\n-- ════════════════════════════════════════════════════════════════════\n\ncreate table if not exists public.docs (\n  col         text        not null,\n  id          text        not null,\n  data        jsonb       not null default '{}'::jsonb,\n  updated_at  timestamptz not null default now(),\n  updated_by  uuid        default auth.uid(),\n  primary key (col, id)\n);\n\ncreate index if not exists docs_col_idx    on public.docs (col);\ncreate index if not exists docs_ecole_idx  on public.docs (col, (data->>'ecole_id'));\ncreate index if not exists docs_updated_ix on public.docs (col, updated_at desc);\n\n-- Sécurité : RLS obligatoire\nalter table public.docs enable row level security;\n\ndrop policy if exists docs_select on public.docs;\ndrop policy if exists docs_insert on public.docs;\ndrop policy if exists docs_update on public.docs;\ndrop policy if exists docs_delete on public.docs;\n\ncreate policy docs_select on public.docs for select to authenticated using (true);\ncreate policy docs_insert on public.docs for insert to authenticated with check (true);\ncreate policy docs_update on public.docs for update to authenticated using (true) with check (true);\ncreate policy docs_delete on public.docs for delete to authenticated using (true);\n-- (aucune politique pour le rôle « anon » : accès public refusé)\n\n-- Écriture avec fusion des champs (équivalent de setDoc(..., {merge:true}))\ncreate or replace function public.upsert_doc(p_col text, p_id text, p_data jsonb)\nreturns void language sql security invoker as $$\n  insert into public.docs (col, id, data) values (p_col, p_id, coalesce(p_data,'{}'::jsonb))\n  on conflict (col, id) do update\n    set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n$$;\n\n-- Écriture par lots : p_rows = [{\"id\":\"...\",\"data\":{...}}, ...]\ncreate or replace function public.upsert_docs(p_col text, p_rows jsonb)\nreturns integer language plpgsql security invoker as $$\ndeclare n integer := 0; r jsonb;\nbegin\n  for r in select * from jsonb_array_elements(coalesce(p_rows,'[]'::jsonb)) loop\n    insert into public.docs (col, id, data)\n    values (p_col, r->>'id', coalesce(r->'data','{}'::jsonb))\n    on conflict (col, id) do update\n      set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n    n := n + 1;\n  end loop;\n  return n;\nend $$;\n\n-- Temps réel (les suppressions doivent transporter la colonne « col »)\nalter table public.docs replica identity full;\ndo $$ begin\n  alter publication supabase_realtime add table public.docs;\nexception when duplicate_object then null; when undefined_object then null; end $$;\n\n-- ────────────────────────────────────────────────────────────────────\n--  PHASE 2 (plus tard, après tests) : droits par rôle et par école.\n--  Les comptes Supabase utilisent l'e-mail  <identifiant>@pgnep-menaet.ci ;\n--  l'identifiant se retrouve avec  split_part(auth.jwt()->>'email','@',1).\n--  Le profil (rôle, école) se lit dans docs(col='users', id=<identifiant>).\n--  ⚠ Ne pas activer sans test : cela remplacera les politiques ci-dessus.\n-- ────────────────────────────────────────────────────────────────────\n";
+var SQL="-- ════════════════════════════════════════════════════════════════════\n--  LE PERROQUET · PGNEP — Schéma Supabase (version 1)\n--  À coller dans Supabase → SQL Editor → New query → Run\n--  Principe : une table « docs » qui reprend fidèlement les collections\n--  actuelles (users, ecoles, eleves, notes, corbeille, drenaets, iepps…).\n--  Sécurité : RLS activée ; AUCUN accès anonyme ; seuls les utilisateurs\n--  connectés (Supabase Auth) peuvent lire/écrire.\n-- ════════════════════════════════════════════════════════════════════\n\ncreate table if not exists public.docs (\n  col         text        not null,\n  id          text        not null,\n  data        jsonb       not null default '{}'::jsonb,\n  updated_at  timestamptz not null default now(),\n  updated_by  uuid        default auth.uid(),\n  primary key (col, id)\n);\n\ncreate index if not exists docs_col_idx    on public.docs (col);\ncreate index if not exists docs_ecole_idx  on public.docs (col, (data->>'ecole_id'));\ncreate index if not exists docs_updated_ix on public.docs (col, updated_at desc);\n\n-- Sécurité : RLS obligatoire\nalter table public.docs enable row level security;\n\ndrop policy if exists docs_select on public.docs;\ndrop policy if exists docs_insert on public.docs;\ndrop policy if exists docs_update on public.docs;\ndrop policy if exists docs_delete on public.docs;\n\ncreate policy docs_select on public.docs for select to authenticated using (true);\ncreate policy docs_insert on public.docs for insert to authenticated with check (true);\ncreate policy docs_update on public.docs for update to authenticated using (true) with check (true);\ncreate policy docs_delete on public.docs for delete to authenticated using (true);\n-- (aucune politique pour le rôle « anon » : accès public refusé)\n\n-- Écriture avec fusion des champs (équivalent de setDoc(..., {merge:true}))\ncreate or replace function public.upsert_doc(p_col text, p_id text, p_data jsonb)\nreturns void language sql security invoker as $$\n  insert into public.docs (col, id, data) values (p_col, p_id, coalesce(p_data,'{}'::jsonb))\n  on conflict (col, id) do update\n    set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n$$;\n\n-- Écriture par lots : p_rows = [{\"id\":\"...\",\"data\":{...}}, ...]\ncreate or replace function public.upsert_docs(p_col text, p_rows jsonb)\nreturns integer language plpgsql security invoker as $$\ndeclare n integer := 0; r jsonb;\nbegin\n  for r in select * from jsonb_array_elements(coalesce(p_rows,'[]'::jsonb)) loop\n    insert into public.docs (col, id, data)\n    values (p_col, r->>'id', coalesce(r->'data','{}'::jsonb))\n    on conflict (col, id) do update\n      set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n    n := n + 1;\n  end loop;\n  return n;\nend $$;\n\n-- Droits d'accès (OBLIGATOIRES depuis 2026 : Supabase n'expose plus\n-- automatiquement les nouvelles tables). Seuls les utilisateurs connectés.\ngrant usage on schema public to anon, authenticated;\nrevoke all on table public.docs from anon;\ngrant select, insert, update, delete on table public.docs to authenticated;\nrevoke execute on function public.upsert_doc(text, text, jsonb)  from public, anon;\nrevoke execute on function public.upsert_docs(text, jsonb)       from public, anon;\ngrant  execute on function public.upsert_doc(text, text, jsonb)  to authenticated;\ngrant  execute on function public.upsert_docs(text, jsonb)       to authenticated;\n\n-- Temps réel (les suppressions doivent transporter la colonne « col »)\nalter table public.docs replica identity full;\ndo $$ begin\n  alter publication supabase_realtime add table public.docs;\nexception when duplicate_object then null; when undefined_object then null; end $$;\n\n-- ────────────────────────────────────────────────────────────────────\n--  PHASE 2 (plus tard, après tests) : droits par rôle et par école.\n--  Les comptes Supabase utilisent l'e-mail  <identifiant>@pgnep-menaet.ci ;\n--  l'identifiant se retrouve avec  split_part(auth.jwt()->>'email','@',1).\n--  Le profil (rôle, école) se lit dans docs(col='users', id=<identifiant>).\n--  ⚠ Ne pas activer sans test : cela remplacera les politiques ci-dessus.\n-- ────────────────────────────────────────────────────────────────────\n";
 function lsg(){
   var l={};try{l=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){l={};}
   if(l&&l.url&&l.anon)return l;                 /* la configuration de cet appareil prime */
@@ -21768,7 +22212,9 @@ var CSS='#pgsb-ov{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9
 '#pgsb-box{background:#fff;color:#0f172a;border-radius:16px;max-width:780px;width:100%;max-height:92vh;overflow:auto;padding:18px 20px;font-family:inherit;font-size:13px}#pgsb-box h3{margin:0 0 8px;font-size:17px}'+
 '#pgsb-box input[type=text],#pgsb-box input[type=password],#pgsb-box textarea{width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;margin:3px 0 8px}'+
 '#pgsb-box .r{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}#pgsb-box .n{color:#64748b;font-size:12px;line-height:1.5}#pgsb-box .ok{color:#047857}#pgsb-box .ko{color:#b91c1c}#pgsb-box textarea{font-family:monospace;font-size:11px;height:140px}';
+function isSA(){var u=me();return !!(u&&(u.role==='admin'||u.login==='diomande'));}
 function openConfig(){
+  if(!isSA()){notif('🔒 Réservé au super-administrateur','error');return;}
   if(!$('pgsb-ov')){var st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);var o=document.createElement('div');o.id='pgsb-ov';o.innerHTML='<div id="pgsb-box"></div>';o.onclick=function(e){if(e.target===o)o.classList.remove('open');};document.body.appendChild(o);}
   var c=lsg(),b=$('pgsb-box');$('pgsb-ov').classList.add('open');
   b.innerHTML='<h3>🔌 Connexion à Supabase</h3>'+
@@ -21790,7 +22236,7 @@ function openConfig(){
     readyP=null;API.client=null;msg('<span class="ok">✅ Enregistré.</span>'+(on?' Actualisez la page pour activer Supabase.':''));return true;}
   $('sb-save').onclick=save;$('sb-close').onclick=function(){$('pgsb-ov').classList.remove('open');};
   $('sb-copy').onclick=function(){try{navigator.clipboard.writeText(SQL);msg('📋 Script copié.');}catch(e){$('sb-sql').select();}};
-  $('sb-test').onclick=function(){if(!save())return;msg('⏳ Test…');ping().then(function(r){msg(r.error?'<span class="ko">❌ '+esc(r.error)+(/42P01|relation/i.test(r.error)?' — la table « docs » n\'existe pas : exécutez le script SQL.':'')+'</span>':'<span class="ok">✅ Connexion établie.</span> Session : '+(r.session?'<b>ouverte</b>':'<b>non ouverte</b> (se reconnecter à l\'application)')+' · documents : <b>'+r.count+'</b>.');}).catch(function(e){msg('<span class="ko">❌ '+esc(e.message||e)+'</span>');});};
+  $('sb-test').onclick=function(){if(!save())return;msg('⏳ Test…');ping().then(function(r){msg(r.error?'<span class="ko">❌ '+esc(r.error)+(/42P01|relation/i.test(r.error)?' — la table « docs » n\'existe pas : exécutez le script SQL.':(/permission denied for table/i.test(r.error)?' — droits (GRANT) manquants : exécutez le script SQL mis à jour (ouvrez « Script SQL à coller dans Supabase »).':''))+'</span>':'<span class="ok">✅ Connexion établie.</span> Session : '+(r.session?'<b>ouverte</b>':'<b>non ouverte</b> (se reconnecter à l\'application)')+' · documents : <b>'+r.count+'</b>.');}).catch(function(e){msg('<span class="ko">❌ '+esc(e.message||e)+'</span>');});};
   $('sb-push').onclick=function(){if(!save())return;var d=DBo();if(!d)return;
     if(!confirm('Envoyer vers Supabase les données de cet appareil ?\n\n• comptes : '+(d.users||[]).length+'\n• écoles : '+(d.ecoles||[]).length+'\n• élèves : '+(d.eleves||[]).length+'\n• notes : '+(d.notes||[]).length+'\n\nLes fiches de même identifiant seront fusionnées (rien n\'est supprimé).'))return;
     msg('⏳ Envoi…');
@@ -21798,7 +22244,7 @@ function openConfig(){
       if(s&&s.data&&s.data.session)return;
       var u=me();var pw=window.prompt('Mot de passe du compte « '+((u&&u.login)||'')+' » pour ouvrir la session Supabase :','');if(!pw)throw new Error('Session Supabase requise');
       return signInOrCreate(((u&&u.login)||'')+'@pgnep-menaet.ci',pw);
-    }).then(function(){return pushLocal(null,function(c,i,n){msg('⏳ '+c+' : '+i+'/'+n);});}).then(function(r){msg((r.errors.length?'<span class="ko">⚠️ ':'<span class="ok">✅ ')+r.ok+'/'+r.total+' fiche(s) envoyée(s)</span>'+(r.errors.length?'<br>'+r.errors.slice(0,3).map(esc).join('<br>'):''));}).catch(function(e){msg('<span class="ko">❌ '+esc(e.message||e)+'</span>');});};
+    }).then(function(){return pushLocal(null,function(c,i,n){msg('⏳ '+c+' : '+i+'/'+n);});}).then(function(r){msg((r.errors.length?'<span class="ko">⚠️ ':'<span class="ok">✅ ')+r.ok+'/'+r.total+' fiche(s) envoyée(s)</span>'+(r.errors.length?'<br>'+r.errors.slice(0,3).map(esc).join('<br>')+(r.errors.some(function(e){return /permission denied for table/i.test(e);})?'<br><b>Cause probable :</b> les droits d\'accès (GRANT) manquent sur la table « docs » (Supabase n\'expose plus les nouvelles tables automatiquement). Ouvrez « Script SQL à coller dans Supabase » ci-dessous, copiez-le, exécutez-le dans SQL Editor, puis réessayez.':''):''));}).catch(function(e){msg('<span class="ko">❌ '+esc(e.message||e)+'</span>');});};
 }
 API.openConfig=openConfig;API.getAll=getAll;API.write=write;API.listen=listen;API.pushLocal=pushLocal;API.ping=ping;API.afterLogin=afterLogin;API.install=install;API.signIn=signIn;API.createUser=createUser;API.countDocs=countDocs;
 })();
@@ -22006,7 +22452,7 @@ function advice(code){
    'resource-exhausted':"Quota Firestore atteint (plan gratuit : environ 20 000 écritures par jour). Les données restent en file d'attente et partiront automatiquement quand le quota sera rétabli (ou en passant au plan Blaze).",
    'invalid-argument':"Une fiche contient une valeur refusée par Firestore (champ vide non supporté, taille > 1 Mo…). Les champs « undefined » sont déjà nettoyés ; vérifiez la fiche indiquée.",
    'unavailable':"Serveur injoignable (réseau). Nouvelle tentative automatique.",'timeout':"Réponse trop lente (réseau faible). Nouvelle tentative automatique.",
-   '42501':"Supabase refuse l'opération (RLS) : la session Supabase n'est pas ouverte. Reconnectez-vous à l'application, ou exécutez le script SQL complet.",'PGRST301':"Session Supabase expirée ou absente : reconnectez-vous.",'42P01':"La table « docs » n'existe pas dans Supabase : exécutez le script SQL.",'PGRST116':"Réponse Supabase inattendue.",
+   '42501':"Supabase refuse l'opération : soit les droits GRANT manquent sur la table « docs » (exécutez le script SQL mis à jour), soit la session Supabase n'est pas ouverte (reconnectez-vous).",'PGRST301':"Session Supabase expirée ou absente : reconnectez-vous.",'42P01':"La table « docs » n'existe pas dans Supabase : exécutez le script SQL.",'PGRST116':"Réponse Supabase inattendue.",
    'auth/operation-not-allowed':"La connexion anonyme/e-mail n'est pas activée dans Firebase Authentication."};
   return m[code]||'';
 }

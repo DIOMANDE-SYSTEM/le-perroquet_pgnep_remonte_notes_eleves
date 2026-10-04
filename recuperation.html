@@ -41,6 +41,10 @@ pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:10px;font-size:1
 <div class="c" id="ck" style="display:none"><h2>4. Pourquoi l'application affiche zéro ? Vérifier un compte</h2>
 <p class="note">L'application filtre les élèves selon le rôle et l'école du compte. Saisissez l'identifiant d'un compte pour voir ce que le cloud contient pour lui.</p>
 <div class="row"><input type="text" id="lg" placeholder="identifiant (ex. diomande)"><button class="bt s" id="lgb">Vérifier</button></div><div id="lgr"></div></div>
+
+<div class="c" id="sr" style="display:none"><h2>5. Chercher des élèves dans les données trouvées</h2>
+<p class="note">Cherche dans <b>toutes</b> les sources (cloud, cache, écritures en attente, stockage local) par nom d'école, nom d'élève ou matricule, et vérifie ce que verraient les comptes indiqués (un instituteur ne voit que les élèves dont l'école ET la classe correspondent exactement à son compte).</p>
+<div class="row"><input type="text" id="srq" value="KANAWOLO, PEKAHA" style="width:230px" placeholder="écoles / noms / matricules"><input type="text" id="srl" value="cp1bila2026, bakCM1" style="width:230px" placeholder="comptes à vérifier"><button class="bt p" id="srb">🔎 Chercher</button><button class="bt ok" id="srx" disabled>⬇ Excel des élèves trouvés</button></div><div id="srr"></div></div>
 </div>
 
 <script>
@@ -188,7 +192,7 @@ function render(){
   if(R.persistErr)h+='<p class="note e">Lecture par le SDK : '+esc(R.persistErr)+' (normal si l\'application est ouverte dans un autre onglet). La lecture directe du cache ci-dessus reste valable.</p>';
   if(R.sample&&!Object.keys(R.pending).length&&(R.muts.length||R.ovs.length))h+='<p class="note e">Des écritures en attente existent mais leur format n\'a pas pu être décodé (champs : '+esc(R.sample)+'). Envoyez-moi cette ligne.</p>';
   h+=verdict();$('res').innerHTML=h;
-  $('dl').style.display='block';$('ck').style.display='block';buildDl();buildRestore();
+  $('dl').style.display='block';$('ck').style.display='block';$('sr').style.display='block';buildDl();buildRestore();
 }
 function verdict(){
   var den=0,ok=0,tot=0;COLS.forEach(function(c){var x=R.cloud[c];if(!x)return;tot++;if(x.n==null&&/permission/i.test(x.err||''))den++;else if(x.n!=null)ok++;});
@@ -271,6 +275,30 @@ function checkLogin(){
   }).catch(function(e){o.innerHTML='<div class="v r">Lecture impossible : '+esc(code(e))+(/permission/i.test(code(e))?' — les règles Firestore refusent la lecture (essayez de vous connecter plus haut).':'')+'</div>';});
 }
 
+/* ───── recherche d'élèves (toutes sources) ───── */
+function strip(x){return String(x==null?'':x).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+var SRH=[];
+function searchStudents(){
+  var kw=($('srq').value||'').split(/[,;]+/).map(function(x){return strip(x.trim());}).filter(Boolean),logins=($('srl').value||'').split(/[,;\s]+/).map(function(x){return x.trim().toLowerCase();}).filter(Boolean);
+  var E=best('eleves'),EC=best('ecoles'),U=best('users'),ecN={};EC.forEach(function(e){ecN[e.id]=e.nom||e.id;});
+  function m(t){t=strip(t);return kw.some(function(k){return t.indexOf(k)>=0;});}
+  var hits=E.filter(function(e){return m(ecN[e.ecole_id]||e.ecole_id)||m((e.nom||'')+' '+(e.prenoms||''))||m(e.matricule);});SRH=hits;
+  var grp={};hits.forEach(function(e){var k=(ecN[e.ecole_id]||('école inconnue « '+e.ecole_id+' »'))+' | '+(e.classe||'—');grp[k]=(grp[k]||0)+1;});
+  var h='<div class="v '+(hits.length?'g':'r')+'"><b>'+hits.length+' élève(s) trouvé(s)</b> parmi '+E.length+' élève(s) dans les données récupérées.</div>';
+  if(hits.length)h+='<table><thead><tr><th>École</th><th>Classe</th><th>Élèves</th></tr></thead><tbody>'+Object.keys(grp).sort().map(function(k){var p=k.split(' | ');return '<tr><td>'+esc(p[0])+'</td><td>'+esc(p[1])+'</td><td><b>'+grp[k]+'</b></td></tr>';}).join('')+'</tbody></table>';
+  if(logins.length){
+    h+='<p class="note" style="margin-top:10px"><b>Ce que verrait chaque compte :</b></p><table><thead><tr><th>Compte</th><th>Rôle</th><th>École du compte</th><th>Classe</th><th>Élèves visibles</th><th>Élèves de l\'école</th></tr></thead><tbody>'+logins.map(function(l){
+      var u=U.find(function(x){return String(x.login||x.id).toLowerCase()===l;});if(!u)return '<tr><td>'+esc(l)+'</td><td colspan="5"><span class="e">compte introuvable dans les données récupérées</span></td></tr>';
+      var inst=(u.role==='instituteur'||u.role==='benevole'),dir=(u.role==='directeur'),sid=dir?u.structure_val:u.ecole_val,cls=inst?u.structure_val:'';
+      var vis=E.filter(function(e){return dir?e.ecole_id===sid:(inst?(e.ecole_id===sid&&e.classe===cls):false);}).length,ins=E.filter(function(e){return e.ecole_id===sid;}).length;
+      return '<tr><td>'+esc(u.login||u.id)+'</td><td>'+esc(u.role||'')+'</td><td>'+esc(ecN[sid]||('inconnue : '+sid))+'</td><td>'+esc(cls||'—')+'</td><td><b>'+vis+'</b></td><td>'+ins+'</td></tr>';}).join('')+'</tbody></table><p class="note">Si « visibles » est inférieur à « de l\'école », certains élèves ont une classe écrite autrement ou une autre école : utilisez, dans l\'application, <b>Console → Doublons &amp; nettoyage → Élèves introuvables</b> pour les rattacher.</p>';
+  }
+  $('srr').innerHTML=h;$('srx').disabled=!hits.length;
+}
+function exportHits(){
+  if(!SRH.length)return;var EC=best('ecoles'),ecN={};EC.forEach(function(e){ecN[e.id]=e.nom||e.id;});
+  loadXLSX().then(function(X){var a=[['Nom','Prénoms','Matricule','Sexe','Date de naissance','Classe','École','Identifiant école','Identifiant élève']].concat(SRH.map(function(e){return [e.nom||'',e.prenoms||'',e.matricule||'',e.sexe||'',e.ddn||'',e.classe||'',ecN[e.ecole_id]||'',e.ecole_id||'',e.id];}));var wb=X.utils.book_new(),ws=X.utils.aoa_to_sheet(a);X.utils.book_append_sheet(wb,ws,'Élèves trouvés');X.writeFile(wb,'Eleves_trouves_'+today()+'.xlsx');}).catch(function(e){alert(code(e));});
+}
 /* ───── connexion facultative pour lire le cloud ───── */
 function signIn(){
   var l=($('sl').value||'').trim().toLowerCase(),p=$('sp').value||'',m=$('sm');if(!l||!p){m.textContent='Saisissez identifiant et mot de passe.';return;}
@@ -345,6 +373,6 @@ function recoverAll(){
 }
 $('rec').onclick=recoverAll;
 $('lgb').onclick=function(){loadSDK().then(checkLogin).catch(function(e){$('lgr').textContent='❌ '+code(e);});};
-$('sb').onclick=signIn;
-window.RECUP={sqlFrom:sqlFrom,best:best,recoverAll:recoverAll,analyse:analyse,R:R,get state(){return R;},scanLocal:scanLocal,postProcess:postProcess,render:render,sources:sources,buildFile:buildFile,verdict:verdict,dec:dec,merged:merged,handleRec:handleRec,reset:reset};
+$('sb').onclick=signIn;$('srb').onclick=searchStudents;$('srx').onclick=exportHits;
+window.RECUP={searchStudents:searchStudents,sqlFrom:sqlFrom,best:best,recoverAll:recoverAll,analyse:analyse,R:R,get state(){return R;},scanLocal:scanLocal,postProcess:postProcess,render:render,sources:sources,buildFile:buildFile,verdict:verdict,dec:dec,merged:merged,handleRec:handleRec,reset:reset};
 </script></body></html>
