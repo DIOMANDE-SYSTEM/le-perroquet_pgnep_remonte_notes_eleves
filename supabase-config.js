@@ -9,6 +9,6 @@
    ═══════════════════════════════════════════════════════════════ */
 window.PGNEP_SB_DEFAULT = {
   enabled: false,
-  url: "",     // ex. "https://abcdefghijklmnop.supabase.co"
-  anon: ""     // ex. "sb_publishable_xxxxxxxxxxxxxxxxxxxxxxxx"
+  url: "https://shnlkpsvcehpxcqffzdu.supabase.co",
+  anon: "sb_publishable_N2GTVn5x7DK0ZnHttUjB6Q_zmyjJGyx"
 };
