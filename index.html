@@ -22028,6 +22028,147 @@ window.PGDUP={analyse:analyse,ENT:ENT,context:context,performDelete:performDelet
 
 </script>
 
+<script id="pgnep-erreurs">
+/* ══════════════════════════════════════════════════════════════════════
+   [pgnep-erreurs] — CODES D'ERREUR DE CONNEXION (page d'erreur façon « ERREUR 404 »)
+   100 % additif.
+   • Après un échec de connexion dû à la base/au réseau, affiche un CODE d'erreur
+     (au lieu du message trompeur « Identifiant ou mot de passe incorrect »).
+   • Le lien « Problème de connexion ? » n'efface PLUS les comptes : il affiche
+     un diagnostic avec code. La réinitialisation reste possible, en local
+     uniquement (jamais envoyée au cloud), après saisie d'un mot de confirmation.
+   ══════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+if(window.PGERR)return;
+function $(i){return document.getElementById(i);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function DBo(){return (typeof DB!=='undefined')?DB:null;}
+function CU(){try{return (typeof currentUser!=='undefined')?currentUser:null;}catch(e){return null;}}
+
+var CODES={
+ 'RESEAU':{m:"Pas de connexion Internet",s:"Vérifiez votre réseau (Wi-Fi ou données mobiles), puis réessayez. Vos données enregistrées sur cet appareil ne sont pas perdues."},
+ 'CLOUD-401':{m:"Session de la base de données absente",s:"Reconnectez-vous. Si le problème continue, communiquez ce code à l'administrateur."},
+ 'CLOUD-403':{m:"La base de données refuse l'accès",s:"Le serveur a refusé la lecture des comptes. Communiquez ce code à l'administrateur de la plateforme."},
+ 'CLOUD-404':{m:"Table de la base de données introuvable",s:"La base de données n'est pas encore préparée. Communiquez ce code à l'administrateur."},
+ 'CLOUD-429':{m:"Limite d'utilisation atteinte",s:"Le quota du jour de la base de données est atteint. Réessayez plus tard."},
+ 'CLOUD-503':{m:"Base de données injoignable",s:"Le serveur de données ne répond pas. Vérifiez votre réseau puis réessayez."},
+ 'CLOUD-ERR':{m:"Erreur de la base de données",s:"La base de données a renvoyé une erreur inattendue. Communiquez ce code à l'administrateur."},
+ 'LOCAL-PLEIN':{m:"Stockage de l'appareil saturé",s:"La mémoire du navigateur est pleine. Communiquez ce code à l'administrateur avant de vider quoi que ce soit."},
+ 'COMPTE':{m:"Compte inconnu sur cet appareil",s:"Cet appareil ne connaît que les comptes par défaut et la base de données n'a pas pu être consultée. Communiquez ce code à l'administrateur."},
+ 'IDENTIFIANT':{m:"Identifiant ou mot de passe incorrect",s:"Aucun problème technique détecté : vérifiez votre identifiant et votre mot de passe (attention aux majuscules)."}
+};
+function classify(c){
+  c=String(c||'').toLowerCase();
+  if(/permission|42501|403/.test(c))return 'CLOUD-403';
+  if(/unauth|401|pgrst301|jwt/.test(c))return 'CLOUD-401';
+  if(/42p01|relation|404|not-found/.test(c))return 'CLOUD-404';
+  if(/exhaust|429|quota/.test(c))return 'CLOUD-429';
+  if(/unavail|deadline|timeout|503|network|fetch/.test(c))return 'CLOUD-503';
+  return 'CLOUD-ERR';
+}
+function withTmo(p,ms){return new Promise(function(res,rej){var t=setTimeout(function(){rej(new Error('timeout'));},ms);p.then(function(v){clearTimeout(t);res(v);},function(e){clearTimeout(t);rej(e);});});}
+
+/* ───── diagnostic : renvoie la liste des constats, le plus grave d'abord ───── */
+function probe(){
+  var found=[];
+  function add(code){if(found.indexOf(code)<0)found.push(code);}
+  if(navigator.onLine===false){add('RESEAU');return Promise.resolve(found);}
+  /* stockage local plein ? */
+  try{var k='_pgerr_t';localStorage.setItem(k,new Array(60001).join('x'));localStorage.removeItem(k);}catch(e){if(e&&/quota/i.test((e.name||'')+(e.message||'')))add('LOCAL-PLEIN');}
+  /* comptes connus de cet appareil */
+  var cloud;
+  if(window.PGSB&&window.PGSB.active){
+    cloud=window.PGSB.ping().then(function(r){if(r.error)add(classify(r.error));else if(!r.session)add('CLOUD-401');},function(e){add(classify((e&&e.code)||(e&&e.message)));});
+  }else if(window._fbDB){
+    cloud=import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js').then(function(m){return withTmo(m.getCountFromServer(m.collection(window._fbDB,'users')),8000);}).then(function(){},function(e){add(classify((e&&e.code)||(e&&e.message)));});
+  }else cloud=Promise.resolve();
+  return cloud.then(function(){
+    var d=DBo(),nDef=0;try{nDef=(typeof DEFAUT_USERS!=='undefined')?DEFAUT_USERS.length:0;}catch(e){}
+    if(d&&Array.isArray(d.users)&&nDef&&d.users.length<=nDef&&found.some(function(c){return /^CLOUD/.test(c);}))add('COMPTE');
+    if(!found.length)add('IDENTIFIANT');
+    var order=['RESEAU','CLOUD-403','CLOUD-401','CLOUD-404','CLOUD-429','CLOUD-503','CLOUD-ERR','LOCAL-PLEIN','COMPTE','IDENTIFIANT'];
+    found.sort(function(a,b){return order.indexOf(a)-order.indexOf(b);});
+    return found;
+  });
+}
+
+/* ───── page d'erreur (superposition plein écran) ───── */
+var CSS='#pgerr-ov{position:fixed;inset:0;z-index:99990;background:#fff;color:#212529;display:none;overflow:auto;font-family:Arial,Helvetica,sans-serif}#pgerr-ov.open{display:block}'+
+'#pgerr-ov .bar{background:#343434;color:#fff;text-align:center;padding:16px 10px;font-size:20px;letter-spacing:.3px;margin-top:12vh}'+
+'#pgerr-ov .w{max-width:1000px;margin:0 auto;padding:8px 16px 40px;text-align:center}#pgerr-ov h1{font-size:clamp(40px,11vw,150px);line-height:1.05;margin:.12em 0;font-weight:500;overflow-wrap:anywhere}#pgerr-ov h1.long{font-size:clamp(28px,7vw,90px)}'+
+'#pgerr-ov .m{font-size:clamp(20px,3vw,32px);color:#1f2d4d;margin:.3em 0 .6em}#pgerr-ov .s{color:#556;font-size:15px;max-width:720px;margin:0 auto 22px;line-height:1.6}'+
+'#pgerr-ov .b{display:inline-block;background:#28a745;color:#fff;border:0;border-radius:6px;padding:13px 22px;font-size:18px;cursor:pointer;margin:6px;font-family:inherit}#pgerr-ov .b.alt{background:#fff;color:#1f2d4d;border:2px solid #1f2d4d}'+
+'#pgerr-ov .o{margin-top:20px;font-size:13px;color:#667;line-height:1.7}#pgerr-ov .o b{color:#212529}#pgerr-ov .adv{margin-top:26px;font-size:11px;color:#8a93a3}#pgerr-ov .adv a{color:#8a93a3;cursor:pointer;text-decoration:underline}';
+function injectCSS(){if($('pgerr-css'))return;var s=document.createElement('style');s.id='pgerr-css';s.textContent=CSS;document.head.appendChild(s);}
+function ov(){
+  injectCSS();var o=$('pgerr-ov');
+  if(!o){o=document.createElement('div');o.id='pgerr-ov';o.innerHTML='<div class="bar">LE PERROQUET · PGNEP — MENAET</div><div class="w"><h1 id="pgerr-code">ERREUR</h1><div class="m" id="pgerr-m"></div><div class="s" id="pgerr-s"></div><button class="b" id="pgerr-back" type="button">Retour à la connexion</button><button class="b alt" id="pgerr-retry" type="button">Réessayer le diagnostic</button><div class="o" id="pgerr-o"></div><div class="adv" id="pgerr-adv"></div></div>';document.body.appendChild(o);
+    $('pgerr-back').onclick=function(){o.classList.remove('open');};$('pgerr-retry').onclick=function(){show();};}
+  return o;
+}
+function render(found){
+  var main=found[0],d=CODES[main]||{m:'Erreur',s:''},h=$('pgerr-code');
+  h.textContent='ERREUR '+main;h.className=main.length>4?'long':'';
+  $('pgerr-m').textContent=d.m;$('pgerr-s').textContent=d.s;
+  $('pgerr-o').innerHTML=(found.length>1?'<b>Autres constats :</b> '+found.slice(1).map(function(c){return esc(c)+' — '+esc((CODES[c]||{}).m||'');}).join(' · ')+'<br>':'')+'Code technique : <b>'+esc(main)+'</b> · '+esc(new Date().toLocaleString('fr-FR'))+(navigator.onLine===false?' · hors ligne':'');
+  $('pgerr-adv').innerHTML='Administrateur uniquement : <a id="pgerr-reset">réinitialiser les comptes de cet appareil</a> (local, rien n\'est envoyé au cloud).';
+  $('pgerr-reset').onclick=resetLocal;
+}
+function show(){
+  var o=ov();o.classList.add('open');
+  $('pgerr-code').textContent='…';$('pgerr-m').textContent='Diagnostic en cours';$('pgerr-s').textContent='';$('pgerr-o').textContent='';
+  return probe().then(render);
+}
+/* réinitialisation LOCALE seulement, avec confirmation écrite */
+function resetLocal(){
+  var w=window.prompt("Cette action remplace la liste des comptes de CET appareil par les comptes par défaut.\nElle n'est PAS envoyée au cloud et ne touche ni élèves ni notes.\n\nPour confirmer, tapez : REINITIALISER","");
+  if(String(w||'').trim().toUpperCase()!=='REINITIALISER')return;
+  try{localStorage.removeItem('pgnep_users');}catch(e){}
+  try{var d=DBo();if(d&&typeof DEFAUT_USERS!=='undefined')d.users=DEFAUT_USERS.map(function(u){return Object.assign({},u);});}catch(e){console.warn(e);}
+  try{if(typeof showNotif==='function')showNotif('✅ Comptes de cet appareil réinitialisés (local) — reconnectez-vous','success');}catch(e){}
+  var o=$('pgerr-ov');if(o)o.classList.remove('open');
+}
+
+/* ───── le lien de l'écran de connexion : plus de réinitialisation destructive ───── */
+var _orig=window.resetComptes;
+window.resetComptes=function(){
+  var u=CU();
+  if(u&&u.role==='admin'&&typeof _orig==='function'){return _orig.apply(this,arguments);}   /* administrateur connecté : comportement d'origine */
+  show();
+};
+function relabel(){
+  var bs=document.querySelectorAll('button[onclick*="resetComptes"]');
+  for(var i=0;i<bs.length;i++){var b=bs[i];if(b.getAttribute('data-pgerr'))continue;if(/R[ée]initialiser/i.test(b.textContent)&&b.closest&&b.closest('#login-screen')){b.setAttribute('data-pgerr','1');b.textContent='Problème de connexion ? Voir le code d\'erreur';}}
+}
+/* ───── après un échec de connexion : afficher le code réel ───── */
+var busy=false,lastRun=0;
+function watch(){
+  var el=$('login-error');if(!el||el.getAttribute('data-pgerr-w'))return false;el.setAttribute('data-pgerr-w','1');
+  new MutationObserver(function(){
+    if(busy)return;
+    var vis=el.style.display==='block'||(getComputedStyle(el).display!=='none'&&el.textContent);
+    if(!vis||!/^Identifiant ou mot de passe incorrect/.test(el.textContent))return;
+    if(Date.now()-lastRun<3000)return;lastRun=Date.now();
+    var orig=el.textContent;
+    probe().then(function(found){
+      if(found[0]==='IDENTIFIANT')return;
+      busy=true;var c=found[0];
+      el.innerHTML='⚠️ Erreur de connexion — code <b>'+esc(c)+'</b><br><small>'+esc((CODES[c]||{}).m||'')+' · <a href="#" id="pgerr-more" style="color:inherit;text-decoration:underline">détails</a></small><br><small style="opacity:.7">'+esc(orig)+'</small>';
+      var a=$('pgerr-more');if(a)a.onclick=function(ev){ev.preventDefault();show();};
+      setTimeout(function(){busy=false;},50);
+    });
+  }).observe(el,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['style','class']});
+  return true;
+}
+function boot(){relabel();watch();}
+if(document.readyState!=='loading')boot();else document.addEventListener('DOMContentLoaded',boot);
+setInterval(boot,2500);
+window.PGERR={show:show,probe:probe,codes:CODES,classify:classify,resetLocal:resetLocal};
+})();
+
+</script>
+
 <script src="supabase-config.js"></script>
 <script id="pgnep-supabase">
 /* ══════════════════════════════════════════════════════════════════════

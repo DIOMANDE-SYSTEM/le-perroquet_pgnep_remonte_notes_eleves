@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Erreur — Le Perroquet · PGNEP</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Arial,Helvetica,sans-serif;background:#fff;color:#212529;max-width:100%;overflow-x:hidden}
+.top{height:16vh;min-height:48px}
+.bar{background:#343434;color:#fff;text-align:center;padding:16px 10px;font-size:20px;letter-spacing:.3px}
+.wrap{max-width:1100px;margin:0 auto;padding:8px 16px 40px;text-align:center}
+h1{font-size:clamp(46px,13vw,170px);line-height:1.05;margin:.12em 0;font-weight:500;color:#212529;overflow-wrap:anywhere}
+h1.long{font-size:clamp(30px,7.5vw,100px)}
+.msg{font-size:clamp(20px,3.2vw,34px);color:#1f2d4d;margin:.4em 0 .7em}
+.sub{color:#556;font-size:15px;max-width:720px;margin:0 auto 24px;line-height:1.6}
+.btn{display:inline-block;background:#28a745;color:#fff;text-decoration:none;border:0;border-radius:6px;padding:14px 24px;font-size:19px;cursor:pointer;margin:6px;font-family:inherit}
+.btn.alt{background:#fff;color:#1f2d4d;border:2px solid #1f2d4d}
+.meta{margin-top:28px;font-size:12px;color:#8a93a3;line-height:1.7;overflow-wrap:anywhere}
+</style>
+</head>
+<body data-default="">
+<div class="top"></div>
+<div class="bar">LE PERROQUET · PGNEP — MENAET</div>
+<div class="wrap">
+  <h1 id="code">ERREUR</h1>
+  <div class="msg" id="msg"></div>
+  <div class="sub" id="sub"></div>
+  <a class="btn" id="home" href="./">Retour page d'accueil</a>
+  <button class="btn alt" id="retry" type="button">Réessayer</button>
+  <div class="meta" id="meta"></div>
+</div>
+<script>
+(function(){
+  var CODES={
+    '404':{m:"Oops ! Aucune page trouvée !!!",s:"L'adresse demandée n'existe pas ou a été déplacée. Utilisez le bouton ci-dessous pour revenir à l'application.",r:false},
+    '403':{m:"Accès refusé",s:"Vous n'avez pas le droit d'ouvrir cette page.",r:false},
+    '408':{m:"Délai dépassé",s:"Le serveur met trop de temps à répondre. Vérifiez votre connexion puis réessayez.",r:true},
+    '500':{m:"Erreur du serveur",s:"Une erreur est survenue côté serveur. Réessayez dans quelques minutes.",r:true},
+    '503':{m:"Service momentanément indisponible",s:"Le service est en maintenance ou surchargé. Réessayez dans quelques minutes.",r:true},
+    'RESEAU':{m:"Pas de connexion Internet",s:"Vérifiez votre réseau (Wi-Fi ou données mobiles), puis réessayez. Vos données enregistrées sur cet appareil ne sont pas perdues.",r:true},
+    'CLOUD-401':{m:"Session de la base de données absente",s:"Reconnectez-vous à l'application. Si le problème continue, communiquez ce code à l'administrateur.",r:true},
+    'CLOUD-403':{m:"La base de données refuse l'accès",s:"Le serveur a refusé la lecture ou l'écriture des données. Communiquez ce code à l'administrateur de la plateforme.",r:true},
+    'CLOUD-404':{m:"Table de la base de données introuvable",s:"La base de données n'est pas encore préparée. Communiquez ce code à l'administrateur.",r:false},
+    'CLOUD-429':{m:"Limite d'utilisation atteinte",s:"Le quota du jour de la base de données est atteint. Vos saisies restent sur cet appareil et partiront automatiquement plus tard.",r:true},
+    'CLOUD-503':{m:"Base de données injoignable",s:"Le serveur de données ne répond pas. Vérifiez votre réseau puis réessayez.",r:true},
+    'LOCAL-PLEIN':{m:"Stockage de l'appareil saturé",s:"La mémoire du navigateur est pleine. Communiquez ce code à l'administrateur avant de vider quoi que ce soit.",r:false},
+    'COMPTE':{m:"Compte inconnu sur cet appareil",s:"Cet appareil ne connaît pas votre compte et la base de données n'a pas pu être lue. Communiquez ce code à l'administrateur.",r:true}
+  };
+  var q=new URLSearchParams(location.search),c=(q.get('code')||'').toUpperCase();
+  if(!c||c.indexOf('__')===0||c==='__CODE__')c=(document.body.getAttribute('data-default')||'').toUpperCase();
+  if(!c)c=(navigator.onLine===false)?'RESEAU':'404';
+  var d=CODES[c]||{m:"Une erreur est survenue",s:"Réessayez. Si le problème continue, communiquez ce code à l'administrateur.",r:true};
+  var h=document.getElementById('code');h.textContent='ERREUR '+c;if(c.length>4)h.className='long';
+  document.title='Erreur '+c+' — Le Perroquet';
+  document.getElementById('msg').textContent=d.m;document.getElementById('sub').textContent=d.s;
+  /* page d'accueil : racine du site (sites GitHub « projet » : /nom-du-depot/) */
+  var home='/';if(/github\.io$/i.test(location.hostname)){var seg=location.pathname.split('/')[1];home=seg&&!/\.html?$/i.test(seg)?'/'+seg+'/':'/';}
+  document.getElementById('home').setAttribute('href',home);
+  var rb=document.getElementById('retry');if(!d.r)rb.style.display='none';rb.onclick=function(){location.href=home;};
+  document.getElementById('meta').textContent='Code technique : '+c+' · '+new Date().toLocaleString('fr-FR')+(location.pathname?' · '+location.pathname:'');
+})();
+</script>
+</body>
+</html>
