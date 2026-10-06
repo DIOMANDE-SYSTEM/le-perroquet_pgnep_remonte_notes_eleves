@@ -8,7 +8,7 @@
    Ne mettez enabled:true qu'APRÈS avoir chargé les données dans Supabase.
    ═══════════════════════════════════════════════════════════════ */
 window.PGNEP_SB_DEFAULT = {
-  enabled: false,
+  enabled: true,
   url: "https://shnlkpsvcehpxcqffzdu.supabase.co",
   anon: "sb_publishable_N2GTVn5x7DK0ZnHttUjB6Q_zmyjJGyx"
 };

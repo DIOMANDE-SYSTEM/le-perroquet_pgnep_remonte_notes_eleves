@@ -22185,6 +22185,13 @@ window.PGERR={show:show,probe:probe,codes:CODES,classify:classify,resetLocal:res
 if(window.PGSB)return;
 var KEY='pgnep_sb_cfg',LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
 var SQL="-- ════════════════════════════════════════════════════════════════════\n--  LE PERROQUET · PGNEP — Schéma Supabase (version 1)\n--  À coller dans Supabase → SQL Editor → New query → Run\n--  Principe : une table « docs » qui reprend fidèlement les collections\n--  actuelles (users, ecoles, eleves, notes, corbeille, drenaets, iepps…).\n--  Sécurité : RLS activée ; AUCUN accès anonyme ; seuls les utilisateurs\n--  connectés (Supabase Auth) peuvent lire/écrire.\n-- ════════════════════════════════════════════════════════════════════\n\ncreate table if not exists public.docs (\n  col         text        not null,\n  id          text        not null,\n  data        jsonb       not null default '{}'::jsonb,\n  updated_at  timestamptz not null default now(),\n  updated_by  uuid        default auth.uid(),\n  primary key (col, id)\n);\n\ncreate index if not exists docs_col_idx    on public.docs (col);\ncreate index if not exists docs_ecole_idx  on public.docs (col, (data->>'ecole_id'));\ncreate index if not exists docs_updated_ix on public.docs (col, updated_at desc);\n\n-- Sécurité : RLS obligatoire\nalter table public.docs enable row level security;\n\ndrop policy if exists docs_select on public.docs;\ndrop policy if exists docs_insert on public.docs;\ndrop policy if exists docs_update on public.docs;\ndrop policy if exists docs_delete on public.docs;\n\ncreate policy docs_select on public.docs for select to authenticated using (true);\ncreate policy docs_insert on public.docs for insert to authenticated with check (true);\ncreate policy docs_update on public.docs for update to authenticated using (true) with check (true);\ncreate policy docs_delete on public.docs for delete to authenticated using (true);\n-- (aucune politique pour le rôle « anon » : accès public refusé)\n\n-- Écriture avec fusion des champs (équivalent de setDoc(..., {merge:true}))\ncreate or replace function public.upsert_doc(p_col text, p_id text, p_data jsonb)\nreturns void language sql security invoker as $$\n  insert into public.docs (col, id, data) values (p_col, p_id, coalesce(p_data,'{}'::jsonb))\n  on conflict (col, id) do update\n    set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n$$;\n\n-- Écriture par lots : p_rows = [{\"id\":\"...\",\"data\":{...}}, ...]\ncreate or replace function public.upsert_docs(p_col text, p_rows jsonb)\nreturns integer language plpgsql security invoker as $$\ndeclare n integer := 0; r jsonb;\nbegin\n  for r in select * from jsonb_array_elements(coalesce(p_rows,'[]'::jsonb)) loop\n    insert into public.docs (col, id, data)\n    values (p_col, r->>'id', coalesce(r->'data','{}'::jsonb))\n    on conflict (col, id) do update\n      set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n    n := n + 1;\n  end loop;\n  return n;\nend $$;\n\n-- Droits d'accès (OBLIGATOIRES depuis 2026 : Supabase n'expose plus\n-- automatiquement les nouvelles tables). Seuls les utilisateurs connectés.\ngrant usage on schema public to anon, authenticated;\nrevoke all on table public.docs from anon;\ngrant select, insert, update, delete on table public.docs to authenticated;\nrevoke execute on function public.upsert_doc(text, text, jsonb)  from public, anon;\nrevoke execute on function public.upsert_docs(text, jsonb)       from public, anon;\ngrant  execute on function public.upsert_doc(text, text, jsonb)  to authenticated;\ngrant  execute on function public.upsert_docs(text, jsonb)       to authenticated;\n\n-- Temps réel (les suppressions doivent transporter la colonne « col »)\nalter table public.docs replica identity full;\ndo $$ begin\n  alter publication supabase_realtime add table public.docs;\nexception when duplicate_object then null; when undefined_object then null; end $$;\n\n-- ────────────────────────────────────────────────────────────────────\n--  PHASE 2 (plus tard, après tests) : droits par rôle et par école.\n--  Les comptes Supabase utilisent l'e-mail  <identifiant>@pgnep-menaet.ci ;\n--  l'identifiant se retrouve avec  split_part(auth.jwt()->>'email','@',1).\n--  Le profil (rôle, école) se lit dans docs(col='users', id=<identifiant>).\n--  ⚠ Ne pas activer sans test : cela remplacera les politiques ci-dessus.\n-- ────────────────────────────────────────────────────────────────────\n";
+/* Secours : ?sb=off désactive Supabase sur cet appareil (retour à Firebase) ; ?sb=on le réactive */
+(function(){try{var m=/[?&]sb=(on|off)\b/.exec(location.search);if(!m)return;
+  var c={};try{c=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){}
+  var B=window.PGNEP_SB_DEFAULT||{};if(!c.url)c.url=B.url||'';if(!c.anon)c.anon=B.anon||'';
+  c.enabled=(m[1]==='on');localStorage.setItem(KEY,JSON.stringify(c));
+  try{history.replaceState(null,'',location.pathname+location.search.replace(/([?&])sb=(on|off)&?/,'$1').replace(/[?&]$/,'')+location.hash);}catch(e){}
+}catch(e){}})();
 function lsg(){
   var l={};try{l=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){l={};}
   if(l&&l.url&&l.anon)return l;                 /* la configuration de cet appareil prime */
@@ -22302,6 +22309,30 @@ function pushLocal(cols,progress){
     });},Promise.resolve());
   }).then(function(){return{total:total,ok:ok,errors:errs};});
 }
+/* Création des comptes de connexion Supabase (Auth) pour tous les comptes de l'application */
+function provision(progress){
+  var d=DBo();if(!d)return Promise.reject(new Error('Données indisponibles'));
+  var list=(d.users||[]).filter(function(u){return u&&u.login&&u.pass;}),r={total:list.length,created:0,exists:0,skipped:[],failed:[],stopped:false},i=0;
+  return ready().then(function(){
+    function nx(){
+      if(i>=list.length)return r;
+      var u=list[i++],pw=null;try{pw=(typeof decodePass==='function')?decodePass(u.pass):null;}catch(e){}
+      if(!pw||pw.length<6){r.skipped.push(u.login);return nx();}
+      var email=u.email||(u.login+'@pgnep-menaet.ci');
+      return API.sec.auth.signUp({email:email,password:pw}).then(function(x){
+        if(x.error){
+          var m=String(x.error.message||'')+' '+String(x.error.code||'');
+          if(/already|registered|exists/i.test(m))r.exists++;
+          else if(/rate|limit|429|too many/i.test(m)){r.stopped=true;r.failed.push(u.login+' : limite atteinte');return r;}
+          else r.failed.push(u.login+' : '+m.trim());
+        }else r.created++;
+        if(progress)progress(i,list.length);
+        return new Promise(function(ok){setTimeout(ok,1200);}).then(nx);
+      });
+    }
+    return nx();
+  });
+}
 function ping(){
   return ready().then(function(c){return c.auth.getSession().then(function(s){var has=!!(s&&s.data&&s.data.session);return c.from('docs').select('id',{count:'exact',head:true}).then(function(r){return{session:has,count:r.error?null:(r.count||0),error:r.error?((r.error.code||'')+' '+r.error.message):''};});});});
 }
@@ -22336,7 +22367,20 @@ function install(){
   /* après connexion locale : établir la session Supabase puis recharger */
   var oLogin=window._doLoginFirebase;
   if(typeof oLogin==='function')window._doLoginFirebase=function(loginId,pass){
-    var res=oLogin.apply(this,arguments);
+    var self=this,args=arguments,idn=String(loginId||'').toLowerCase().trim();
+    /* 1) ouvrir d'abord la session Supabase (sinon la liste des comptes est illisible) */
+    var em=idn+'@pgnep-menaet.ci';
+    var pre=Promise.race([
+      signIn(em,pass).catch(function(){
+        /* compte Supabase absent : vérifier identifiant + mot de passe côté serveur, puis créer le compte et ouvrir la session */
+        var enc='';try{enc=btoa(unescape(encodeURIComponent(pass)));}catch(e){}
+        return ready().then(function(c){return c.rpc('check_login',{p_login:idn,p_pass:enc});}).then(function(r){
+          if(!r||r.error||!r.data)return;
+          return createUser(em,pass).catch(function(){}).then(function(){return signIn(em,pass);}).catch(function(){});
+        });
+      }).catch(function(){}),
+      new Promise(function(r){setTimeout(r,12000);})]);
+    var res=pre.then(function(){return oLogin.apply(self,args);});
     Promise.resolve(res).then(function(){if(window.currentUser)afterLogin(loginId,pass);});
     return res;
   };
@@ -22363,7 +22407,7 @@ function openConfig(){
    '<label>URL du projet<input type="text" id="sb-url" placeholder="https://xxxx.supabase.co" value="'+esc(c.url||'')+'"></label>'+
    '<label>Clé publique (« publishable » ou « anon »)<input type="password" id="sb-key" placeholder="sb_publishable_… ou eyJ…" value="'+esc(c.anon||'')+'"></label>'+
    '<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sb-on" '+(c.enabled?'checked':'')+'> <b>Activer Supabase comme base de données</b> (après actualisation de la page ; décochez pour revenir à Firebase)</label>'+
-   '<div class="r"><button class="btn btn-primary" id="sb-save">💾 Enregistrer</button><button class="btn btn-secondary" id="sb-test">🧪 Tester la connexion</button><button class="btn btn-secondary" id="sb-push">📤 Envoyer les données de cet appareil vers Supabase</button><button class="btn btn-secondary" id="sb-close">Fermer</button></div>'+
+   '<div class="r"><button class="btn btn-primary" id="sb-save">💾 Enregistrer</button><button class="btn btn-secondary" id="sb-test">🧪 Tester la connexion</button><button class="btn btn-secondary" id="sb-push">📤 Envoyer les données de cet appareil vers Supabase</button><button class="btn btn-secondary" id="sb-prov">👥 Créer les comptes de connexion Supabase</button><button class="btn btn-secondary" id="sb-close">Fermer</button></div>'+
    '<div id="sb-msg" class="n"></div>'+
    '<details><summary><b>Script SQL à coller dans Supabase</b></summary><textarea id="sb-sql" readonly></textarea><div class="r"><button class="btn btn-secondary" id="sb-copy">📋 Copier le script</button></div></details>'+
    '<p class="n">'+(c.baked?'ℹ️ Configuration lue dans <b>supabase-config.js</b> (valable pour tous les utilisateurs). Enregistrer ici ne change que cet appareil.<br>':'Pour activer Supabase chez <b>tous</b> les utilisateurs, renseignez le fichier <b>supabase-config.js</b> sur GitHub (une fois les données migrées).<br>')+'Statut actuel : '+(ON?(API.installed?'<span class="ok">Supabase actif</span>':'activé, chargement…'):'<span class="ko">inactif (Firebase)</span>')+'.</p>';
@@ -22375,6 +22419,12 @@ function openConfig(){
     if(/service_role/i.test(k)||(function(){try{return JSON.parse(atob(k.split('.')[1])).role==='service_role';}catch(e){return false;}})()){msg('<span class="ko">⛔ Cette clé est une clé « service_role » (secrète). Utilisez la clé « publishable » ou « anon ».</span>');return false;}
     try{localStorage.setItem(KEY,JSON.stringify({url:u,anon:k,enabled:on}));}catch(e){msg('<span class="ko">Enregistrement impossible : '+esc(e.message)+'</span>');return false;}
     readyP=null;API.client=null;msg('<span class="ok">✅ Enregistré.</span>'+(on?' Actualisez la page pour activer Supabase.':''));return true;}
+  $('sb-prov').onclick=function(){if(!save())return;
+    if(!confirm('Créer dans Supabase les comptes de connexion de tous les utilisateurs de cet appareil ?\n(chacun gardera son mot de passe actuel ; ceux déjà créés sont ignorés)'))return;
+    msg('⏳ Création des comptes…');
+    provision(function(i,n){msg('⏳ Comptes : '+i+'/'+n);}).then(function(r){
+      msg('<span class="'+(r.failed.length?'ko':'ok')+'">'+(r.failed.length?'⚠️ ':'✅ ')+r.created+' créé(s) · '+r.exists+' déjà existant(s) · '+r.skipped.length+' ignoré(s) (mot de passe illisible ou &lt; 6 caractères)</span>'+(r.stopped?'<br><b>Limite Supabase atteinte :</b> patientez 1 heure puis relancez ce bouton (les comptes déjà créés sont conservés).':'')+(r.failed.length?'<br>'+r.failed.slice(0,4).map(esc).join('<br>'):'')+(r.skipped.length?'<br><span class="n">Ignorés : '+r.skipped.slice(0,10).map(esc).join(', ')+'. Ces utilisateurs devront se voir attribuer un nouveau mot de passe (✏️ dans Comptes).</span>':''));
+    }).catch(function(e){msg('<span class="ko">❌ '+esc(e.message||e)+'</span>');});};
   $('sb-save').onclick=save;$('sb-close').onclick=function(){$('pgsb-ov').classList.remove('open');};
   $('sb-copy').onclick=function(){try{navigator.clipboard.writeText(SQL);msg('📋 Script copié.');}catch(e){$('sb-sql').select();}};
   $('sb-test').onclick=function(){if(!save())return;msg('⏳ Test…');ping().then(function(r){msg(r.error?'<span class="ko">❌ '+esc(r.error)+(/42P01|relation/i.test(r.error)?' — la table « docs » n\'existe pas : exécutez le script SQL.':(/permission denied for table/i.test(r.error)?' — droits (GRANT) manquants : exécutez le script SQL mis à jour (ouvrez « Script SQL à coller dans Supabase »).':''))+'</span>':'<span class="ok">✅ Connexion établie.</span> Session : '+(r.session?'<b>ouverte</b>':'<b>non ouverte</b> (se reconnecter à l\'application)')+' · documents : <b>'+r.count+'</b>.');}).catch(function(e){msg('<span class="ko">❌ '+esc(e.message||e)+'</span>');});};
@@ -22387,7 +22437,7 @@ function openConfig(){
       return signInOrCreate(((u&&u.login)||'')+'@pgnep-menaet.ci',pw);
     }).then(function(){return pushLocal(null,function(c,i,n){msg('⏳ '+c+' : '+i+'/'+n);});}).then(function(r){msg((r.errors.length?'<span class="ko">⚠️ ':'<span class="ok">✅ ')+r.ok+'/'+r.total+' fiche(s) envoyée(s)</span>'+(r.errors.length?'<br>'+r.errors.slice(0,3).map(esc).join('<br>')+(r.errors.some(function(e){return /permission denied for table/i.test(e);})?'<br><b>Cause probable :</b> les droits d\'accès (GRANT) manquent sur la table « docs » (Supabase n\'expose plus les nouvelles tables automatiquement). Ouvrez « Script SQL à coller dans Supabase » ci-dessous, copiez-le, exécutez-le dans SQL Editor, puis réessayez.':''):''));}).catch(function(e){msg('<span class="ko">❌ '+esc(e.message||e)+'</span>');});};
 }
-API.openConfig=openConfig;API.getAll=getAll;API.write=write;API.listen=listen;API.pushLocal=pushLocal;API.ping=ping;API.afterLogin=afterLogin;API.install=install;API.signIn=signIn;API.createUser=createUser;API.countDocs=countDocs;
+API.openConfig=openConfig;API.getAll=getAll;API.write=write;API.listen=listen;API.pushLocal=pushLocal;API.provision=provision;API.ping=ping;API.afterLogin=afterLogin;API.install=install;API.signIn=signIn;API.createUser=createUser;API.countDocs=countDocs;
 })();
 
 </script>
