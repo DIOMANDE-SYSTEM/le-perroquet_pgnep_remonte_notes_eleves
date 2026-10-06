@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Migration Firebase → Supabase — Le Perroquet</title>
+<style>
+body{font-family:Arial,sans-serif;background:#0b3d24;margin:0;padding:14px;color:#1f2937}
+.c{max-width:640px;margin:3vh auto;background:#fff;border-radius:14px;padding:22px;box-shadow:0 8px 30px #0004}
+h1{font-size:19px;margin:0 0 6px}h2{font-size:15px;margin:18px 0 6px}p,li{font-size:13.5px;line-height:1.55}
+label{display:block;font-weight:700;font-size:13px;margin-top:10px}
+input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccd;border-radius:8px;font-size:15px;margin-top:4px}
+button{width:100%;margin-top:12px;border:0;border-radius:10px;padding:13px;font-size:15px;font-weight:700;background:#f77f00;color:#fff;cursor:pointer}
+button:disabled{opacity:.45;cursor:default}button.s{background:#009e60}
+#log{margin-top:14px;background:#0f172a;color:#d1fae5;border-radius:8px;padding:10px;font:12px/1.5 monospace;white-space:pre-wrap;max-height:280px;overflow:auto}
+.st{display:flex;gap:8px;align-items:center;font-size:13.5px;margin:6px 0}.dot{width:10px;height:10px;border-radius:50%;background:#cbd5e1}.dot.ok{background:#059669}.dot.ko{background:#dc2626}.dot.run{background:#f59e0b}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}td,th{border-bottom:1px solid #e5e7eb;padding:5px 6px;text-align:left}.r{text-align:right}
+</style></head>
+<body><div class="c">
+<h1>🚚 Migration Firebase → Supabase</h1>
+<p>Cette page <b>copie</b> toutes vos données de Firebase vers Supabase. <b>Rien n'est supprimé ni modifié dans Firebase.</b> Vous pouvez la relancer sans risque (les fiches existantes sont simplement mises à jour).</p>
+<p><b>Avant de commencer :</b> les règles Firestore doivent être publiées en lecture (<code>allow read: if true</code>) et le script <code>supabase_schema.sql</code> exécuté dans Supabase.</p>
+
+<h2>Votre compte Super Administrateur dans Supabase</h2>
+<p style="margin:0;font-size:12.5px;color:#64748b">S'il n'existe pas encore, il sera créé avec ce mot de passe. Utilisez le mot de passe que vous utilisez déjà dans Le Perroquet.</p>
+<label>Identifiant<input id="u" value="diomande" autocomplete="username"></label>
+<label>Mot de passe<input id="p" type="password" autocomplete="current-password"></label>
+
+<button id="go">▶ Lancer la migration</button>
+<div style="margin-top:12px">
+<div class="st"><span class="dot" id="d1"></span>1. Lecture de Firebase</div>
+<div class="st"><span class="dot" id="d2"></span>2. Connexion à Supabase</div>
+<div class="st"><span class="dot" id="d3"></span>3. Envoi des données</div>
+<div class="st"><span class="dot" id="d4"></span>4. Création des comptes de connexion</div>
+<div class="st"><span class="dot" id="d5"></span>5. Vérification</div>
+</div>
+<div id="res"></div>
+<div id="log">En attente…</div>
+</div>
+<script src="supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const FB={apiKey:"AIzaSyB0r1_VHBn3EYu73LsHzR1E8QEuk57uO8w",authDomain:"perroquet-pgnep-menaet.firebaseapp.com",projectId:"perroquet-pgnep-menaet",storageBucket:"perroquet-pgnep-menaet.firebasestorage.app",messagingSenderId:"303217621491",appId:"1:303217621491:web:df7c6609e1396d62177a86"};
+const COLS=['users','ecoles','eleves','notes','corbeille','iepps','drenaets','deleted_users','doclib','docpnapas','pointage_ens'];
+const $=i=>document.getElementById(i);
+const L=t=>{const l=$('log');l.textContent+=(l.textContent==='En attente…'?'':'\n')+t;l.scrollTop=l.scrollHeight;};
+const dot=(n,c)=>{$('d'+n).className='dot '+(c||'')};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function clean(v){
+  if(v===null||v===undefined)return v;
+  if(Array.isArray(v))return v.map(clean);
+  if(typeof v==='object'){
+    if(typeof v.toDate==='function'){try{return v.toDate().toISOString();}catch(e){return null;}}
+    if(typeof v.latitude==='number'&&typeof v.longitude==='number'&&Object.keys(v).length<=3)return{lat:v.latitude,lng:v.longitude};
+    const o={};for(const k in v)o[k]=clean(v[k]);return o;
+  }
+  return v;
+}
+function decodePass(e){try{return decodeURIComponent(escape(atob(e)));}catch(x){return null;}}
+$('go').onclick=async function(){
+  const btn=this;btn.disabled=true;$('log').textContent='En attente…';$('res').innerHTML='';
+  for(let i=1;i<=5;i++)dot(i);
+  const C=window.PGNEP_SB_DEFAULT||{};
+  const login=$('u').value.trim().toLowerCase(),pw=$('p').value;
+  try{
+    if(!C.url||!C.anon)throw new Error('supabase-config.js introuvable ou vide (déposez-le à côté de cette page).');
+    if(!login||pw.length<6)throw new Error('Identifiant et mot de passe (6 caractères minimum) requis.');
+    /* 1. Firebase */
+    dot(1,'run');L('Lecture de Firebase…');
+    const db=getFirestore(initializeApp(FB,'mig'));
+    const data={};let denied=0;
+    for(const c of COLS){
+      try{const s=await getDocs(collection(db,c));data[c]=s.docs.map(d=>({id:d.id,data:clean(d.data())}));L('  '+c+' : '+data[c].length+' fiche(s)');}
+      catch(e){data[c]=[];const code=e&&e.code||'';if(/permission/i.test(code+e.message))denied++;L('  '+c+' : ❌ '+(code||e.message));}
+    }
+    const nbF=COLS.reduce((a,c)=>a+data[c].length,0);
+    if(denied>=3||nbF===0)throw new Error(nbF===0&&!denied?'Firebase ne contient aucune fiche.':'Firebase refuse la lecture (permission-denied) : republiez les règles Firestore (allow read: if true), attendez 1 minute et relancez.');
+    /* comptes : une fiche par identifiant */
+    const um=new Map();
+    for(const r of data.users){const d=r.data||{};const lg=String(d.login||'').toLowerCase().trim();if(!lg)continue;const prev=um.get(lg);um.set(lg,Object.assign({},prev||{},d,{login:lg}));}
+    data.users=[...um.entries()].map(([k,v])=>({id:k,data:v}));
+    L('  → '+data.users.length+' compte(s) distinct(s) retenus');
+    dot(1,'ok');
+    /* 2. Supabase */
+    dot(2,'run');L('Connexion à Supabase…');
+    const sb=window.supabase.createClient(C.url,C.anon,{auth:{persistSession:false}});
+    const email=login+'@pgnep-menaet.ci';
+    let s=await sb.auth.signInWithPassword({email,password:pw});
+    if(s.error){
+      L('  compte absent, création…');
+      const up=await sb.auth.signUp({email,password:pw});
+      if(up.error)throw new Error('Création du compte Supabase : '+up.error.message);
+      s=await sb.auth.signInWithPassword({email,password:pw});
+      if(s.error)throw new Error('Connexion Supabase : '+s.error.message+' — vérifiez Authentication → Providers → Email → « Confirm email » désactivé.');
+    }
+    const t=await sb.from('docs').select('id',{count:'exact',head:true});
+    if(t.error)throw new Error(t.error.code+' '+t.error.message+(/permission denied/i.test(t.error.message)?' — exécutez le bloc GRANT de supabase_schema.sql.':''));
+    dot(2,'ok');L('  ✅ connecté ('+(t.count||0)+' fiche(s) déjà dans Supabase)');
+    /* 3. Envoi */
+    dot(3,'run');let sent=0,errs=[];
+    for(const c of COLS){
+      const rows=data[c].filter(r=>r.id);
+      for(let i=0;i<rows.length;i+=200){
+        const part=rows.slice(i,i+200);
+        const r=await sb.rpc('upsert_docs',{p_col:c,p_rows:part});
+        if(r.error){errs.push(c+' : '+(r.error.code||'')+' '+r.error.message);L('  ❌ '+c+' : '+r.error.message);}
+        else sent+=part.length;
+        L('  '+c+' : '+Math.min(i+200,rows.length)+'/'+rows.length);
+      }
+    }
+    if(errs.length){dot(3,'ko');throw new Error(errs[0]);}
+    dot(3,'ok');L('  ✅ '+sent+' fiche(s) envoyée(s)');
+    /* 4. Comptes de connexion */
+    dot(4,'run');L('Création des comptes de connexion…');
+    const sec=window.supabase.createClient(C.url,C.anon,{auth:{persistSession:false,storageKey:'mig-sec'}});
+    let cr=0,ex=0,sk=[],stop=false;
+    for(const u of data.users){
+      const d=u.data;const p=decodePass(d.pass||'');
+      if(!p||p.length<6){sk.push(u.id);continue;}
+      const r=await sec.auth.signUp({email:d.email||(u.id+'@pgnep-menaet.ci'),password:p});
+      if(r.error){const m=(r.error.message||'')+' '+(r.error.code||'');
+        if(/already|registered|exists/i.test(m))ex++;
+        else if(/rate|limit|429|too many/i.test(m)){stop=true;L('  ⏸ limite Supabase atteinte — patientez 1 heure puis relancez cette page.');break;}
+        else L('  ⚠ '+u.id+' : '+m);}
+      else cr++;
+      await sleep(1100);
+    }
+    L('  '+cr+' créé(s), '+ex+' déjà existant(s), '+sk.length+' ignoré(s) (mot de passe illisible ou < 6 caractères)'+(sk.length?' : '+sk.slice(0,12).join(', '):''));
+    dot(4,stop?'ko':'ok');
+    /* 5. Vérification */
+    dot(5,'run');L('Vérification…');
+    let html='<table><tr><th>Collection</th><th class="r">Firebase</th><th class="r">Supabase</th></tr>',allok=true;
+    for(const c of COLS){
+      const n=await sb.from('docs').select('id',{count:'exact',head:true}).eq('col',c);
+      const f=data[c].length,v=n.error?'?':n.count;
+      if(f&&v<f)allok=false;
+      if(f||v)html+='<tr><td>'+c+'</td><td class="r">'+f+'</td><td class="r">'+v+'</td></tr>';
+    }
+    html+='</table>';$('res').innerHTML=html;
+    dot(5,allok?'ok':'ko');
+    L(allok?'✅ MIGRATION TERMINÉE : les nombres concordent.':'⚠ Certaines collections ont moins de fiches dans Supabase : relancez la page.');
+    if(allok)L('Étape suivante : dites-le à Claude pour passer enabled:true dans supabase-config.js.');
+  }catch(e){L('❌ '+(e.message||e));}
+  btn.disabled=false;
+};
+</script></body></html>
