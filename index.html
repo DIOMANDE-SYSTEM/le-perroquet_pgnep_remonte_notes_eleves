@@ -22465,8 +22465,10 @@ API.openConfig=openConfig;API.getAll=getAll;API.write=write;API.listen=listen;AP
       if(!b){b=document.createElement('div');b.id='pgsb-badge';b.style.cssText='margin:12px auto 0;text-align:center;font-size:11.5px;font-weight:700;border-radius:20px;padding:5px 12px;display:table;background:#f1f5f9;color:#475569;';f.appendChild(b);b.style.marginBottom='14px';}
       if(!ON){b.textContent='🗄️ Base de données : Firebase';return true;}
       b.textContent='🗄️ Base de données : Supabase (vérification…)';
-      ready().then(function(){b.style.background='#dcfce7';b.style.color='#166534';b.textContent='🗄️ Base de données : Supabase ✓ connectée';})
-        .catch(function(){b.style.background='#fee2e2';b.style.color='#991b1b';b.textContent='⚠️ Supabase injoignable (réseau ?)';});
+      var ctl=(typeof AbortController!=='undefined')?new AbortController():null,tm=setTimeout(function(){try{ctl&&ctl.abort();}catch(e){}},7000);
+      ready().then(function(){return fetch(String(CFG.url).replace(/\/+$/,'')+'/auth/v1/health',{headers:{apikey:CFG.anon},signal:ctl?ctl.signal:undefined});})
+        .then(function(r){clearTimeout(tm);if(!r.ok&&r.status>=500)throw new Error('HTTP '+r.status);b.style.background='#dcfce7';b.style.color='#166534';b.textContent='🗄️ Base de données : Supabase ✓ connectée';})
+        .catch(function(){clearTimeout(tm);b.style.background='#fee2e2';b.style.color='#991b1b';b.textContent='⚠️ Supabase ne répond pas (réseau coupé ou projet en pause)';});
       return true;
     }catch(e){return false;}
   }
@@ -23059,7 +23061,7 @@ window.PGDR={canActOn:canActOn,isDR:isDR,isSA:isSA};
 <script id="pgnep-pied-affichage">
 /* Ajout : pied de page EPLUS (menu latéral + espace de travail) et garde d'affichage après connexion. Supprimable sans effet sur le reste. */
 (function(){
-var TXT='© EPLUS 2026 - Tous droits réservés  |  Dernière mise à jour le 07 octobre 2026  |  Conception et design DIOM-2YA — contact : +225 0172710337 / 0505154169. Email: eplus2026@gmail.com';
+var TXT='© EPLUS 2026 - Tous droits réservés  |  Dernière mise à jour le 07 octobre 2026  |  Conception et design DIOM-2YA — contact : +225 01-72-710-337 / 05-05-154-169. Email: diomyaya28@yahoo.fr / eplus2026@gmail.com';
 var css=document.createElement('style');css.id='pgnep-pied-css';
 css.textContent='.pgnep-pied{box-sizing:border-box;width:100%;max-width:100%;font-size:10.5px;line-height:1.45;text-align:center;padding:9px 12px;word-break:break-word;overflow-wrap:anywhere}'
 +'.sidebar .pgnep-pied{color:rgba(255,255,255,.65);border-top:1px solid rgba(255,255,255,.15);margin-top:auto;flex:0 0 auto;font-size:9.5px}'
@@ -23078,7 +23080,18 @@ function garde(){try{
   var sb=document.querySelector('.sidebar');if(sb&&getComputedStyle(sb).display==='none')sb.style.display='';
   pieds();
 }catch(e){}}
-function boot(){pieds();setInterval(garde,700);}
+function loginPieds(){try{
+  var card=document.querySelector('#login-screen .login-card');if(!card)return;
+  var c=document.getElementById('pgnep-login-contact');
+  if(!c){c=document.createElement('div');c.id='pgnep-login-contact';c.style.cssText='margin:6px 18px 0;padding:8px 10px;border-radius:10px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12px;line-height:1.5;text-align:center;word-break:break-word';
+    c.innerHTML='📞 <b>En cas d\'erreur de connexion, contactez :</b><br><a href="tel:+2250505154169" style="color:#9a3412;font-weight:700;text-decoration:none">05-05-154-169</a> / <a href="tel:+2250172710337" style="color:#9a3412;font-weight:700;text-decoration:none">01-72-710-337</a>';}
+  var f=document.getElementById('pgnep-login-copy');
+  if(!f){f=document.createElement('div');f.id='pgnep-login-copy';f.className='pgnep-pied';f.style.cssText='color:#6b7280;border-top:1px solid #e5e7eb;margin-top:12px;font-size:10px';f.textContent=TXT;}
+  var b=document.getElementById('pgsb-badge');
+  if(c.parentNode!==card||(b&&c.nextSibling!==b&&b.previousSibling!==c)){if(b&&b.parentNode===card)card.insertBefore(c,b);else card.appendChild(c);}
+  if(card.lastChild!==f)card.appendChild(f);
+}catch(e){}}
+function boot(){pieds();loginPieds();setInterval(function(){garde();loginPieds();},700);}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
