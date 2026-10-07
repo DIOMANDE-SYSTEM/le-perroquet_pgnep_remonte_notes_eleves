@@ -22185,18 +22185,13 @@ window.PGERR={show:show,probe:probe,codes:CODES,classify:classify,resetLocal:res
 if(window.PGSB)return;
 var KEY='pgnep_sb_cfg',LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
 var SQL="-- ════════════════════════════════════════════════════════════════════\n--  LE PERROQUET · PGNEP — Schéma Supabase (version 1)\n--  À coller dans Supabase → SQL Editor → New query → Run\n--  Principe : une table « docs » qui reprend fidèlement les collections\n--  actuelles (users, ecoles, eleves, notes, corbeille, drenaets, iepps…).\n--  Sécurité : RLS activée ; AUCUN accès anonyme ; seuls les utilisateurs\n--  connectés (Supabase Auth) peuvent lire/écrire.\n-- ════════════════════════════════════════════════════════════════════\n\ncreate table if not exists public.docs (\n  col         text        not null,\n  id          text        not null,\n  data        jsonb       not null default '{}'::jsonb,\n  updated_at  timestamptz not null default now(),\n  updated_by  uuid        default auth.uid(),\n  primary key (col, id)\n);\n\ncreate index if not exists docs_col_idx    on public.docs (col);\ncreate index if not exists docs_ecole_idx  on public.docs (col, (data->>'ecole_id'));\ncreate index if not exists docs_updated_ix on public.docs (col, updated_at desc);\n\n-- Sécurité : RLS obligatoire\nalter table public.docs enable row level security;\n\ndrop policy if exists docs_select on public.docs;\ndrop policy if exists docs_insert on public.docs;\ndrop policy if exists docs_update on public.docs;\ndrop policy if exists docs_delete on public.docs;\n\ncreate policy docs_select on public.docs for select to authenticated using (true);\ncreate policy docs_insert on public.docs for insert to authenticated with check (true);\ncreate policy docs_update on public.docs for update to authenticated using (true) with check (true);\ncreate policy docs_delete on public.docs for delete to authenticated using (true);\n-- (aucune politique pour le rôle « anon » : accès public refusé)\n\n-- Écriture avec fusion des champs (équivalent de setDoc(..., {merge:true}))\ncreate or replace function public.upsert_doc(p_col text, p_id text, p_data jsonb)\nreturns void language sql security invoker as $$\n  insert into public.docs (col, id, data) values (p_col, p_id, coalesce(p_data,'{}'::jsonb))\n  on conflict (col, id) do update\n    set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n$$;\n\n-- Écriture par lots : p_rows = [{\"id\":\"...\",\"data\":{...}}, ...]\ncreate or replace function public.upsert_docs(p_col text, p_rows jsonb)\nreturns integer language plpgsql security invoker as $$\ndeclare n integer := 0; r jsonb;\nbegin\n  for r in select * from jsonb_array_elements(coalesce(p_rows,'[]'::jsonb)) loop\n    insert into public.docs (col, id, data)\n    values (p_col, r->>'id', coalesce(r->'data','{}'::jsonb))\n    on conflict (col, id) do update\n      set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n    n := n + 1;\n  end loop;\n  return n;\nend $$;\n\n-- Droits d'accès (OBLIGATOIRES depuis 2026 : Supabase n'expose plus\n-- automatiquement les nouvelles tables). Seuls les utilisateurs connectés.\ngrant usage on schema public to anon, authenticated;\nrevoke all on table public.docs from anon;\ngrant select, insert, update, delete on table public.docs to authenticated;\nrevoke execute on function public.upsert_doc(text, text, jsonb)  from public, anon;\nrevoke execute on function public.upsert_docs(text, jsonb)       from public, anon;\ngrant  execute on function public.upsert_doc(text, text, jsonb)  to authenticated;\ngrant  execute on function public.upsert_docs(text, jsonb)       to authenticated;\n\n-- Temps réel (les suppressions doivent transporter la colonne « col »)\nalter table public.docs replica identity full;\ndo $$ begin\n  alter publication supabase_realtime add table public.docs;\nexception when duplicate_object then null; when undefined_object then null; end $$;\n\n-- ────────────────────────────────────────────────────────────────────\n--  PHASE 2 (plus tard, après tests) : droits par rôle et par école.\n--  Les comptes Supabase utilisent l'e-mail  <identifiant>@pgnep-menaet.ci ;\n--  l'identifiant se retrouve avec  split_part(auth.jwt()->>'email','@',1).\n--  Le profil (rôle, école) se lit dans docs(col='users', id=<identifiant>).\n--  ⚠ Ne pas activer sans test : cela remplacera les politiques ci-dessus.\n-- ────────────────────────────────────────────────────────────────────\n";
-/* Secours : ?sb=off désactive Supabase sur cet appareil (retour à Firebase) ; ?sb=on le réactive */
-(function(){try{var m=/[?&]sb=(on|off)\b/.exec(location.search);if(!m)return;
-  var c={};try{c=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){}
-  var B=window.PGNEP_SB_DEFAULT||{};if(!c.url)c.url=B.url||'';if(!c.anon)c.anon=B.anon||'';
-  c.enabled=(m[1]==='on');localStorage.setItem(KEY,JSON.stringify(c));
-  try{history.replaceState(null,'',location.pathname+location.search.replace(/([?&])sb=(on|off)&?/,'$1').replace(/[?&]$/,'')+location.hash);}catch(e){}
-}catch(e){}})();
+/* Supabase verrouillé : plus de retour à Firebase (le paramètre ?sb=off est ignoré) */
+(function(){try{var c={};try{c=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){}var B=window.PGNEP_SB_DEFAULT||{};if(!c.url)c.url=B.url||'';if(!c.anon)c.anon=B.anon||'';c.enabled=true;localStorage.setItem(KEY,JSON.stringify(c));}catch(e){}})();
 function lsg(){
   var l={};try{l=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){l={};}
-  if(l&&l.url&&l.anon)return l;                 /* la configuration de cet appareil prime */
+  if(l&&l.url&&l.anon){l.enabled=true;return l;}                 /* Supabase toujours actif */
   var B=window.PGNEP_SB_DEFAULT||{};            /* sinon : fichier supabase-config.js (tous les utilisateurs) */
-  if(B.url&&B.anon)return{url:String(B.url).replace(/\/+$/,''),anon:B.anon,enabled:!!B.enabled,baked:true};
+  if(B.url&&B.anon)return{url:String(B.url).replace(/\/+$/,''),anon:B.anon,enabled:true,baked:true};
   return l;
 }
 function $(i){return document.getElementById(i);}
@@ -22445,10 +22440,10 @@ API.openConfig=openConfig;API.getAll=getAll;API.write=write;API.listen=listen;AP
   try{if(typeof showSplash==='function'&&!showSplash.__pgsb){var o=showSplash;showSplash=function(msg){return o.call(this,msg?String(msg).replace(/Firebase/g,NAME):msg);};showSplash.__pgsb=1;}}catch(e){}
   function badge(){
     try{
-      var f=document.querySelector('#login-screen .login-footer')||document.querySelector('#login-screen .login-card');
+      var f=document.querySelector('#login-screen .login-card');
       if(!f)return false;
       var b=document.getElementById('pgsb-badge');
-      if(!b){b=document.createElement('div');b.id='pgsb-badge';b.style.cssText='margin:12px auto 0;text-align:center;font-size:11.5px;font-weight:700;border-radius:20px;padding:5px 12px;display:table;background:#f1f5f9;color:#475569;';f.parentNode.insertBefore(b,f.nextSibling);}
+      if(!b){b=document.createElement('div');b.id='pgsb-badge';b.style.cssText='margin:12px auto 0;text-align:center;font-size:11.5px;font-weight:700;border-radius:20px;padding:5px 12px;display:table;background:#f1f5f9;color:#475569;';f.appendChild(b);b.style.marginBottom='14px';}
       if(!ON){b.textContent='🗄️ Base de données : Firebase';return true;}
       b.textContent='🗄️ Base de données : Supabase (vérification…)';
       ready().then(function(){b.style.background='#dcfce7';b.style.color='#166534';b.textContent='🗄️ Base de données : Supabase ✓ connectée';})
@@ -23041,5 +23036,6 @@ window.PGDR={canActOn:canActOn,isDR:isDR,isSA:isSA};
 })();
 
 </script>
+<style id="pgsb-login-center">#login-screen{display:flex!important;align-items:center!important;justify-content:center!important;overflow-y:auto}#login-screen .login-card{margin:auto!important;flex:0 0 auto}</style>
 </body>
 </html>
