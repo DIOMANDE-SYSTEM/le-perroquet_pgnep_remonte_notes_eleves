@@ -23296,11 +23296,20 @@ wrap();setTimeout(wrap,800);setTimeout(wrap,3000);
       try{
         await timeout(window._fb.signIn(email,pass),12000);
       }catch(e){
-        throw new Error(
-          'Compte validé mais session Supabase impossible. '+
-          'Vérifiez dans Supabase → Authentication → Providers → Email '+
-          'que la confirmation d’e-mail est désactivée, puis réessayez.'
-        );
+        /* le compte Auth existe peut-être avec un autre mot de passe : on le resynchronise côté serveur (après validation identifiant + mot de passe) */
+        var e1=(e&&(e.message||e.code))||String(e),e2='';
+        try{
+          var cs=window.PGSB.client;
+          var rs=await timeout(cs.rpc('sync_auth_password',{p_login:idn,p_pass:btoa(unescape(encodeURIComponent(pass)))}),8000);
+          if(rs&&rs.error)e2=' / sync: '+(rs.error.message||rs.error.code);
+          else if(rs&&rs.data===false)e2=' / sync: compte Auth introuvable';
+          await timeout(window._fb.signIn(email,pass),12000);
+        }catch(e3){
+          throw new Error(
+            'Compte validé mais session Supabase impossible ('+e1+e2+(e3&&e3.message&&e3.message!==e1?' / '+e3.message:'')+'). '+
+            'Exécutez le script supabase_sync_mdp.sql dans Supabase (SQL Editor), puis réessayez.'
+          );
+        }
       }
 
       fallback=Object.assign({},fallback||{},validated,{
