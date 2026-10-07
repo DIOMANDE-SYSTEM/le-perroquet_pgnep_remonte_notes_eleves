@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>État du système — Le Perroquet</title>
+<style>
+body{font-family:Arial,sans-serif;background:#0b3d24;margin:0;padding:14px;color:#1f2937}
+.c{max-width:680px;margin:3vh auto;background:#fff;border-radius:14px;padding:22px;box-shadow:0 8px 30px #0004}
+h1{font-size:19px;margin:0 0 4px}p{font-size:13.5px;line-height:1.5}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px}td{border-bottom:1px solid #e5e7eb;padding:8px 6px;vertical-align:top}
+td:first-child{width:34px;font-size:18px}.d{color:#64748b;font-size:12px;display:block;margin-top:2px;word-break:break-all}
+button{width:100%;margin-top:14px;border:0;border-radius:10px;padding:13px;font-size:15px;font-weight:700;background:#f77f00;color:#fff;cursor:pointer}
+button.g{background:#009e60}#v{margin-top:14px;padding:12px;border-radius:8px;font-size:14px;font-weight:700;display:none}
+</style></head>
+<body><div class="c">
+<h1>🩺 État du système — Le Perroquet</h1>
+<p>Cette page vérifie en 10 secondes ce qui est vraiment en ligne et ce que fait cet appareil. <b>Envoyez-en une capture à Claude.</b></p>
+<table id="t"><tr><td>⏳</td><td>Vérification en cours…</td></tr></table>
+<div id="v"></div>
+<button class="g" id="fix" style="display:none">🔧 Régler cet appareil sur Supabase et vider le cache</button>
+<button id="re">↻ Revérifier</button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const rows=[];function add(ok,t,d){rows.push([ok,t,d||'']);}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function show(){const t=document.getElementById('t');t.innerHTML=rows.map(r=>'<tr><td>'+(r[0]===true?'✅':r[0]===false?'❌':'⚠️')+'</td><td>'+esc(r[1])+(r[2]?'<span class="d">'+esc(r[2])+'</span>':'')+'</td></tr>').join('');}
+async function run(){
+  rows.length=0;document.getElementById('t').innerHTML='<tr><td>⏳</td><td>Vérification en cours…</td></tr>';
+  const base=location.href.replace(/[^/]*$/,'');let cfgText='',idx='';
+  /* 1. supabase-config.js en ligne */
+  let C={};
+  try{const r=await fetch(base+'supabase-config.js?x='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);cfgText=await r.text();
+    const en=/enabled\s*:\s*true/.test(cfgText),url=(cfgText.match(/url\s*:\s*"([^"]*)"/)||[])[1]||'',anon=(cfgText.match(/anon\s*:\s*"([^"]*)"/)||[])[1]||'';
+    C={enabled:en,url,anon};
+    add(en,'supabase-config.js en ligne : enabled '+(en?'true':'FALSE'),en?'':'Remettez le bon supabase-config.js sur GitHub (enabled: true).');
+    add(!!(url&&anon),'URL et clé renseignées dans supabase-config.js',url||'URL vide');
+  }catch(e){add(false,'supabase-config.js introuvable sur le site',e.message+' — le fichier doit s\'appeler exactement supabase-config.js, à côté de index.html');}
+  /* 2. index.html en ligne : bonne version ? */
+  try{const r=await fetch(base+'index.html?x='+Date.now(),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);idx=await r.text();
+    const m={badge:idx.includes('pgsb-badge'),login:idx.includes('check_login'),sbon:idx.includes("?sb=on")||idx.includes('sb=(on|off)'),dr:idx.includes('pgnep-droits-drenaet')};
+    add(m.badge&&m.login,'index.html en ligne = DERNIÈRE version',m.badge&&m.login?'badge et connexion Supabase présents':'ANCIENNE version en ligne. Le fichier déposé ne s\'appelle probablement pas exactement « index.html » (ex. « index (1).html »). Supprimez les doublons et redéposez sous le nom index.html.');
+    add(m.dr?true:null,'Droits DRENAET présents dans index.html',m.dr?'':'version plus ancienne');
+  }catch(e){add(false,'index.html introuvable',e.message);}
+  /* 3. réglage de cet appareil */
+  let L={};try{L=JSON.parse(localStorage.getItem('pgnep_sb_cfg')||'{}');}catch(e){}
+  const lc=L&&L.url?L:null;
+  if(lc)add(!!lc.enabled,'Réglage de CET appareil : Supabase '+(lc.enabled?'activé':'DÉSACTIVÉ'),lc.enabled?'':'C\'est ce réglage local qui vous garde sur Firebase. Cliquez sur « Régler cet appareil ».');
+  else add(C.enabled?true:null,'Réglage de cet appareil : aucun (suit supabase-config.js)');
+  /* 4. Supabase joignable + fonction check_login */
+  const url=(lc&&lc.url)||C.url,anon=(lc&&lc.anon)||C.anon;
+  if(url&&anon&&window.supabase){
+    try{
+      const sb=window.supabase.createClient(url,anon,{auth:{persistSession:false}});
+      const r=await sb.rpc('check_login',{p_login:'__test__',p_pass:'__test__'});
+      if(r.error&&/Could not find|PGRST202|404/i.test((r.error.code||'')+' '+r.error.message))add(false,'Fonction check_login ABSENTE dans Supabase','Exécutez supabase_connexion.sql dans SQL Editor.');
+      else if(r.error)add(null,'Supabase répond avec une erreur',(r.error.code||'')+' '+r.error.message);
+      else add(true,'Supabase joignable et fonction check_login présente');
+    }catch(e){add(false,'Supabase injoignable',e.message);}
+  }else add(null,'Test Supabase impossible','URL/clé manquantes ou bibliothèque non chargée');
+  /* 5. service worker / cache */
+  try{if('serviceWorker' in navigator){const rg=await navigator.serviceWorker.getRegistrations();add(rg.length?null:true,'Application installée / cache : '+(rg.length?rg.length+' service worker(s) actif(s)':'aucun'),rg.length?'Peut servir une ancienne version. Le bouton vert vide ce cache.':'');}}catch(e){}
+  show();
+  const bad=rows.filter(r=>r[0]===false).length,off=lc&&!lc.enabled;
+  const v=document.getElementById('v');v.style.display='block';
+  if(bad===0&&!off){v.style.background='#dcfce7';v.style.color='#166534';v.textContent='✅ Tout est en ordre : cet appareil doit utiliser Supabase.';}
+  else{v.style.background='#fee2e2';v.style.color='#991b1b';v.textContent='❌ '+(bad+(off?1:0))+' point(s) à corriger (lignes ❌ ci-dessus).';}
+  document.getElementById('fix').style.display='block';
+}
+document.getElementById('re').onclick=run;
+document.getElementById('fix').onclick=async function(){
+  try{let c={};try{c=JSON.parse(localStorage.getItem('pgnep_sb_cfg')||'{}');}catch(e){}
+    const m=(await fetch('supabase-config.js?x='+Date.now(),{cache:'no-store'}).then(r=>r.text()).catch(()=>''));
+    c.url=c.url||(m.match(/url\s*:\s*"([^"]*)"/)||[])[1]||'';c.anon=c.anon||(m.match(/anon\s*:\s*"([^"]*)"/)||[])[1]||'';c.enabled=true;
+    localStorage.setItem('pgnep_sb_cfg',JSON.stringify(c));
+    if('serviceWorker' in navigator){(await navigator.serviceWorker.getRegistrations()).forEach(r=>r.unregister());}
+    if(window.caches){(await caches.keys()).forEach(k=>caches.delete(k));}
+    alert('Appareil réglé sur Supabase et cache vidé.\nOuvrez maintenant Le Perroquet (index.html) et rechargez avec Ctrl+Maj+R.');run();
+  }catch(e){alert('Échec : '+e.message);}
+};
+run();
+</script></body></html>
