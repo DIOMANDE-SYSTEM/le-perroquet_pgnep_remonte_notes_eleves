@@ -22185,18 +22185,14 @@ window.PGERR={show:show,probe:probe,codes:CODES,classify:classify,resetLocal:res
 if(window.PGSB)return;
 var KEY='pgnep_sb_cfg',LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
 var SQL="-- ════════════════════════════════════════════════════════════════════\n--  LE PERROQUET · PGNEP — Schéma Supabase (version 1)\n--  À coller dans Supabase → SQL Editor → New query → Run\n--  Principe : une table « docs » qui reprend fidèlement les collections\n--  actuelles (users, ecoles, eleves, notes, corbeille, drenaets, iepps…).\n--  Sécurité : RLS activée ; AUCUN accès anonyme ; seuls les utilisateurs\n--  connectés (Supabase Auth) peuvent lire/écrire.\n-- ════════════════════════════════════════════════════════════════════\n\ncreate table if not exists public.docs (\n  col         text        not null,\n  id          text        not null,\n  data        jsonb       not null default '{}'::jsonb,\n  updated_at  timestamptz not null default now(),\n  updated_by  uuid        default auth.uid(),\n  primary key (col, id)\n);\n\ncreate index if not exists docs_col_idx    on public.docs (col);\ncreate index if not exists docs_ecole_idx  on public.docs (col, (data->>'ecole_id'));\ncreate index if not exists docs_updated_ix on public.docs (col, updated_at desc);\n\n-- Sécurité : RLS obligatoire\nalter table public.docs enable row level security;\n\ndrop policy if exists docs_select on public.docs;\ndrop policy if exists docs_insert on public.docs;\ndrop policy if exists docs_update on public.docs;\ndrop policy if exists docs_delete on public.docs;\n\ncreate policy docs_select on public.docs for select to authenticated using (true);\ncreate policy docs_insert on public.docs for insert to authenticated with check (true);\ncreate policy docs_update on public.docs for update to authenticated using (true) with check (true);\ncreate policy docs_delete on public.docs for delete to authenticated using (true);\n-- (aucune politique pour le rôle « anon » : accès public refusé)\n\n-- Écriture avec fusion des champs (équivalent de setDoc(..., {merge:true}))\ncreate or replace function public.upsert_doc(p_col text, p_id text, p_data jsonb)\nreturns void language sql security invoker as $$\n  insert into public.docs (col, id, data) values (p_col, p_id, coalesce(p_data,'{}'::jsonb))\n  on conflict (col, id) do update\n    set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n$$;\n\n-- Écriture par lots : p_rows = [{\"id\":\"...\",\"data\":{...}}, ...]\ncreate or replace function public.upsert_docs(p_col text, p_rows jsonb)\nreturns integer language plpgsql security invoker as $$\ndeclare n integer := 0; r jsonb;\nbegin\n  for r in select * from jsonb_array_elements(coalesce(p_rows,'[]'::jsonb)) loop\n    insert into public.docs (col, id, data)\n    values (p_col, r->>'id', coalesce(r->'data','{}'::jsonb))\n    on conflict (col, id) do update\n      set data = public.docs.data || excluded.data, updated_at = now(), updated_by = auth.uid();\n    n := n + 1;\n  end loop;\n  return n;\nend $$;\n\n-- Droits d'accès (OBLIGATOIRES depuis 2026 : Supabase n'expose plus\n-- automatiquement les nouvelles tables). Seuls les utilisateurs connectés.\ngrant usage on schema public to anon, authenticated;\nrevoke all on table public.docs from anon;\ngrant select, insert, update, delete on table public.docs to authenticated;\nrevoke execute on function public.upsert_doc(text, text, jsonb)  from public, anon;\nrevoke execute on function public.upsert_docs(text, jsonb)       from public, anon;\ngrant  execute on function public.upsert_doc(text, text, jsonb)  to authenticated;\ngrant  execute on function public.upsert_docs(text, jsonb)       to authenticated;\n\n-- Temps réel (les suppressions doivent transporter la colonne « col »)\nalter table public.docs replica identity full;\ndo $$ begin\n  alter publication supabase_realtime add table public.docs;\nexception when duplicate_object then null; when undefined_object then null; end $$;\n\n-- ────────────────────────────────────────────────────────────────────\n--  PHASE 2 (plus tard, après tests) : droits par rôle et par école.\n--  Les comptes Supabase utilisent l'e-mail  <identifiant>@pgnep-menaet.ci ;\n--  l'identifiant se retrouve avec  split_part(auth.jwt()->>'email','@',1).\n--  Le profil (rôle, école) se lit dans docs(col='users', id=<identifiant>).\n--  ⚠ Ne pas activer sans test : cela remplacera les politiques ci-dessus.\n-- ────────────────────────────────────────────────────────────────────\n";
-/* Secours : ?sb=off désactive Supabase sur cet appareil (retour à Firebase) ; ?sb=on le réactive */
-(function(){try{var m=/[?&]sb=(on|off)\b/.exec(location.search);if(!m)return;
-  var c={};try{c=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){}
-  var B=window.PGNEP_SB_DEFAULT||{};if(!c.url)c.url=B.url||'';if(!c.anon)c.anon=B.anon||'';
-  c.enabled=(m[1]==='on');localStorage.setItem(KEY,JSON.stringify(c));
-  try{history.replaceState(null,'',location.pathname+location.search.replace(/([?&])sb=(on|off)&?/,'$1').replace(/[?&]$/,'')+location.hash);}catch(e){}
-}catch(e){}})();
+var SB_EMB={url:'https://shnlkpsvcehpxcqffzdu.supabase.co',anon:'sb_publishable_N2GTVn5x7DK0ZnHttUjB6Q_zmyjJGyx'};
+/* Supabase verrouillé : plus de retour à Firebase (le paramètre ?sb=off est ignoré) */
+(function(){try{var c={};try{c=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){}var B=window.PGNEP_SB_DEFAULT||SB_EMB;if(!B.url||!B.anon)B=SB_EMB;if(!c.url)c.url=B.url;if(!c.anon)c.anon=B.anon;c.enabled=true;localStorage.setItem(KEY,JSON.stringify(c));}catch(e){}})();
 function lsg(){
   var l={};try{l=JSON.parse(localStorage.getItem(KEY))||{};}catch(e){l={};}
-  if(l&&l.url&&l.anon)return l;                 /* la configuration de cet appareil prime */
-  var B=window.PGNEP_SB_DEFAULT||{};            /* sinon : fichier supabase-config.js (tous les utilisateurs) */
-  if(B.url&&B.anon)return{url:String(B.url).replace(/\/+$/,''),anon:B.anon,enabled:!!B.enabled,baked:true};
+  if(l&&l.url&&l.anon){l.enabled=true;return l;}                 /* Supabase toujours actif */
+  var B=window.PGNEP_SB_DEFAULT||{};if(!B.url||!B.anon)B=SB_EMB;            /* sinon : fichier supabase-config.js (tous les utilisateurs) */
+  if(B.url&&B.anon)return{url:String(B.url).replace(/\/+$/,''),anon:B.anon,enabled:true,baked:true};
   return l;
 }
 function $(i){return document.getElementById(i);}
@@ -22368,7 +22364,24 @@ function install(){
   var oLogin=window._doLoginFirebase;
   if(typeof oLogin==='function')window._doLoginFirebase=function(loginId,pass){
     var self=this,args=arguments,idn=String(loginId||'').toLowerCase().trim();
-    /* 1) ouvrir d'abord la session Supabase (sinon la liste des comptes est illisible) */
+    /* 0) compte déjà connu sur l'appareil : ouverture immédiate de l'espace de travail, session Supabase établie en arrière-plan */
+    try{var ul=(DBo()&&DBo().users||[]).find(function(x){return x.login===idn;});
+      if(ul&&typeof verifyPass==='function'&&verifyPass(pass,ul.pass)){var r0=oLogin.apply(self,args);Promise.resolve(r0).then(function(){if(me())afterLogin(loginId,pass);});return r0;}}catch(e){}
+    /* 0bis) identifiant + mot de passe validés côté serveur (check_login) : le compte est (re)créé localement puis l'espace de travail s'ouvre */
+    var enc0='';try{enc0=btoa(unescape(encodeURIComponent(pass)));}catch(e){}
+    var chk=Promise.race([
+      ready().then(function(c){return c.rpc('check_login',{p_login:idn,p_pass:enc0});}).then(function(r){return (r&&!r.error&&r.data&&typeof r.data==='object')?r.data:null;}).catch(function(){return null;}),
+      new Promise(function(r){setTimeout(function(){r(null);},7000);})]);
+    return chk.then(function(ud){
+      if(ud){try{
+        var d0=DBo();var rec=Object.assign({},ud,{login:idn,pass:hashPass(pass)});
+        var k=(d0.users||[]).findIndex(function(x){return x.login===idn;});
+        if(k>=0)d0.users[k]=Object.assign({},d0.users[k],rec);else d0.users.push(rec);
+        var r1=oLogin.apply(self,args);Promise.resolve(r1).then(function(){if(me())afterLogin(loginId,pass);});return r1;
+      }catch(e){}}
+      return legacy();
+    });
+    function legacy(){
     var em=idn+'@pgnep-menaet.ci';
     var pre=Promise.race([
       signIn(em,pass).catch(function(){
@@ -22379,10 +22392,11 @@ function install(){
           return createUser(em,pass).catch(function(){}).then(function(){return signIn(em,pass);}).catch(function(){});
         });
       }).catch(function(){}),
-      new Promise(function(r){setTimeout(r,12000);})]);
+      new Promise(function(r){setTimeout(r,5000);})]);
     var res=pre.then(function(){return oLogin.apply(self,args);});
-    Promise.resolve(res).then(function(){if(window.currentUser)afterLogin(loginId,pass);});
+    Promise.resolve(res).then(function(){if(me())afterLogin(loginId,pass);});
     return res;
+    }
   };
   /* gel de la file d'écritures Firestore (évite qu'elle soit purgée par un refus) */
   try{import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js').then(function(m){if(window._fbDB&&m.disableNetwork)return m.disableNetwork(window._fbDB);}).catch(function(){});}catch(e){}
@@ -22438,6 +22452,61 @@ function openConfig(){
     }).then(function(){return pushLocal(null,function(c,i,n){msg('⏳ '+c+' : '+i+'/'+n);});}).then(function(r){msg((r.errors.length?'<span class="ko">⚠️ ':'<span class="ok">✅ ')+r.ok+'/'+r.total+' fiche(s) envoyée(s)</span>'+(r.errors.length?'<br>'+r.errors.slice(0,3).map(esc).join('<br>')+(r.errors.some(function(e){return /permission denied for table/i.test(e);})?'<br><b>Cause probable :</b> les droits d\'accès (GRANT) manquent sur la table « docs » (Supabase n\'expose plus les nouvelles tables automatiquement). Ouvrez « Script SQL à coller dans Supabase » ci-dessous, copiez-le, exécutez-le dans SQL Editor, puis réessayez.':''):''));}).catch(function(e){msg('<span class="ko">❌ '+esc(e.message||e)+'</span>');});};
 }
 API.openConfig=openConfig;API.getAll=getAll;API.write=write;API.listen=listen;API.pushLocal=pushLocal;API.provision=provision;
+/* Démarrage : l'écran de chargement et l'écran de connexion annoncent la base utilisée */
+(function(){
+  var NAME=ON?'Supabase':'Firebase';
+  function splash(){try{var m=document.getElementById('splash-msg');if(m&&/Firebase|Supabase/.test(m.textContent)&&m.textContent.indexOf(NAME)<0)m.textContent=m.textContent.replace(/Firebase|Supabase/g,NAME);}catch(e){}}
+  try{if(typeof showSplash==='function'&&!showSplash.__pgsb){var o=showSplash;showSplash=function(msg){return o.call(this,msg?String(msg).replace(/Firebase/g,NAME):msg);};showSplash.__pgsb=1;}}catch(e){}
+  function badge(){
+    try{
+      var f=document.querySelector('#login-screen .login-card');
+      if(!f)return false;
+      var b=document.getElementById('pgsb-badge');
+      if(!b){b=document.createElement('div');b.id='pgsb-badge';b.style.cssText='margin:12px auto 0;text-align:center;font-size:11.5px;font-weight:700;border-radius:20px;padding:5px 12px;display:table;background:#f1f5f9;color:#475569;';f.appendChild(b);b.style.marginBottom='14px';}
+      if(!ON){b.textContent='🗄️ Base de données : Firebase';return true;}
+      b.textContent='🗄️ Base de données : Supabase (vérification…)';
+      ready().then(function(){b.style.background='#dcfce7';b.style.color='#166534';b.textContent='🗄️ Base de données : Supabase ✓ connectée';})
+        .catch(function(){b.style.background='#fee2e2';b.style.color='#991b1b';b.textContent='⚠️ Supabase injoignable (réseau ?)';});
+      return true;
+    }catch(e){return false;}
+  }
+  var n=0,iv=setInterval(function(){n++;splash();if(badge()||n>40)clearInterval(iv);},250);
+  try{new MutationObserver(splash).observe(document.documentElement,{childList:true,subtree:true,characterData:true});}catch(e){}
+  try{console.log('%c[Le Perroquet] Base de données : '+NAME,'font-weight:bold;color:'+(ON?'#047857':'#b45309'));}catch(e){}
+})();
+/* Affichage : quand Supabase est actif, le mot « Firebase » est remplacé par « Supabase » partout où il s'affiche
+   (textes, info-bulles, notifications, alertes). Seul l'affichage change : aucun code ni aucune donnée n'est touché. */
+(function(){
+  if(!ON)return;
+  var RX=/Firebase/g,SKIP={SCRIPT:1,STYLE:1,TEXTAREA:1,NOSCRIPT:1,CODE:0};
+  function fixStr(t){return (typeof t==='string'&&t.indexOf('Firebase')>-1)?t.replace(RX,'Supabase'):t;}
+  function inCfg(n){for(var e=n.nodeType===1?n:n.parentNode;e;e=e.parentNode){if(e.id==='pgsb-ov')return true;}return false;}
+  function walk(root){
+    try{
+      if(!root)return;
+      if(root.nodeType===3){if(root.nodeValue.indexOf('Firebase')>-1&&!(root.parentNode&&SKIP[root.parentNode.nodeName])&&!inCfg(root))root.nodeValue=fixStr(root.nodeValue);return;}
+      if(root.nodeType!==1||SKIP[root.nodeName]||inCfg(root))return;
+      var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null,false),n,list=[];
+      while((n=w.nextNode())){if(n.nodeValue.indexOf('Firebase')>-1&&!(n.parentNode&&SKIP[n.parentNode.nodeName]))list.push(n);}
+      list.forEach(function(t){if(!inCfg(t))t.nodeValue=fixStr(t.nodeValue);});
+      var q=root.querySelectorAll?root.querySelectorAll('[title],[placeholder],[aria-label]'):[];
+      for(var i=0;i<q.length;i++){['title','placeholder','aria-label'].forEach(function(k){var v=q[i].getAttribute(k);if(v&&v.indexOf('Firebase')>-1&&!inCfg(q[i]))q[i].setAttribute(k,fixStr(v));});}
+    }catch(e){}
+  }
+  var pend=false;
+  function all(){pend=false;walk(document.body);try{document.title=fixStr(document.title);}catch(e){}}
+  function sched(){if(!pend){pend=true;setTimeout(all,60);}}
+  try{new MutationObserver(function(ms){
+    for(var i=0;i<ms.length;i++){var m=ms[i];
+      if(m.type==='characterData'){walk(m.target);}
+      else{for(var j=0;j<m.addedNodes.length;j++)walk(m.addedNodes[j]);}}
+    sched();
+  }).observe(document.documentElement,{childList:true,subtree:true,characterData:true});}catch(e){}
+  ['alert','confirm','prompt'].forEach(function(k){var o=window[k];if(typeof o!=='function'||o.__pgsb)return;
+    var w=function(m){var a=Array.prototype.slice.call(arguments);if(typeof a[0]==='string')a[0]=fixStr(a[0]);if(typeof a[1]==='string'&&k==='prompt')a[1]=fixStr(a[1]);return o.apply(window,a);};w.__pgsb=1;window[k]=w;});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',all);else all();
+  setInterval(all,3000);
+})();
 /* Libellé de connexion honnête : le texte d'origine est toujours « Firebase » ; on affiche le vrai fournisseur */
 (function(){
   function fix(){try{var l=document.getElementById('conn-label');if(!l)return;var t=l.textContent||'';
@@ -22986,5 +23055,338 @@ window.PGDR={canActOn:canActOn,isDR:isDR,isSA:isSA};
 })();
 
 </script>
+<style id="pgsb-login-center">#login-screen{display:flex!important;align-items:center!important;justify-content:center!important;overflow-y:auto}#login-screen .login-card{margin:auto!important;flex:0 0 auto}</style>
+<script id="pgnep-pied-affichage">
+/* Ajout : pied de page EPLUS (menu latéral + espace de travail) et garde d'affichage après connexion. Supprimable sans effet sur le reste. */
+(function(){
+var TXT='© EPLUS 2026 - Tous droits réservés  |  Dernière mise à jour le 07 octobre 2026  |  Conception et design DIOM-2YA — contact : +225 0172710337 / 0505154169. Email: eplus2026@gmail.com';
+var css=document.createElement('style');css.id='pgnep-pied-css';
+css.textContent='.pgnep-pied{box-sizing:border-box;width:100%;max-width:100%;font-size:10.5px;line-height:1.45;text-align:center;padding:9px 12px;word-break:break-word;overflow-wrap:anywhere}'
++'.sidebar .pgnep-pied{color:rgba(255,255,255,.65);border-top:1px solid rgba(255,255,255,.15);margin-top:auto;flex:0 0 auto;font-size:9.5px}'
++'.main .pgnep-pied{color:#6b7280;border-top:1px solid #e5e7eb;background:transparent;flex:0 0 auto}';
+document.head.appendChild(css);
+function put(host,after){if(!host||host.querySelector(':scope > .pgnep-pied'))return;var d=document.createElement('div');d.className='pgnep-pied';d.textContent=TXT;host.appendChild(d);}
+function pieds(){put(document.querySelector('.sidebar'));var m=document.querySelector('.main');if(m){var cs=getComputedStyle(m);if(cs.display!=='flex'){m.style.display='flex';m.style.flexDirection='column';}var c=m.querySelector(':scope > .content');if(c&&getComputedStyle(c).flexGrow==='0')c.style.flex='1 1 auto';put(m);}}
+function garde(){try{
+  var u=null;try{u=(typeof currentUser!=='undefined')?currentUser:null;}catch(e){}
+  if(!u)return;
+  var app=document.getElementById('app'),ls=document.getElementById('login-screen');
+  if(app&&!app.classList.contains('visible'))app.classList.add('visible');
+  if(ls&&ls.style.display!=='none')ls.style.display='none';
+  if(typeof applyRoleUI==='function'&&!document.getElementById('user-name').textContent){try{applyRoleUI();}catch(e){}}
+  if(!document.querySelector('.page.active')&&typeof showPage==='function'){try{showPage('dashboard');}catch(e){var p=document.getElementById('page-dashboard');if(p)p.classList.add('active');}}
+  var sb=document.querySelector('.sidebar');if(sb&&getComputedStyle(sb).display==='none')sb.style.display='';
+  pieds();
+}catch(e){}}
+function boot(){pieds();setInterval(garde,700);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+<script id="pgnep-diag-login">
+/* Ajout : si la connexion n'aboutit pas, affiche la cause à l'écran au lieu de rester muet. Supprimable. */
+(function(){
+var errs=[];
+function rec(m){try{errs.push(String(m).slice(0,220));if(errs.length>5)errs.shift();}catch(e){}}
+window.addEventListener('error',function(e){rec((e&&e.message)||'erreur script');});
+window.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;rec((r&&(r.message||r.code))||r||'rejet');});
+var ce=console.error;console.error=function(){try{rec([].slice.call(arguments).map(function(a){return a&&a.message||a;}).join(' '));}catch(e){}return ce.apply(console,arguments);};
+var cw=console.warn;console.warn=function(){try{rec([].slice.call(arguments).map(function(a){return a&&a.message||a;}).join(' '));}catch(e){}return cw.apply(console,arguments);};
+function logged(){try{return !!(typeof currentUser!=='undefined'&&currentUser);}catch(e){return false;}}
+function show(msg){var el=document.getElementById('login-error');if(!el)return;el.textContent=msg;el.style.display='block';var b=document.querySelector('.login-btn');if(b){b.disabled=false;if(/…/.test(b.textContent))b.textContent='Se connecter →';}}
+function wrap(){
+  if(typeof doLogin!=='function'||doLogin.__diag)return;
+  var o=doLogin;
+  var w=function(){
+    errs.length=0;var el=document.getElementById('login-error');
+    var r;try{r=o.apply(this,arguments);}catch(e){show('⚠️ Erreur de connexion : '+(e&&e.message||e));return;}
+    var t0=Date.now();
+    var iv=setInterval(function(){
+      if(logged()){clearInterval(iv);return;}
+      var shown=el&&el.style.display==='block'&&el.textContent;
+      if(shown){clearInterval(iv);return;}
+      if(Date.now()-t0>9000){clearInterval(iv);
+        var sb='';try{sb=(window.PGSB&&window.PGSB.state&&window.PGSB.state.lastErr)||'';}catch(e){}
+        show('⚠️ La connexion n\'a pas abouti. Détail : '+(sb||errs.slice(-2).join(' / ')||'aucune réponse du serveur (réseau ?)')+' — envoyez-moi cette capture.');
+      }
+    },500);
+    return r;
+  };
+  w.__diag=1;window.doLogin=w;try{doLogin=w;}catch(e){}
+}
+wrap();setTimeout(wrap,800);setTimeout(wrap,3000);
+})();
+</script>
+
+<script id="pgnep-final-login-fix">
+/* ================================================================
+   CORRECTIF FINAL PGNEP — connexion Supabase après migration
+   Objectif : après identifiant + mot de passe, ouvrir réellement
+   l'espace de travail et établir une session Supabase authenticated.
+   Ne modifie ni les données de public.docs ni les policies RLS.
+   ================================================================ */
+(function () {
+  'use strict';
+
+  function el(id){ return document.getElementById(id); }
+  function norm(v){ return String(v || '').trim().toLowerCase(); }
+
+  function setLoginError(msg){
+    var e=el('login-error');
+    if(e){ e.textContent=msg; e.style.display='block'; }
+    var b=document.querySelector('.login-btn');
+    if(b){ b.disabled=false; b.textContent='Se connecter →'; }
+  }
+
+  function openWorkspace(u){
+    if(!u) throw new Error('Profil utilisateur introuvable.');
+
+    /* Maintenir le modèle utilisateur existant de Perroquet. */
+    try{
+      if(typeof DB!=='undefined' && Array.isArray(DB.users)){
+        var id=norm(u.login), i=DB.users.findIndex(function(x){return norm(x.login)===id;});
+        if(i>=0) DB.users[i]=Object.assign({},DB.users[i],u);
+        else DB.users.push(u);
+      }
+    }catch(e){ console.warn('[PGNEP] mise à jour DB locale:',e); }
+
+    currentUser={
+      login:u.login,
+      nom:u.nom || u.login,
+      role:u.role || 'lecteur',
+      email:u.email || (u.login+'@pgnep-menaet.ci'),
+      uid:u.uid || null
+    };
+
+    if(typeof clearAttempts==='function') clearAttempts(u.login);
+    if(typeof resetSessionTimer==='function') resetSessionTimer();
+
+    var login=el('login-screen'), app=el('app'), splash=el('firebase-splash');
+    if(login){ login.style.display='none'; login.style.visibility='hidden'; }
+    if(splash){ splash.classList.remove('visible'); splash.style.display='none'; }
+    if(app){ app.style.display=''; app.classList.add('visible'); }
+
+    try{ if(typeof applyRoleUI==='function') applyRoleUI(); }catch(e){
+      console.warn('[PGNEP] applyRoleUI:',e);
+    }
+
+    /* Toujours afficher le tableau de bord après une connexion réussie. */
+    try{ if(typeof showPage==='function') showPage('dashboard'); }catch(e){
+      var p=el('page-dashboard'); if(p) p.classList.add('active');
+    }
+
+    try{ if(typeof initApp==='function') initApp(); }catch(e){
+      console.warn('[PGNEP] initApp:',e);
+    }
+
+    try{
+      if(typeof showNotif==='function')
+        showNotif('👋 Bienvenue, '+(u.nom||u.login), 'success');
+    }catch(e){}
+  }
+
+  function timeout(p,ms){
+    return Promise.race([
+      p,
+      new Promise(function(_,rej){
+        setTimeout(function(){ rej(new Error('Délai dépassé : Supabase ne répond pas.')); },ms);
+      })
+    ]);
+  }
+
+  async function getSupabaseProfile(loginId, fallback){
+    var idn=norm(loginId);
+    var d=(typeof DB!=='undefined')?DB:null;
+
+    /* 1. Chercher dans les données déjà chargées. */
+    var local=(d&&Array.isArray(d.users)) ?
+      d.users.find(function(x){return norm(x.login)===idn;}) : null;
+
+    /* 2. Si une session Supabase existe, récupérer le profil depuis docs. */
+    if(window.PGSB && typeof window.PGSB.client!=='undefined' && window.PGSB.client){
+      try{
+        var c=window.PGSB.client;
+        var r=await c.from('docs').select('id,data').eq('col','users').eq('id',idn).maybeSingle();
+        if(!r.error && r.data){
+          return Object.assign({},r.data.data||{}, {id:r.data.id, login:(r.data.data&&r.data.data.login)||idn});
+        }
+      }catch(e){ console.warn('[PGNEP] lecture profil Supabase:',e); }
+    }
+
+    return local || fallback || null;
+  }
+
+  async function supabaseLogin(loginId, pass){
+    var idn=norm(loginId);
+    if(!idn || !pass) throw new Error('Identifiant et mot de passe obligatoires.');
+
+    if(!window.PGSB || !window.PGSB.active){
+      /* Si Supabase n'est pas actif, conserver l'ancien système. */
+      if(typeof window.__pgnepOriginalDoLogin==='function')
+        return window.__pgnepOriginalDoLogin(loginId,pass);
+      throw new Error('La connexion Supabase n’est pas activée.');
+    }
+
+    if(!window._fb || typeof window._fb.signIn!=='function')
+      throw new Error('Module Supabase non initialisé.');
+
+    var email=idn+'@pgnep-menaet.ci';
+    var fallback=null;
+
+    /* Récupérer le profil local avant authentification. */
+    try{
+      var d=(typeof DB!=='undefined')?DB:null;
+      fallback=d&&Array.isArray(d.users)?
+        d.users.find(function(x){return norm(x.login)===idn;}) : null;
+      if(fallback && fallback.email) email=fallback.email;
+    }catch(e){}
+
+    /* A. Essai normal : Supabase Auth. */
+    var authError=null;
+    try{
+      await timeout(window._fb.signIn(email,pass),12000);
+    }catch(e){ authError=e; }
+
+    /*
+      B. Transition des anciens comptes :
+      check_login valide le couple identifiant/mot de passe existant.
+      Si valide, on crée le compte Supabase Auth puis on se reconnecte.
+    */
+    if(authError){
+      var validated=null;
+
+      try{
+        var c=await (async function(){
+          for(var i=0;i<100;i++){
+            if(window.PGSB && window.PGSB.client) return window.PGSB.client;
+            await new Promise(function(r){setTimeout(r,100);});
+          }
+          throw new Error('Client Supabase non initialisé.');
+        })();
+        var enc='';
+        try{ enc=btoa(unescape(encodeURIComponent(pass))); }
+        catch(e){ enc=btoa(pass); }
+
+        var chk=await timeout(
+          c.rpc('check_login',{p_login:idn,p_pass:enc}),
+          8000
+        );
+
+        if(!chk.error && chk.data){
+          validated=(typeof chk.data==='object' ? chk.data : null);
+        }
+      }catch(e){
+        console.warn('[PGNEP] check_login:',e);
+      }
+
+      if(!validated){
+        throw authError;
+      }
+
+      /* Le compte Auth n'existe probablement pas encore. */
+      try{
+        await timeout(
+          window._fb.createUser(email,pass),
+          12000
+        );
+      }catch(e){
+        /* "already registered" est acceptable : on tente simplement signIn. */
+        console.warn('[PGNEP] signUp transition:',e);
+      }
+
+      try{
+        await timeout(window._fb.signIn(email,pass),12000);
+      }catch(e){
+        throw new Error(
+          'Compte validé mais session Supabase impossible. '+
+          'Vérifiez dans Supabase → Authentication → Providers → Email '+
+          'que la confirmation d’e-mail est désactivée, puis réessayez.'
+        );
+      }
+
+      fallback=Object.assign({},fallback||{},validated,{
+        login:idn,
+        email:email
+      });
+    }
+
+    /* C. Vérifier que la session Supabase est réellement ouverte. */
+    var c2=await (async function(){
+      for(var j=0;j<100;j++){
+        if(window.PGSB && window.PGSB.client) return window.PGSB.client;
+        await new Promise(function(r){setTimeout(r,100);});
+      }
+      throw new Error('Client Supabase non initialisé.');
+    })();
+    var sess=await c2.auth.getSession();
+    if(!sess || !sess.data || !sess.data.session){
+      throw new Error('Authentification Supabase réussie mais aucune session n’est ouverte.');
+    }
+
+    /* D. Charger les données de Supabase maintenant que RLS autorise authenticated. */
+    try{
+      if(typeof window._loadFirebaseDB==='function'){
+        await timeout(window._loadFirebaseDB(),15000);
+      }
+    }catch(e){
+      console.warn('[PGNEP] chargement des données après connexion:',e);
+    }
+
+    var profile=await getSupabaseProfile(idn,fallback);
+    if(!profile){
+      throw new Error('Compte authentifié, mais profil Perroquet introuvable dans docs (col="users").');
+    }
+
+    profile.login=profile.login||idn;
+    profile.email=profile.email||email;
+    openWorkspace(profile);
+    return true;
+  }
+
+  /*
+    Remplacement final de doLogin.
+    Ce correctif est placé en dernier dans le fichier : il passe donc
+    avant les anciens wrappers de diagnostic et évite les doubles appels.
+  */
+  window.__pgnepOriginalDoLogin=window.doLogin;
+
+  window.doLogin=function(){
+    var loginEl=el('login-user'), passEl=el('login-pass');
+    var login=norm(loginEl&&loginEl.value), pass=passEl?passEl.value:'';
+
+    if(!login || !pass){
+      setLoginError('Champs obligatoires.');
+      return;
+    }
+
+    if(typeof isLocked==='function' && isLocked(login)){
+      var mins=typeof getRemainingLockTime==='function'?getRemainingLockTime(login):15;
+      setLoginError('🔒 Compte verrouillé — réessayez dans '+mins+' minute(s).');
+      return;
+    }
+
+    var btn=document.querySelector('.login-btn');
+    if(btn){btn.disabled=true;btn.textContent='⏳ Connexion…';}
+    var err=el('login-error'); if(err)err.style.display='none';
+
+    supabaseLogin(login,pass).catch(function(e){
+      console.error('[PGNEP] connexion:',e);
+      if(typeof recordFailedAttempt==='function') recordFailedAttempt(login);
+      var detail=(e&&e.message)?e.message:String(e);
+      setLoginError('⚠️ '+detail);
+      if(passEl) passEl.value='';
+    }).finally(function(){
+      var b=document.querySelector('.login-btn');
+      if(b && !(typeof currentUser!=='undefined' && currentUser)){
+        b.disabled=false; b.textContent='Se connecter →';
+      }
+    });
+  };
+
+  /* Le bouton HTML utilise parfois onclick="doLogin()" : la fonction globale
+     ci-dessus est donc suffisante. */
+  console.log('✅ PGNEP : correctif final de connexion Supabase chargé');
+})();
+</script>
+
 </body>
 </html>
