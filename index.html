@@ -23871,5 +23871,477 @@ console.log('✅ PGNEP : module « Carte d’identité scolaire » chargé');
 
 </script>
 
+
+<!-- ══ MODULE ADDITIF : ORGANISATION DES CLASSES (simple · jumelée · double vacation · double flux) — retirer ce bloc pour revenir à l'état précédent ══ -->
+<style id="pgnep-org-classes-css">
+/* ══ Organisation des classes (module additif) ══ */
+.org-box{border:1.5px solid #FED7AA;background:linear-gradient(180deg,#FFF7ED,#FFFBF5);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:9px;min-width:0;}
+.org-t{font-size:13px;font-weight:800;color:#9A3412;}
+.org-f{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.org-f>span{font-size:11.5px;font-weight:700;color:#475569;}
+.org-f select,.org-f input{width:100%;padding:9px;border:1px solid var(--border,#E5E7EB);border-radius:8px;font-size:13px;background:#fff;min-width:0;}
+.org-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;}
+.org-hint{font-size:11.5px;line-height:1.45;color:#7C2D12;background:#FFEDD5;border-radius:8px;padding:7px 10px;}
+.org-wide{grid-column:1/-1;}
+.org-sub{font-size:10px;color:#64748B;margin-top:2px;line-height:1.3;}
+.org-tag{display:inline-block;background:#FFEDD5;color:#9A3412;border-radius:6px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px;white-space:nowrap;}
+#org-level-switch{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;padding:10px 12px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;}
+.org-chip{background:linear-gradient(110deg,#F77F00,#009E60);color:#fff;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:800;}
+.org-chip.alt{background:#fff;color:#9A3412;border:1px solid #FDBA74;}
+.org-lbl{font-size:12px;font-weight:700;color:#475569;margin-left:6px;}
+.org-lv{border:1.5px solid #CBD5E1;background:#fff;border-radius:8px;padding:5px 14px;font-weight:800;font-size:12.5px;cursor:pointer;}
+.org-lv.on{background:#009E60;border-color:#009E60;color:#fff;}
+.org-note{flex:1 1 260px;font-size:11px;color:#64748B;}
+</style>
+<script id="pgnep-org-classes">
+(function(){
+'use strict';
+if(window.__orgClassesLoaded) return; window.__orgClassesLoaded=true;
+
+/* ══════════════════════════════════════════════════════════════════════
+   ORGANISATION DES CLASSES — module additif unique
+   4 types : simple/normale · jumelée · double vacation · double flux
+   Modèle (sur le compte du maître) : org_type, classes_val[], nom_classe,
+   salle, groupe_val, horaires, autre_enseignant. structure_val reste le
+   niveau principal → compatible avec tout le code existant.
+   Élève : champ facultatif « groupe » (vacation / flux).
+   ══════════════════════════════════════════════════════════════════════ */
+var LV=['CP1','CP2','CE1','CE2','CM1','CM2'];
+var TYPES={simple:'Classe simple ou normale',jumelee:'Classe jumelée',double_vacation:'Double vacation',double_flux:'Double flux'};
+var SHORT={simple:'Simple',jumelee:'Jumelée',double_vacation:'Double vacation',double_flux:'Double flux'};
+var GROUPES={double_vacation:['Matin','Après-midi'],double_flux:['Flux A','Flux B']};
+var HINT={
+  simple:'Un seul niveau dans la classe (CP1 seul, CE1 seul, CM2 seul…). Type standard : un maître par classe.',
+  jumelee:'Deux niveaux réunis dans une même salle avec un seul maître (ex. CP1–CP2). Les élèves restent classés par niveau : notes, rangs et bulletins se font par niveau.',
+  double_vacation:'Deux groupes se partagent la même salle à des moments différents (matin / après-midi). Chaque maître est rattaché à sa vacation.',
+  double_flux:'Deux groupes distincts d’un même niveau suivent les cours à des horaires différents. Précisez le flux, les horaires et l’autre enseignant.'
+};
+
+/* ───────── utilitaires ───────── */
+function $(id){return document.getElementById(id);}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function val(id){var e=$(id);return e?String(e.value||'').trim():'';}
+function dbo(){return (typeof DB!=='undefined')?DB:{users:[],eleves:[],ecoles:[]};}
+function cuser(){ try{ return (typeof getCurrentUserData==='function'&&getCurrentUserData())||null; }catch(e){ return null; } }
+function isTeacher(u){return !!u&&(u.role==='instituteur'||u.role==='benevole');}
+function orgType(u){return (u&&u.org_type&&TYPES[u.org_type])?u.org_type:'simple';}
+function needsOrg(u){return orgType(u)!=='simple';}
+function levels(u){
+  if(!u) return [];
+  if(orgType(u)==='jumelee'&&Array.isArray(u.classes_val)&&u.classes_val.length) return u.classes_val.filter(Boolean);
+  return u.structure_val?[u.structure_val]:[];
+}
+function rid(v){ try{ return (typeof resolveEcoleId==='function')?resolveEcoleId(v):v; }catch(e){ return v; } }
+function sameEcole(u,eid){ return rid(u.ecole_val)===eid||u.ecole_val===eid; }
+function levelLabel(u){ var l=levels(u); return orgType(u)==='jumelee'?l.join('–'):(u.structure_val||'—'); }
+function fullLabel(u){ var t=orgType(u); return levelLabel(u)+(t==='simple'?'':' · '+SHORT[t]+((t!=='jumelee'&&u.groupe_val)?' '+u.groupe_val:'')); }
+function eleveVisible(u,e){
+  if(!e||e.ecole_id!==rid(u.ecole_val)) return false;
+  if(levels(u).indexOf(e.classe)<0) return false;
+  var t=orgType(u);
+  if((t==='double_vacation'||t==='double_flux')&&u.groupe_val&&e.groupe&&e.groupe!==u.groupe_val) return false;
+  return true;
+}
+function persistUser(u){
+  try{ if(typeof save==='function') save('users'); }catch(e){}
+  try{ if(window._firebaseReady&&window._fb) window._fb.set('users',u.login,u).catch(function(){}); }catch(e){}
+}
+function findUser(login){ return dbo().users.find(function(u){return u.login===login;})||null; }
+function wrapFn(name,make){
+  var o=window[name]; if(typeof o!=='function'||o.__org) return false;
+  var w=make(o); w.__org=true; window[name]=w; return true;
+}
+
+/* ───────── bloc de formulaire « Organisation de la classe » ───────── */
+function blockHTML(p){
+  return '<div class="org-box" id="'+p+'-org" style="display:none;">'+
+    '<div class="org-t">🏫 Organisation de la classe</div>'+
+    '<label class="org-f"><span>Type d’organisation</span><select id="'+p+'-org-type" onchange="orgToggle(\''+p+'\')">'+
+      Object.keys(TYPES).map(function(k){return '<option value="'+k+'">'+TYPES[k]+'</option>';}).join('')+'</select></label>'+
+    '<div class="org-hint" id="'+p+'-org-hint"></div>'+
+    '<div class="org-row">'+
+      '<label class="org-f"><span>Nom de la classe</span><input type="text" id="'+p+'-org-nom" placeholder="Ex : CP1 A"></label>'+
+      '<label class="org-f"><span>Salle</span><input type="text" id="'+p+'-org-salle" placeholder="Ex : Salle 3"></label>'+
+    '</div>'+
+    '<label class="org-f" id="'+p+'-org-jum"><span>Second niveau (jumelé avec le niveau choisi plus haut)</span><select id="'+p+'-org-n2"><option value="">— Choisir —</option>'+LV.map(function(l){return '<option>'+l+'</option>';}).join('')+'</select></label>'+
+    '<div id="'+p+'-org-grp">'+
+      '<div class="org-row">'+
+        '<label class="org-f"><span id="'+p+'-org-grp-l">Vacation</span><select id="'+p+'-org-g"></select></label>'+
+        '<label class="org-f"><span>Horaires</span><input type="text" id="'+p+'-org-hor" placeholder="Ex : 07h30 – 12h30"></label>'+
+      '</div>'+
+      '<label class="org-f"><span>Enseignant de l’autre groupe</span><input type="text" id="'+p+'-org-autre" placeholder="Nom de l’autre maître (facultatif)"></label>'+
+    '</div></div>';
+}
+window.orgToggle=function(p){
+  var t=val(p+'-org-type')||'simple';
+  var show=function(id,on){var e=$(id);if(e)e.style.display=on?'':'none';};
+  show(p+'-org-jum',t==='jumelee');
+  show(p+'-org-grp',t==='double_vacation'||t==='double_flux');
+  var h=$(p+'-org-hint'); if(h) h.textContent=HINT[t]||'';
+  if(GROUPES[t]){
+    var g=$(p+'-org-g'),cur=g.value; g.innerHTML='<option value="">— Choisir —</option>'+GROUPES[t].map(function(x){return '<option>'+x+'</option>';}).join(''); if(cur&&GROUPES[t].indexOf(cur)>=0) g.value=cur;
+    var l=$(p+'-org-grp-l'); if(l) l.textContent=(t==='double_vacation')?'Vacation':'Flux';
+  }
+};
+function orgFill(p,u){
+  var t=u?orgType(u):'simple';
+  $(p+'-org-type').value=t; window.orgToggle(p);
+  $(p+'-org-nom').value=(u&&u.nom_classe)||''; $(p+'-org-salle').value=(u&&u.salle)||'';
+  var lv=u?levels(u):[]; $(p+'-org-n2').value=(t==='jumelee'&&lv.length>1)?lv.filter(function(x){return x!==u.structure_val;})[0]||lv[1]:'';
+  $(p+'-org-g').value=(u&&u.groupe_val)||''; $(p+'-org-hor').value=(u&&u.horaires)||''; $(p+'-org-autre').value=(u&&u.autre_enseignant)||'';
+}
+function orgShow(p,on){ var b=$(p+'-org'); if(b) b.style.display=on?'':'none'; }
+function orgRead(p,lvl1){
+  var t=val(p+'-org-type')||'simple',d={org_type:t,nom_classe:val(p+'-org-nom'),salle:val(p+'-org-salle')};
+  if(t==='jumelee'){
+    var n2=val(p+'-org-n2');
+    if(!n2) return {error:'Classe jumelée : choisissez le second niveau.'};
+    if(n2===lvl1) return {error:'Classe jumelée : les deux niveaux doivent être différents.'};
+    d.classes_val=[lvl1,n2].sort(function(a,b){return LV.indexOf(a)-LV.indexOf(b);});
+  } else d.classes_val=[lvl1];
+  if(t==='double_vacation'||t==='double_flux'){
+    d.groupe_val=val(p+'-org-g');
+    if(!d.groupe_val) return {error:(t==='double_vacation'?'Double vacation : choisissez la vacation (Matin / Après-midi).':'Double flux : choisissez le flux (A / B).')};
+    d.horaires=val(p+'-org-hor'); d.autre_enseignant=val(p+'-org-autre');
+  }
+  return {data:d};
+}
+function orgApply(u,d){
+  u.org_type=d.org_type; u.classes_val=d.classes_val; u.nom_classe=d.nom_classe||''; u.salle=d.salle||'';
+  if(d.org_type==='double_vacation'||d.org_type==='double_flux'){ u.groupe_val=d.groupe_val; u.horaires=d.horaires||''; u.autre_enseignant=d.autre_enseignant||''; }
+  else { delete u.groupe_val; delete u.horaires; delete u.autre_enseignant; }
+}
+
+/* ───────── 1) Formulaire « Comptes » ───────── */
+function installCompte(){
+  var host=$('field-classe'); if(!host||$('cmp-org')) return !!$('cmp-org');
+  var d=document.createElement('div'); d.innerHTML=blockHTML('cmp'); host.parentNode.insertBefore(d.firstChild,host.nextSibling);
+  window.orgToggle('cmp'); syncCompte();
+  var r=$('new-role'); if(r) r.addEventListener('change',syncCompte);
+  return true;
+}
+function syncCompte(){ var r=val('new-role'); orgShow('cmp',r==='instituteur'||r==='benevole'); }
+function wrapCompte(){
+  wrapFn('updateStructureFields',function(o){return function(){var x=o.apply(this,arguments);try{syncCompte();}catch(e){}return x;};});
+  wrapFn('resetCompteForm',function(o){return function(){var x=o.apply(this,arguments);try{orgFill('cmp',null);syncCompte();}catch(e){}return x;};});
+  wrapFn('editCompte',function(o){return function(login){var x=o.apply(this,arguments);try{var u=findUser(login);syncCompte();if(u&&isTeacher(u)){var s=$('new-classe-user');if(s&&u.structure_val)s.value=u.structure_val;orgFill('cmp',u);}}catch(e){}return x;};});
+  wrapFn('saveCompte',function(o){return function(){
+    var role=val('new-role'),teacher=(role==='instituteur'||role==='benevole'),data=null,errEl=$('compte-error');
+    var orig=null;try{orig=editingLoginOrig;}catch(e){}
+    var login=val('new-login').toLowerCase();
+    if(teacher){ var r=orgRead('cmp',val('new-classe-user')); if(r.error){ if(errEl){errEl.textContent=r.error;errEl.style.display='block';} return; } data=r.data; }
+    var after=function(){ if(!teacher||!data) return; if(errEl&&errEl.style.display==='block') return; var u=findUser(orig||login); if(u&&isTeacher(u)){ orgApply(u,data); persistUser(u); try{ if(typeof renderUsersList==='function') renderUsersList(); }catch(e){} } };
+    var x=o.apply(this,arguments);
+    if(x&&typeof x.then==='function') return x.then(function(v){after();return v;});
+    after(); return x;
+  };});
+}
+
+/* ───────── 2) Dialogue Super Admin « Créer un compte » ───────── */
+function wrapSA(){
+  var sync=function(){ var t=val('sa-type'); orgShow('sa',t==='instituteur'||t==='benevole'); };
+  var ensure=function(){ var host=$('sa-field-classe'); if(!host||$('sa-org')) return; var d=document.createElement('div'); d.innerHTML=blockHTML('sa'); host.parentNode.insertBefore(d.firstChild,host.nextSibling); window.orgToggle('sa'); };
+  wrapFn('openSaCompteModal',function(o){return function(){var x=o.apply(this,arguments);try{ensure();orgFill('sa',null);sync();}catch(e){}return x;};});
+  wrapFn('saTypeChange',function(o){return function(){var x=o.apply(this,arguments);try{ensure();sync();}catch(e){}return x;};});
+  wrapFn('saveSaCompte',function(o){return function(){
+    var role=val('sa-type'),teacher=(role==='instituteur'||role==='benevole'),data=null,login=val('sa-login').toLowerCase();
+    if(teacher&&$('sa-org')){ var r=orgRead('sa',val('sa-classe')); if(r.error){ var er=$('sa-error'); if(er){er.textContent=r.error;er.style.display='block';} return; } data=r.data; }
+    var x=o.apply(this,arguments);
+    if(data){ var u=findUser(login); if(u&&isTeacher(u)){ orgApply(u,data); persistUser(u); try{ if(typeof renderUsersList==='function') renderUsersList(); }catch(e){} } }
+    return x;
+  };});
+}
+
+/* ───────── 3) Espace Directeur « Ajouter / modifier un enseignant » ───────── */
+function wrapDens(){
+  wrapFn('densShowForm',function(o){return function(login){
+    var x=o.apply(this,arguments);
+    try{ var grid=document.querySelector('#dens-form-host .dens-grid'); if(grid&&!$('dens-org')){ var d=document.createElement('div'); d.className='fld org-wide'; d.innerHTML=blockHTML('dens'); grid.appendChild(d); window.orgToggle('dens'); orgShow('dens',true);
+        var b=$('dens-org'); if(b) b.style.display=''; var role=$('dens-role'); orgFill('dens',login?findUser(login):null); } }catch(e){ console.error(e); }
+    return x;
+  };});
+  wrapFn('densSave',function(o){return async function(orig){
+    var data=null,login=val('dens-login');
+    if($('dens-org')){ var r=orgRead('dens',val('dens-classe')); if(r.error){ alert(r.error); return; } data=r.data; }
+    var x=await o.apply(this,arguments);
+    if(data){ var u=findUser(orig||login); if(u&&isTeacher(u)){ orgApply(u,data); persistUser(u); try{ if(typeof espRenderDirEns==='function') espRenderDirEns(); }catch(e){} } }
+    return x;
+  };});
+}
+
+/* ───────── 4) Portée des élèves (saisie des notes, bulletins, listes…) ───────── */
+function wrapScope(){
+  wrapFn('getScopeEleves',function(o){return function(){
+    var u=cuser();
+    if(u&&isTeacher(u)&&needsOrg(u)){ return dbo().eleves.filter(function(e){return eleveVisible(u,e);}); }
+    return o.apply(this,arguments);
+  };});
+  wrapFn('canDeleteEleveRecord',function(o){return function(e){
+    var r=o.apply(this,arguments); if(r) return r;
+    var u=cuser(); if(u&&isTeacher(u)&&needsOrg(u)&&typeof canDelete==='function'&&canDelete()) return eleveVisible(u,e);
+    return r;
+  };});
+  wrapFn('deleteNote',function(o){return function(id){
+    var u=cuser(),note=u&&isTeacher(u)&&needsOrg(u)?dbo().notes.find(function(n){return n.id===id;}):null;
+    if(note&&levels(u).indexOf(note.classe)>=0&&note.classe!==u.structure_val){ var keep=u.structure_val; u.structure_val=note.classe; try{ return o.apply(this,arguments); } finally{ u.structure_val=keep; } }
+    return o.apply(this,arguments);
+  };});
+  wrapFn('saveImport',function(o){return function(){
+    var u=cuser();
+    if(u&&isTeacher(u)&&orgType(u)==='jumelee'){
+      try{ importedEleves.forEach(function(e){ if(levels(u).indexOf(e.classe)<0) e.classe=levels(u)[0]; }); }catch(e){}
+      var keep=u.structure_val; u.structure_val=''; try{ return o.apply(this,arguments); } finally{ u.structure_val=keep; }
+    }
+    return o.apply(this,arguments);
+  };});
+  wrapFn('getStructureLabel',function(o){return function(u){
+    var s=o.apply(this,arguments);
+    try{ if(u&&isTeacher(u)&&needsOrg(u)&&u.structure_type==='classe'){ return s.replace('Classe '+(u.structure_val||'—'),'Classe '+fullLabel(u)); } }catch(e){}
+    return s;
+  };});
+}
+
+/* ───────── 5) Fiche élève : niveau (jumelée) + groupe (vacation / flux) ───────── */
+function groupOptions(u){
+  var eid=null,opts=[];
+  if(u&&isTeacher(u)){ var t=orgType(u); return GROUPES[t]||[]; }
+  try{ eid=(typeof espMyEcoleId==='function')?espMyEcoleId():null; }catch(e){}
+  var seen={}; dbo().users.forEach(function(x){ if(isTeacher(x)&&needsOrg(x)&&(!eid||sameEcole(x,eid))&&GROUPES[orgType(x)]){ GROUPES[orgType(x)].forEach(function(g){ if(!seen[g]){seen[g]=1;opts.push(g);} }); } });
+  return opts;
+}
+function ensureGroupField(){
+  var modal=$('modal-eleve'); if(!modal) return null; var f=$('e-groupe'); if(f) return f;
+  var grid=modal.querySelector('.form-grid'); if(!grid) return null;
+  var d=document.createElement('div'); d.className='form-group'; d.id='fg-e-groupe'; d.style.display='none';
+  d.innerHTML='<label class="form-field"><label>Groupe (double vacation / double flux)</label><select id="e-groupe" class="filter-select" style="width:100%;padding:9px;"><option value="">— Non précisé —</option></select></label>';
+  grid.appendChild(d); return $('e-groupe');
+}
+function prepEleveForm(editing){
+  var u=cuser(), g=ensureGroupField(), box=$('fg-e-groupe'), cl=$('e-classe');
+  if(g){ var opts=groupOptions(u); g.innerHTML='<option value="">— Non précisé —</option>'+opts.map(function(x){return '<option>'+x+'</option>';}).join(''); if(box) box.style.display=opts.length?'':'none'; if(!editing) g.value=(u&&isTeacher(u)&&u.groupe_val)?u.groupe_val:''; }
+  if(cl&&u&&isTeacher(u)&&needsOrg(u)){
+    var lv=levels(u); Array.prototype.forEach.call(cl.options,function(o){ var ok=lv.indexOf(o.value)>=0; o.hidden=!ok; o.disabled=!ok; });
+    if(!editing||lv.indexOf(cl.value)<0) cl.value=lv[0]||cl.value;
+  }
+}
+function wrapEleve(){
+  wrapFn('openAddEleve',function(o){return function(){var x=o.apply(this,arguments);try{prepEleveForm(false);}catch(e){console.error(e);}return x;};});
+  wrapFn('editEleve',function(o){return function(idx){
+    var x=o.apply(this,arguments);
+    try{ prepEleveForm(true); var g=$('e-groupe'),e=dbo().eleves[idx]; if(g&&e) g.value=e.groupe||''; }catch(er){ console.error(er); }
+    return x;
+  };});
+  wrapFn('saveEleve',function(o){return function(){
+    var u=cuser(),chosen=val('e-classe'),grp=val('e-groupe'),hasG=!!$('e-groupe')&&($('fg-e-groupe')||{style:{}}).style.display!=='none';
+    var idx=null;try{idx=editingEleveIdx;}catch(e){}
+    var before=dbo().eleves.length, x=o.apply(this,arguments);
+    try{
+      var m=$('modal-eleve'); if(m&&m.classList.contains('active')) return x;            /* validation refusée */
+      var rec=(idx!==null&&idx!==undefined)?dbo().eleves[idx]:(dbo().eleves.length>before?dbo().eleves[0]:null); if(!rec) return x;
+      var ch=false;
+      if(u&&isTeacher(u)&&needsOrg(u)&&levels(u).indexOf(chosen)>=0&&rec.classe!==chosen){ rec.classe=chosen; ch=true; }
+      if(hasG&&(rec.groupe||'')!==grp){ if(grp) rec.groupe=grp; else delete rec.groupe; ch=true; }
+      if(ch){ if(typeof save==='function') save('eleves'); try{ if(window._firebaseReady&&window._fb) window._fb.set('eleves',rec.id,rec).catch(function(){}); }catch(e){} try{ if(typeof renderEleves==='function') renderEleves(); }catch(e){} }
+    }catch(er){ console.error(er); }
+    return x;
+  };});
+}
+
+/* ───────── 6) Espace Maître : niveau actif (classe jumelée) ───────── */
+function activeKey(u){return 'pgnep_org_niveau_'+u.login;}
+function activeLevel(u){ var lv=levels(u),a=null; try{a=localStorage.getItem(activeKey(u));}catch(e){} return lv.indexOf(a)>=0?a:lv[0]; }
+function renderSwitch(){
+  var bar=$('esp-tabbar-maitre'); if(!bar) return; var host=$('org-level-switch'); var u=(typeof espCU==='function')?espCU():cuser();
+  if(!(u&&isTeacher(u)&&needsOrg(u))){ if(host) host.remove(); return; }
+  if(!host){ host=document.createElement('div'); host.id='org-level-switch'; bar.parentNode.insertBefore(host,bar); }
+  var t=orgType(u),h='<span class="org-chip">🧩 '+esc(TYPES[t])+' · '+esc(levelLabel(u))+'</span>';
+  if(u.nom_classe) h+='<span class="org-chip alt">'+esc(u.nom_classe)+'</span>';
+  if(u.salle) h+='<span class="org-chip alt">🚪 '+esc(u.salle)+'</span>';
+  if(t!=='jumelee'){ if(u.groupe_val) h+='<span class="org-chip alt">⏱ '+esc(u.groupe_val)+(u.horaires?' · '+esc(u.horaires):'')+'</span>'; }
+  else { var a=activeLevel(u); h+='<span class="org-lbl">Niveau actif :</span>'+levels(u).map(function(l){return '<button type="button" class="org-lv'+(l===a?' on':'')+'" onclick="orgSetNiveau(\''+l+'\')">'+l+'</button>';}).join('')+'<span class="org-note">Le cahier d’appel et les statistiques couvrent les deux niveaux ; fiches, journal et évaluations suivent le niveau actif.</span>'; }
+  host.innerHTML=h;
+}
+window.orgSetNiveau=function(l){
+  var u=(typeof espCU==='function')?espCU():cuser(); if(!u||levels(u).indexOf(l)<0) return;
+  try{localStorage.setItem(activeKey(u),l);}catch(e){}
+  renderSwitch();
+  try{ if(typeof espSetMaitreSub==='function') espSetMaitreSub(); }catch(e){}
+  var act=document.querySelector('#esp-tabbar-maitre .esp-tab.active'); if(act&&typeof switchEspTab==='function') switchEspTab('maitre',act.getAttribute('data-tab'));
+};
+function wrapMaitre(){
+  wrapFn('espMyClasse',function(o){return function(){
+    var u=(typeof espCU==='function')?espCU():null;
+    if(u&&isTeacher(u)&&orgType(u)==='jumelee') return activeLevel(u);
+    return o.apply(this,arguments);
+  };});
+  wrapFn('espMyEleves',function(o){return function(){
+    var u=(typeof espCU==='function')?espCU():null;
+    if(u&&isTeacher(u)&&needsOrg(u)) return (typeof getScopeEleves==='function')?getScopeEleves():[];
+    return o.apply(this,arguments);
+  };});
+  wrapFn('catScopeNiveau',function(o){return function(){
+    var u=(typeof espCU==='function')?espCU():null;
+    if(u&&isTeacher(u)&&orgType(u)==='jumelee') return activeLevel(u);
+    return o.apply(this,arguments);
+  };});
+  wrapFn('espSetMaitreSub',function(o){return function(){
+    var x=o.apply(this,arguments);
+    try{ var u=espCU(),el=$('esp-maitre-sub'); if(el&&u&&isTeacher(u)&&needsOrg(u)) el.textContent='Classe '+fullLabel(u)+' — '+espEcoleNom(espMyEcoleId()); }catch(e){}
+    return x;
+  };});
+  var after=function(name){ wrapFn(name,function(o){return function(pageKey){var x=o.apply(this,arguments);try{ if(pageKey==='maitre'){renderSwitch();} }catch(e){}return x;};}); };
+  after('switchEspTab'); after('goEsp');
+}
+
+/* ───────── 7) Listes : affichage du type d'organisation ───────── */
+function small(t){return '<small class="org-tag">'+esc(t)+'</small>';}
+function patchUsersList(){
+  var root=$('users-list'); if(!root) return;
+  root.querySelectorAll('tbody tr').forEach(function(tr){
+    var sub=tr.querySelector('td div'); if(!sub) return; var login=((sub.childNodes[0]&&sub.childNodes[0].nodeValue)||'').replace(/^@/,'').trim(); var u=findUser(login);
+    if(!u||!isTeacher(u)||!(needsOrg(u)||u.nom_classe||u.salle)) return;
+    var td=tr.children[2]; if(!td) return;
+    td.innerHTML='<span style="background:var(--bleu-light);color:var(--bleu);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">'+esc(levelLabel(u))+'</span>'+
+      (needsOrg(u)?'<div class="org-sub">'+esc(SHORT[orgType(u)])+(u.groupe_val?' · '+esc(u.groupe_val):'')+'</div>':'')+
+      ((u.nom_classe||u.salle)?'<div class="org-sub">'+esc([u.nom_classe,u.salle].filter(Boolean).join(' · '))+'</div>':'');
+  });
+}
+function patchDens(){
+  var t=$('dens-tab'); if(!t) return;
+  t.querySelectorAll('tbody tr').forEach(function(tr){
+    var s=tr.querySelector('.ptg-sub'); if(!s) return; var u=findUser((s.textContent||'').trim()); if(!u||!isTeacher(u)) return;
+    var td=tr.children[1]; if(!td) return;
+    if(needsOrg(u)||u.nom_classe||u.salle) td.innerHTML='<span class="badge badge-bleu">'+esc(levelLabel(u))+'</span>'+(needsOrg(u)?'<div class="org-sub">'+esc(SHORT[orgType(u)])+(u.groupe_val?' · '+esc(u.groupe_val):'')+(u.horaires?' · '+esc(u.horaires):'')+'</div>':'')+((u.nom_classe||u.salle)?'<div class="org-sub">'+esc([u.nom_classe,u.salle].filter(Boolean).join(' · '))+'</div>':'');
+  });
+}
+function patchLevelRows(rootId){
+  var root=$(rootId); if(!root) return; var eid=null; try{eid=espMyEcoleId();}catch(e){} if(!eid) return;
+  var ens=dbo().users.filter(function(u){return isTeacher(u)&&sameEcole(u,eid);});
+  root.querySelectorAll('tbody tr').forEach(function(tr){
+    var b=tr.querySelector('td .badge'); if(!b) return; var cl=(b.textContent||'').trim(); if(LV.indexOf(cl)<0) return;
+    var list=ens.filter(function(u){return levels(u).indexOf(cl)>=0;}); if(!list.length) return;
+    var td=tr.children[1]; if(!td) return;
+    td.innerHTML=list.map(function(u){
+      var t=orgType(u),tag='';
+      if(t==='jumelee') tag=' '+small('jumelée '+levels(u).join('–'));
+      else if(t!=='simple') tag=' '+small(SHORT[t]+(u.groupe_val?' · '+u.groupe_val:''));
+      return esc(u.nom)+tag; }).join(', ');
+  });
+}
+function patchCF(){
+  var t=$('cf-maitres-tab'); if(!t) return;
+  t.querySelectorAll('tbody tr').forEach(function(tr){
+    var c=tr.querySelector('code'); if(!c) return; var u=findUser((c.textContent||'').trim()); if(!u||!isTeacher(u)||!needsOrg(u)) return;
+    var cells=tr.children; if(cells.length<5) return;
+    cells[2].innerHTML='<span class="badge badge-vert">'+esc(levelLabel(u))+'</span>'+'<div class="org-sub">'+esc(SHORT[orgType(u)])+(u.groupe_val?' · '+esc(u.groupe_val):'')+'</div>';
+    cells[4].textContent=dbo().eleves.filter(function(e){return eleveVisible(u,e);}).length;
+  });
+}
+function wrapLists(){
+  wrapFn('renderUsersList',function(o){return function(){var x=o.apply(this,arguments);try{patchUsersList();}catch(e){}return x;};});
+  wrapFn('espRenderDirEns',function(o){return function(){var x=o.apply(this,arguments);try{patchLevelRows('dir-ens-tab');patchDens();}catch(e){}return x;};});
+  wrapFn('espStatsDir',function(o){return function(){var x=o.apply(this,arguments);try{patchLevelRows('esp-directeur-stats');}catch(e){}return x;};});
+  wrapFn('espRenderCFMaitres',function(o){return function(){var x=o.apply(this,arguments);try{patchCF();}catch(e){}return x;};});
+}
+
+/* ───────── installation ───────── */
+function install(){
+  var ok=true;
+  try{ installCompte(); }catch(e){ console.error(e); ok=false; }
+  try{ wrapCompte(); wrapSA(); wrapDens(); wrapScope(); wrapEleve(); wrapMaitre(); wrapLists(); }catch(e){ console.error(e); ok=false; }
+  return ok;
+}
+install();
+setTimeout(function(){ try{ installCompte(); wrapSA(); wrapDens(); wrapLists(); wrapMaitre(); }catch(e){} },1500);
+window.PGNEP_ORG={types:TYPES,levels:levels,orgType:orgType,eleveVisible:eleveVisible};
+console.log('✅ PGNEP : module « Organisation des classes » chargé');
+})();
+
+</script>
+
+
+<!-- ══ MODULE ADDITIF : INVITATION À INSTALLER L'APPLICATION (Android / PC) après connexion — retirer ce bloc pour revenir à l'état précédent ══ -->
+<script id="pgnep-pwa-ask">
+(function(){
+'use strict';
+if(window.__pwaAskLoaded) return; window.__pwaAskLoaded=true;
+var K_DONE='pgnep_pwa_installed', K_NEVER='pgnep_pwa_never', shownFor=null, dismissedSession=false;
+function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){ return null; } }
+function standalone(){ return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true; }
+function platform(){
+  var ua=navigator.userAgent||'';
+  if(/android/i.test(ua)) return 'android';
+  if(/iphone|ipad|ipod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)) return 'ios';
+  return 'pc';
+}
+function deferred(){ var d=window.__pgDeferred||window.__pwaDeferred; if(!d){ try{ d=deferredPrompt; }catch(e){} } return (d&&d.prompt)?d:null; }
+window.addEventListener('beforeinstallprompt',function(e){ window.__pwaDeferred=e; refreshBtn(); });
+window.addEventListener('appinstalled',function(){ ls(K_DONE,'1'); window.__pwaDeferred=null; window.__pgDeferred=null; close(); });
+function loggedIn(){ try{ return !!(typeof currentUser!=='undefined'&&currentUser&&currentUser.login); }catch(e){ return false; } }
+function appVisible(){ var a=document.getElementById('app'); return !!(a&&a.classList.contains('visible')); }
+
+var STEPS={
+  pc:['Cliquez sur l’icône d’installation (⊕ ou écran avec une flèche) à droite de la barre d’adresse,','ou ouvrez le menu ⋮ → « Installer Le Perroquet… » (Chrome / Edge),','confirmez : l’application s’ouvre dans sa propre fenêtre.'],
+  android:['Ouvrez le menu ⋮ de Chrome (en haut à droite),','touchez « Installer l’application » ou « Ajouter à l’écran d’accueil »,','confirmez : l’icône apparaît sur l’écran d’accueil.'],
+  ios:['Touchez le bouton Partager (carré avec une flèche) dans Safari,','faites défiler puis touchez « Sur l’écran d’accueil »,','touchez « Ajouter ».']
+};
+var TXT={pc:{ico:'🖥️',t:'Installer sur l’ordinateur',b:'Installer sur l’ordinateur'},android:{ico:'🤖',t:'Installer sur Android',b:'Installer sur Android'},ios:{ico:'🍎',t:'Installer sur iPhone / iPad',b:'Voir comment installer'}};
+
+function css(){
+  if(document.getElementById('pwa-ask-css')) return;
+  var s=document.createElement('style'); s.id='pwa-ask-css';
+  s.textContent='#pwa-ask{position:fixed;inset:0;z-index:100001;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;padding:16px;}'+
+  '#pwa-ask .pwa-box{background:#fff;border-radius:20px;width:min(440px,100%);overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);font-family:inherit;}'+
+  '#pwa-ask .pwa-head{background:linear-gradient(110deg,#F77F00,#FF9A1A 45%,#009E60);color:#fff;padding:20px 22px;display:flex;gap:14px;align-items:center;}'+
+  '#pwa-ask .pwa-ico{font-size:38px;line-height:1;}#pwa-ask h3{margin:0;font-size:18px;font-weight:800;}#pwa-ask .pwa-sub{font-size:12.5px;opacity:.95;margin-top:3px;}'+
+  '#pwa-ask .pwa-body{padding:18px 22px;font-size:13.5px;line-height:1.55;color:#334155;}'+
+  '#pwa-ask ul{margin:0 0 10px;padding-left:18px;}#pwa-ask ol{margin:8px 0 0;padding-left:20px;}'+
+  '#pwa-ask .pwa-steps{display:none;margin-top:10px;padding:11px 13px;border:1px solid #E5E7EB;border-radius:12px;background:#F8FAFC;}'+
+  '#pwa-ask .pwa-steps.on{display:block;}'+
+  '#pwa-ask .pwa-act{display:flex;flex-direction:column;gap:8px;padding:0 22px 18px;}'+
+  '#pwa-ask button{border:0;cursor:pointer;border-radius:12px;padding:13px;font-weight:800;font-size:14px;font-family:inherit;}'+
+  '#pwa-ask .pwa-go{background:linear-gradient(135deg,#006B3F,#00843D);color:#fff;box-shadow:0 3px 10px rgba(0,107,63,.35);}'+
+  '#pwa-ask .pwa-later{background:#F1F5F9;color:#334155;}'+
+  '#pwa-ask label{display:flex;align-items:center;gap:8px;font-size:12px;color:#64748B;padding:0 22px 16px;cursor:pointer;}';
+  document.head.appendChild(s);
+}
+function close(){ var m=document.getElementById('pwa-ask'); if(m) m.remove(); }
+function refreshBtn(){ /* rien à faire : le clic relit l'invite native au moment voulu */ }
+function open(){
+  if(document.getElementById('pwa-ask')) return;
+  css(); var p=platform(), T=TXT[p];
+  var m=document.createElement('div'); m.id='pwa-ask'; m.setAttribute('role','dialog'); m.setAttribute('aria-modal','true');
+  m.innerHTML='<div class="pwa-box"><div class="pwa-head"><div class="pwa-ico">'+T.ico+'</div><div><h3>'+T.t+'</h3><div class="pwa-sub">Le Perroquet · PGNEP — comme un vrai logiciel</div></div></div>'+
+   '<div class="pwa-body"><ul><li>Icône dédiée, ouverture en un clic</li><li>Fenêtre plein écran, sans barre de navigateur</li><li>Chargement plus rapide et meilleure tenue hors connexion</li></ul>'+
+   '<div class="pwa-steps" id="pwa-steps"><strong>Marche à suivre :</strong><ol>'+STEPS[p].map(function(s){return '<li>'+s+'</li>';}).join('')+'</ol></div></div>'+
+   '<div class="pwa-act"><button class="pwa-go" id="pwa-go">📲 '+T.b+'</button><button class="pwa-later" id="pwa-later">Plus tard</button></div>'+
+   '<label><input type="checkbox" id="pwa-never"> Ne plus me le proposer sur cet appareil</label></div>';
+  document.body.appendChild(m);
+  document.getElementById('pwa-go').onclick=function(){
+    var d=deferred();
+    if(d){ try{ d.prompt(); if(d.userChoice) d.userChoice.then(function(c){ window.__pwaDeferred=null; window.__pgDeferred=null; if(c&&c.outcome==='accepted'){ ls(K_DONE,'1'); } close(); }); }catch(e){ document.getElementById('pwa-steps').classList.add('on'); } return; }
+    document.getElementById('pwa-steps').classList.add('on'); this.textContent='✅ J’ai compris';
+    this.onclick=function(){ finish(); };
+  };
+  document.getElementById('pwa-later').onclick=function(){ finish(); };
+}
+function finish(){ dismissedSession=true; if(document.getElementById('pwa-never')&&document.getElementById('pwa-never').checked) ls(K_NEVER,'1'); close(); }
+function check(){
+  if(!loggedIn()||!appVisible()) { shownFor=null; return; }
+  var who=currentUser.login; if(shownFor===who||dismissedSession&&shownFor===who) return;
+  shownFor=who; dismissedSession=false;
+  if(standalone()||ls(K_DONE)==='1'||ls(K_NEVER)==='1') return;
+  var go=function(){ if(loggedIn()) open(); };
+  try{ if(navigator.getInstalledRelatedApps){ navigator.getInstalledRelatedApps().then(function(a){ if(a&&a.length){ ls(K_DONE,'1'); } else setTimeout(go,1200); }).catch(function(){ setTimeout(go,1200); }); return; } }catch(e){}
+  setTimeout(go,1200);
+}
+/* déclenchement : chaque connexion (toutes voies) */
+function wrap(){ var o=window.applyRoleUI; if(typeof o==='function'&&!o.__pwa){ var w=function(){ var x=o.apply(this,arguments); try{ setTimeout(check,0); }catch(e){} return x; }; w.__pwa=true; window.applyRoleUI=w; } }
+wrap(); setInterval(function(){ wrap(); check(); },2000);
+window.pgnepAskInstall=open;
+})();
+
+</script>
+
 </body>
 </html>
