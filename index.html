@@ -24343,5 +24343,407 @@ window.pgnepAskInstall=open;
 
 </script>
 
+
+<!-- ══ MODULE ADDITIF : MISES À JOUR AUTOMATIQUES (détection d'une nouvelle version + rechargement sécurisé) — retirer ce bloc pour revenir à l'état précédent ══ -->
+<script id="pgnep-auto-update">
+(function(){
+'use strict';
+if(window.__pgnepUpdLoaded) return; window.__pgnepUpdLoaded=true;
+if(!/^https?:$/.test(location.protocol)) return;            /* fichier local : rien à faire */
+var CHECK_MS=5*60*1000, COUNTDOWN=20, LATER_MS=10*60*1000;
+var baseline=null, pending=false, timer=null, laterUntil=0, lastInput=Date.now(), swNew=false;
+
+function sig(r){ return [r.headers.get('etag'),r.headers.get('last-modified'),r.headers.get('content-length')].join('|'); }
+function head(){ return fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){ return r.ok?sig(r):null; }).catch(function(){ return null; }); }
+function check(){
+  if(!navigator.onLine||pending) return Promise.resolve();
+  return head().then(function(s){
+    if(!s||s==='||') return;
+    if(baseline===null){ baseline=s; return; }
+    if(s!==baseline) announce();
+  });
+}
+window.pgnepCheckUpdate=check;
+
+/* ── Service worker : vérifie sa propre mise à jour et recharge dès qu'une nouvelle version est active ── */
+function watchSW(){
+  if(!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.getRegistration().then(function(reg){
+    if(!reg) return;
+    var hadCtrl=!!navigator.serviceWorker.controller;
+    var upd=function(){ try{ reg.update(); }catch(e){} };
+    reg.addEventListener('updatefound',function(){ var w=reg.installing; if(!w) return; w.addEventListener('statechange',function(){ if(w.state==='installed'&&navigator.serviceWorker.controller){ swNew=true; announce(); } }); });
+    navigator.serviceWorker.addEventListener('controllerchange',function(){ if(hadCtrl&&!window.__pgnepReloading){ announce(); } });
+    setInterval(upd,CHECK_MS); document.addEventListener('visibilitychange',function(){ if(!document.hidden) upd(); });
+  }).catch(function(){});
+}
+
+/* ── État d'activité : ne jamais recharger en pleine saisie ── */
+['keydown','input','pointerdown'].forEach(function(ev){ document.addEventListener(ev,function(){ lastInput=Date.now(); },true); });
+function safe(){
+  if(Date.now()-lastInput<20000) return false;
+  if(document.querySelector('.modal-overlay.active,.cid-modal,#pwa-ask')) return false;
+  var a=document.activeElement; if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=='checkbox'&&a.type!=='radio'&&a.type!=='button'&&a.type!=='file') return false;
+  try{ if(typeof saveInProgress!=='undefined'&&saveInProgress) return false; }catch(e){}
+  return true;
+}
+
+/* ── Bandeau ── */
+function css(){
+  if(document.getElementById('pgnep-upd-css')) return;
+  var s=document.createElement('style'); s.id='pgnep-upd-css';
+  s.textContent='#pgnep-upd{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:100002;width:min(560px,calc(100% - 24px));background:linear-gradient(110deg,#006B3F,#00843D);color:#fff;border-radius:16px;box-shadow:0 12px 36px rgba(0,0,0,.35);padding:13px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-family:inherit;font-size:13.5px;border-top:4px solid #F77F00;}'+
+  '#pgnep-upd .u-t{flex:1 1 220px;line-height:1.4;}#pgnep-upd b{font-weight:800;}'+
+  '#pgnep-upd button{border:0;border-radius:10px;padding:9px 14px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;}'+
+  '#pgnep-upd .u-go{background:#F77F00;color:#fff;}#pgnep-upd .u-later{background:rgba(255,255,255,.18);color:#fff;}';
+  document.head.appendChild(s);
+}
+function announce(){
+  if(pending) return; pending=true; css();
+  var b=document.createElement('div'); b.id='pgnep-upd'; b.setAttribute('role','status');
+  b.innerHTML='<div class="u-t">🔄 <b>Nouvelle version du Perroquet disponible.</b><br><span id="pgnep-upd-s">Mise à jour automatique…</span></div><button class="u-go" id="pgnep-upd-go">Mettre à jour</button><button class="u-later" id="pgnep-upd-later">Plus tard</button>';
+  document.body.appendChild(b);
+  document.getElementById('pgnep-upd-go').onclick=apply;
+  document.getElementById('pgnep-upd-later').onclick=function(){ laterUntil=Date.now()+LATER_MS; };
+  var left=COUNTDOWN;
+  timer=setInterval(function(){
+    var s=document.getElementById('pgnep-upd-s'); if(!s) return;
+    if(Date.now()<laterUntil){ s.textContent='Rappel dans quelques minutes.'; left=COUNTDOWN; return; }
+    if(!safe()){ s.textContent='Mise à jour dès que vous aurez terminé votre saisie.'; left=COUNTDOWN; return; }
+    left--; s.textContent='Mise à jour automatique dans '+left+' s…';
+    if(left<=0) apply();
+  },1000);
+}
+function apply(){
+  if(window.__pgnepReloading) return; window.__pgnepReloading=true; clearInterval(timer);
+  var s=document.getElementById('pgnep-upd-s'); if(s) s.textContent='Mise à jour en cours…';
+  /* Aucune écriture de données ici : la mise à jour ne remplace que le code (index.html).
+     localStorage, IndexedDB et Supabase ne sont ni lus ni modifiés. */
+  var go=function(){ location.reload(); };
+  try{ navigator.serviceWorker.getRegistration().then(function(reg){ if(reg&&reg.waiting) reg.waiting.postMessage('SKIP_WAITING'); setTimeout(go,300); }).catch(go); }catch(e){ go(); }
+}
+
+/* ── Démarrage ── */
+function start(){
+  head().then(function(s){ if(s&&s!=='||') baseline=s; });
+  setInterval(check,CHECK_MS);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) check(); });
+  window.addEventListener('online',check); window.addEventListener('focus',check);
+  watchSW();
+}
+if(document.readyState==='complete') start(); else window.addEventListener('load',start);
+console.log('✅ PGNEP : mises à jour automatiques activées');
+})();
+
+</script>
+
+
+<!-- ══ MODULE ADDITIF : VALIDATION DES COMPTES ENSEIGNANTS PAR LE SUPER ADMINISTRATEUR — retirer ce bloc pour revenir à l'état précédent ══ -->
+<script id="pgnep-validation-comptes">
+/* ================================================================
+   MODULE ADDITIF — VALIDATION DES COMPTES ENSEIGNANTS PAR LE SUPER ADMINISTRATEUR
+   • Un compte créé par un directeur naît « en attente » et INACTIF.
+   • Le super administrateur est notifié (cloche + menu + message).
+   • Il active le compte en fixant la date de fin de fonctionnement.
+   • Hors période / refusé / en attente : connexion impossible.
+   N'altère aucune donnée existante : seuls les NOUVEAUX comptes créés
+   par un directeur reçoivent les champs statut_validation, demande_le…
+   ================================================================ */
+(function () {
+  'use strict';
+  if (window.__pgnepValidation) return; window.__pgnepValidation = true;
+
+  var CREATEURS_SOUMIS = ['directeur'];          /* rôles dont les créations doivent être validées */
+  var ROLES_CONCERNES  = ['instituteur', 'benevole'];
+  var POLL_MS = 30000;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function users() { return (window.DB && Array.isArray(DB.users)) ? DB.users : []; }
+  function find(l) { l = String(l || '').toLowerCase(); return users().find(function (u) { return String(u.login || '').toLowerCase() === l; }); }
+  function cu() { try { return currentUser || null; } catch (e) { return null; } }
+  function note(m, t) { try { showNotif(m, t || 'info'); } catch (e) { } }
+  function isAdminLike(u) {
+    if (!u) return false;
+    var r = u.role;
+    if (r === 'admin' || r === 'superadmin' || r === 'super_admin') return true;
+    return u.login === 'diomande';
+  }
+  function schoolYearEnd() { var d = new Date(), y = d.getFullYear(); return (d.getMonth() >= 8 ? y + 1 : y) + '-07-31'; }
+  function persist(u) {
+    try { if (typeof save === 'function') save('users'); } catch (e) { }
+    try { if (window._firebaseReady && window._fb && window._fb.set) window._fb.set('users', u.login, u).catch(function () { }); } catch (e) { }
+  }
+  function ecoleNom(id) {
+    try { var e = (DB.ecoles || []).find(function (x) { return x.id === id; }); return e ? (e.nom || e.id) : (id || ''); } catch (e) { return id || ''; }
+  }
+  function fr(d) { return d ? String(d).split('-').reverse().join('/') : '—'; }
+
+  /* ── 1) Marquer les nouveaux comptes créés par un directeur ── */
+  function wrapSave() {
+    if (typeof window.saveCompte !== 'function' || window.saveCompte.__pgval) return;
+    var orig = window.saveCompte;
+    var w = function () {
+      var me = cu();
+      var avant = {};
+      users().forEach(function (u) { avant[String(u.login).toLowerCase()] = 1; });
+      var soumis = !!(me && CREATEURS_SOUMIS.indexOf(me.role) !== -1 && !isAdminLike(me));
+      var fin = function () {
+        if (!soumis) return;
+        var neufs = users().filter(function (u) {
+          return !avant[String(u.login).toLowerCase()] && ROLES_CONCERNES.indexOf(u.role) !== -1 && !u.statut_validation;
+        });
+        if (!neufs.length) return;
+        neufs.forEach(function (u) {
+          u.actif = false;
+          u.statut_validation = 'en_attente';
+          u.demande_le = new Date().toISOString();
+          u.demande_par = me.login;
+          u.demande_par_nom = me.nom || me.login;
+          persist(u);
+        });
+        try { if (typeof renderUsersList === 'function') renderUsersList(); } catch (e) { }
+        note('⏳ Compte créé : il restera INACTIF jusqu’à validation par le super administrateur (notifié).', 'info');
+        refresh(true);
+      };
+      var r = orig.apply(this, arguments);
+      if (r && typeof r.then === 'function') return r.then(function (v) { fin(); return v; });
+      fin(); return r;
+    };
+    w.__pgval = 1; window.saveCompte = w; try { saveCompte = w; } catch (e) { }
+  }
+
+  /* un directeur ne peut pas réactiver lui-même un compte en attente */
+  function wrapToggle() {
+    if (typeof window.toggleActifCompte !== 'function' || window.toggleActifCompte.__pgval) return;
+    var o = window.toggleActifCompte;
+    var w = function (login) {
+      var t = find(login), me = cu();
+      if (t && (t.statut_validation === 'en_attente' || t.statut_validation === 'refuse') && !isAdminLike(me)) {
+        note('🔒 Ce compte attend la validation du super administrateur.', 'error'); return;
+      }
+      if (t && t.statut_validation === 'en_attente' && isAdminLike(me)) { openPanel(); return; }
+      return o.apply(this, arguments);
+    };
+    w.__pgval = 1; window.toggleActifCompte = w; try { toggleActifCompte = w; } catch (e) { }
+  }
+
+  /* ── 2) Blocage de connexion / de session ── */
+  function motif(u) {
+    if (!u || isAdminLike(u)) return '';
+    if (u.statut_validation === 'en_attente')
+      return '⏳ Compte en attente de validation : il doit être activé par le super administrateur. Vous pourrez vous connecter dès son activation.';
+    if (u.statut_validation === 'refuse')
+      return '⛔ La création de ce compte a été refusée par le super administrateur' + (u.motif_refus ? ' (' + u.motif_refus + ')' : '') + '.';
+    if (u.statut_validation === 'valide' || u.date_debut || u.date_fin) {
+      var t = today();
+      if (u.date_debut && t < u.date_debut) return '⏳ Ce compte sera actif à partir du ' + fr(u.date_debut) + '.';
+      if (u.date_fin && t > u.date_fin) return '⛔ Ce compte a expiré le ' + fr(u.date_fin) + '. Contactez le super administrateur pour le renouveler.';
+    }
+    return '';
+  }
+  function showLoginError(m) {
+    var e = $('login-error'); if (e) { e.textContent = m; e.style.display = 'block'; }
+    var pw = $('login-pass'); if (pw) pw.value = '';
+    var b = document.querySelector('.login-btn'); if (b) { b.disabled = false; if (/…|\.\.\./.test(b.textContent)) b.textContent = 'Se connecter →'; }
+  }
+  function ejecter(m) {
+    try { if (window._fb && typeof window._fb.signOut === 'function') window._fb.signOut().catch(function () { }); } catch (e) { }
+    try { forceLogout(); } catch (e) { }
+    showLoginError(m);
+  }
+  function wrapLogin() {
+    if (typeof window.doLogin === 'function' && !window.doLogin.__pgval) {
+      var o = window.doLogin;
+      var w = function () {
+        var l = ($('login-user') || {}).value || '';
+        var m = motif(find(l.trim().toLowerCase()));
+        if (m) { showLoginError(m); return; }
+        return o.apply(this, arguments);
+      };
+      w.__pgval = 1; window.doLogin = w; try { doLogin = w; } catch (e) { }
+    }
+    if (typeof window._doLoginFirebase === 'function' && !window._doLoginFirebase.__pgval) {
+      var o2 = window._doLoginFirebase;
+      var w2 = function (loginId) {
+        var m = motif(find(String(loginId || '').trim().toLowerCase()));
+        if (m) { showLoginError(m); return Promise.resolve(); }
+        return o2.apply(this, arguments);
+      };
+      w2.__pgval = 1; window._doLoginFirebase = w2;
+    }
+    if (typeof window.applyRoleUI === 'function' && !window.applyRoleUI.__pgval) {
+      var o3 = window.applyRoleUI;
+      var w3 = function () {
+        var r = o3.apply(this, arguments);
+        var me = cu(), m = me ? motif(find(me.login)) : '';
+        if (m) setTimeout(function () { ejecter(m); }, 0);
+        else setTimeout(function () { refresh(true); }, 400);
+        return r;
+      };
+      w3.__pgval = 1; window.applyRoleUI = w3; try { applyRoleUI = w3; } catch (e) { }
+    }
+  }
+
+  /* ── 3) Interface super administrateur ── */
+  var css = '#pgval-bell{position:fixed;left:16px;bottom:16px;z-index:9000;display:none;align-items:center;gap:8px;background:#F77F00;color:#fff;border:0;border-radius:999px;padding:11px 16px;font:700 13px/1 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.28);cursor:pointer;animation:pgvalp 2s infinite}' +
+    '#pgval-bell b{background:#fff;color:#F77F00;border-radius:999px;min-width:22px;padding:2px 6px;text-align:center}' +
+    '@keyframes pgvalp{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}' +
+    '#pgval-nav b{background:#F77F00;color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;margin-left:6px}' +
+    '#pgval-modal .pv-box{background:#fff;color:#1b1b1b;width:min(760px,94vw);max-height:90vh;overflow:auto;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.4)}' +
+    '#pgval-modal .pv-h{background:linear-gradient(90deg,#F77F00,#fff 50%,#009E60);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-radius:14px 14px 0 0;font-weight:800}' +
+    '#pgval-modal .pv-h button{border:0;background:rgba(0,0,0,.12);border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:700}' +
+    '#pgval-modal .pv-b{padding:14px 18px}' +
+    '#pgval-modal .pv-row{border:1px solid #e3e3e3;border-left:5px solid #F77F00;border-radius:10px;padding:12px;margin:10px 0;background:#fffaf3}' +
+    '#pgval-modal .pv-row h4{margin:0 0 4px;font-size:15px}' +
+    '#pgval-modal .pv-m{font-size:12.5px;color:#555;line-height:1.6}' +
+    '#pgval-modal .pv-f{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px}' +
+    '#pgval-modal label{font-size:11.5px;font-weight:700;color:#444;display:flex;flex-direction:column;gap:3px}' +
+    '#pgval-modal input[type=date],#pgval-modal input[type=text]{padding:7px 9px;border:1px solid #bbb;border-radius:7px;font-size:13px}' +
+    '#pgval-modal .pv-ok{background:#009E60;color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer}' +
+    '#pgval-modal .pv-no{background:#fff;color:#c0392b;border:1px solid #c0392b;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer}' +
+    '#pgval-modal .pv-t{font-weight:800;margin:16px 0 4px;color:#006B3F}' +
+    '#pgval-modal .pv-h2{font-size:12.5px;padding:6px 0;border-bottom:1px dashed #ddd}' +
+    '#pgval-modal .pv-e{padding:22px;text-align:center;color:#666}';
+
+  function ensureUI() {
+    if (!$('pgval-style')) { var s = document.createElement('style'); s.id = 'pgval-style'; s.textContent = css; document.head.appendChild(s); }
+    if (!$('pgval-bell')) {
+      var b = document.createElement('button'); b.id = 'pgval-bell'; b.type = 'button';
+      b.onclick = openPanel; b.innerHTML = '🔔 Comptes à valider <b id="pgval-n">0</b>'; document.body.appendChild(b);
+    }
+    if (!$('pgval-modal')) {
+      var m = document.createElement('div'); m.className = 'modal-overlay'; m.id = 'pgval-modal';
+      m.onclick = function (e) { if (e.target === m) closePanel(); };
+      m.innerHTML = '<div class="pv-box"><div class="pv-h"><span>✅ Validation des comptes enseignants</span><button type="button" id="pgval-x">Fermer ✕</button></div><div class="pv-b" id="pgval-body"></div></div>';
+      document.body.appendChild(m);
+      $('pgval-x').onclick = closePanel;
+      $('pgval-body').addEventListener('click', onClick);
+    }
+    if (!$('pgval-nav')) {
+      var ref = $('nav-comptes');
+      if (ref && ref.parentNode) {
+        var n = document.createElement('div'); n.className = 'nav-item'; n.id = 'pgval-nav'; n.style.display = 'none';
+        n.setAttribute('onclick', 'pgnepValidationOpen()');
+        n.innerHTML = '<span class="nav-icon">✅</span> Validation des comptes <b id="pgval-nav-n"></b>';
+        ref.parentNode.insertBefore(n, ref.nextSibling);
+      }
+    }
+  }
+  function pending() { return users().filter(function (u) { return u.statut_validation === 'en_attente'; }); }
+
+  var lastCount = -1;
+  function refresh(announce) {
+    var me = cu();
+    ensureUI();
+    var admin = isAdminLike(me);
+    var p = admin ? pending() : [];
+    var bell = $('pgval-bell'), nav = $('pgval-nav');
+    if (bell) { bell.style.display = (admin && p.length) ? 'flex' : 'none'; var n = $('pgval-n'); if (n) n.textContent = p.length; }
+    if (nav) { nav.style.display = admin ? 'flex' : 'none'; var nn = $('pgval-nav-n'); if (nn) nn.textContent = p.length ? p.length : ''; }
+    if (admin && p.length && (announce || p.length > lastCount) && p.length !== lastCount) {
+      note('🔔 ' + p.length + ' compte(s) enseignant(s) en attente de votre validation.', 'info');
+    }
+    lastCount = admin ? p.length : -1;
+    if ($('pgval-modal') && $('pgval-modal').classList.contains('active')) render();
+  }
+
+  function render() {
+    var body = $('pgval-body'); if (!body) return;
+    var p = pending().sort(function (a, b) { return String(a.demande_le).localeCompare(String(b.demande_le)); });
+    var h = '';
+    if (!p.length) h += '<div class="pv-e">✅ Aucun compte en attente de validation.</div>';
+    p.forEach(function (u) {
+      var par = u.demande_par_nom || u.demande_par || u.cree_par || '—';
+      h += '<div class="pv-row" data-l="' + esc(u.login) + '"><h4>👤 ' + esc(u.nom || u.login) + ' <small style="color:#666">@' + esc(u.login) + '</small></h4>' +
+        '<div class="pv-m">Rôle : <b>' + esc((window.ROLE_LABELS && ROLE_LABELS[u.role]) || u.role) + '</b> · Classe : <b>' + esc(u.structure_val || '—') + '</b> · École : <b>' + esc(ecoleNom(u.ecole_val)) + '</b><br>' +
+        'Tél : ' + esc(u.telephone || '—') + ' · Demandé par le directeur <b>' + esc(par) + '</b> le ' + esc(u.demande_le ? new Date(u.demande_le).toLocaleString('fr-FR') : '—') + '</div>' +
+        '<div class="pv-f"><label>Actif à partir du<input type="date" class="pv-d" value="' + today() + '"></label>' +
+        '<label>Fonctionne jusqu’au (obligatoire)<input type="date" class="pv-e2" value="' + schoolYearEnd() + '"></label>' +
+        '<button type="button" class="pv-ok" data-a="ok">✅ Activer le compte</button>' +
+        '<label>Motif (si refus)<input type="text" class="pv-mo" placeholder="facultatif"></label>' +
+        '<button type="button" class="pv-no" data-a="no">Refuser</button></div></div>';
+    });
+    var hist = users().filter(function (u) { return u.statut_validation === 'valide' || u.statut_validation === 'refuse'; })
+      .sort(function (a, b) { return String(b.decision_le || '').localeCompare(String(a.decision_le || '')); }).slice(0, 10);
+    if (hist.length) {
+      h += '<div class="pv-t">Dernières décisions</div>';
+      hist.forEach(function (u) {
+        h += '<div class="pv-h2">' + (u.statut_validation === 'valide' ? '✅' : '⛔') + ' <b>' + esc(u.nom || u.login) + '</b> (@' + esc(u.login) + ') — ' +
+          (u.statut_validation === 'valide' ? 'actif du ' + fr(u.date_debut) + ' au ' + fr(u.date_fin) : 'refusé' + (u.motif_refus ? ' : ' + esc(u.motif_refus) : '')) + '</div>';
+      });
+    }
+    body.innerHTML = h;
+  }
+
+  function onClick(e) {
+    var b = e.target.closest && e.target.closest('button[data-a]'); if (!b) return;
+    var row = b.closest('.pv-row'); if (!row) return;
+    var u = find(row.getAttribute('data-l')); if (!u) return;
+    if (!isAdminLike(cu())) { note('🔒 Réservé au super administrateur.', 'error'); return; }
+    if (b.getAttribute('data-a') === 'ok') {
+      var d1 = row.querySelector('.pv-d').value || today(), d2 = row.querySelector('.pv-e2').value;
+      if (!d2) { note('Indiquez la date jusqu’à laquelle le compte fonctionne.', 'error'); return; }
+      if (d2 < d1) { note('La date de fin est antérieure à la date de début.', 'error'); return; }
+      if (d2 < today()) { note('La date de fin est déjà dépassée.', 'error'); return; }
+      u.actif = true; u.statut_validation = 'valide'; u.date_debut = d1; u.date_fin = d2;
+      u.valide_par = cu().login; u.decision_le = new Date().toISOString(); delete u.motif_refus;
+      persist(u);
+      note('✅ Compte « ' + u.login + ' » activé du ' + fr(d1) + ' au ' + fr(d2), 'success');
+    } else {
+      u.actif = false; u.statut_validation = 'refuse';
+      u.motif_refus = (row.querySelector('.pv-mo').value || '').trim();
+      u.valide_par = cu().login; u.decision_le = new Date().toISOString();
+      persist(u);
+      note('⛔ Compte « ' + u.login + ' » refusé.', 'info');
+    }
+    try { if (typeof renderUsersList === 'function') renderUsersList(); } catch (er) { }
+    refresh(false); render();
+  }
+
+  function openPanel() { ensureUI(); if (!isAdminLike(cu())) return; render(); $('pgval-modal').classList.add('active'); }
+  function closePanel() { var m = $('pgval-modal'); if (m) m.classList.remove('active'); }
+  window.pgnepValidationOpen = openPanel;
+
+  /* ── 4) Rafraîchissement : nouvelles demandes venant d'un autre appareil (lecture seule, n'écrase rien) ── */
+  function pull() {
+    var me = cu(); if (!isAdminLike(me)) return;
+    try {
+      var c = window.PGSB && window.PGSB.client; if (!c) return;
+      c.from('docs').select('id,data').eq('col', 'users').then(function (r) {
+        if (!r || r.error || !Array.isArray(r.data)) return;
+        var ajout = false;
+        r.data.forEach(function (row) {
+          var d = row.data || {}; if (!d.login) return;
+          if (d.statut_validation !== 'en_attente') return;
+          if (find(d.login)) return;                 /* jamais d'écrasement d'un compte local */
+          DB.users.push(d); ajout = true;
+        });
+        if (ajout) { try { save('users'); } catch (e) { } refresh(false); }
+      });
+    } catch (e) { }
+  }
+
+  /* ── 5) Contrôle périodique de la session ouverte (expiration en cours de route) ── */
+  function veille() {
+    var me = cu(); if (!me) return;
+    var m = motif(find(me.login));
+    if (m) { note(m, 'error'); ejecter(m); return; }
+    refresh(false);
+  }
+
+  function init() {
+    ensureUI(); wrapSave(); wrapToggle(); wrapLogin();
+    setInterval(function () { wrapSave(); wrapToggle(); wrapLogin(); veille(); pull(); }, POLL_MS);
+    window.addEventListener('focus', function () { pull(); refresh(false); });
+    setTimeout(function () { wrapSave(); wrapToggle(); wrapLogin(); }, 1500);
+    setTimeout(function () { wrapSave(); wrapToggle(); wrapLogin(); }, 5000);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+
+</script>
+
 </body>
 </html>
