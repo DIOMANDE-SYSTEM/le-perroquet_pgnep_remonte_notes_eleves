@@ -24745,5 +24745,517 @@ console.log('✅ PGNEP : mises à jour automatiques activées');
 
 </script>
 
+
+<!-- ══ MODULE ADDITIF : CORBEILLE LIMITÉE À L'ESPACE DE CHAQUE UTILISATEUR — retirer ce bloc pour revenir à l'état précédent ══ -->
+<script id="pgnep-corbeille-perimetre">
+/* ================================================================
+   MODULE ADDITIF — CORBEILLE LIMITÉE À L'ESPACE DE CHAQUE UTILISATEUR
+   • Directeur : uniquement les élèves supprimés/archivés de SON école.
+   • Instituteur / bénévole : uniquement SA classe.
+   • Correspondant IEPP / coordinateur DRENAET / CPPP : leur circonscription (lecture).
+   • Super administrateur : toutes les corbeilles (avec filtre par école).
+   La corbeille n'est donc jamais partagée entre espaces.
+   Les données ne sont pas modifiées : seul l'affichage et les actions sont bornés.
+   ================================================================ */
+(function () {
+  'use strict';
+  if (window.__pgCorbScope) return; window.__pgCorbScope = true;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function me() { try { return getCurrentUserData(); } catch (e) { return null; } }
+  function isSuper() {
+    var u = me(), c = null; try { c = currentUser; } catch (e) { }
+    return !!((u && (u.role === 'admin' || u.login === 'diomande')) || (c && (c.role === 'admin' || c.login === 'diomande')));
+  }
+  function canAct() { try { var c = currentUser; return !!(c && ['admin', 'directeur', 'instituteur', 'benevole'].indexOf(c.role) !== -1) || isSuper(); } catch (e) { return false; } }
+  function note(m, t) { try { showNotif(m, t || 'info'); } catch (e) { } }
+  function ecoleNom(id) { try { var e = DB.ecoles.find(function (x) { return x.id === id; }); return e ? (e.nom || e.id) : (id || ''); } catch (er) { return id || ''; } }
+  function ecoleIepp(id) { try { var e = DB.ecoles.find(function (x) { return x.id === id; }); return e ? (e.iepp || '') : ''; } catch (er) { return ''; } }
+
+  var filtreEcole = '';
+
+  /* Entrées de la corbeille visibles pour l'utilisateur connecté (mêmes règles que getScopeEleves) */
+  function visibles() {
+    var all = Array.isArray(DB.corbeille) ? DB.corbeille : [];
+    if (isSuper()) return all.slice();
+    var u = me(); if (!u) return [];
+    if (['cabinet', 'lecteur'].indexOf(u.role) !== -1) return [];
+    var keep = DB.eleves, res = [];
+    try { DB.eleves = all; res = getScopeEleves() || []; } catch (e) { res = []; } finally { DB.eleves = keep; }
+    return res;
+  }
+  function visiblesFiltrees() {
+    var v = visibles();
+    if (isSuper() && filtreEcole) v = v.filter(function (e) { return e.ecole_id === filtreEcole; });
+    return v;
+  }
+  function inScope(entry) { return visibles().indexOf(entry) !== -1; }
+
+  function libelleEspace() {
+    var u = me(); if (!u) return '';
+    if (isSuper()) return 'Super administrateur — toutes les corbeilles';
+    try { return 'Votre espace : ' + getStructureLabel(u).replace(/^[^\wÀ-ÿ]+/, ''); } catch (e) { return 'Votre espace'; }
+  }
+
+  function ensureBanner() {
+    var page = $('page-corbeille'); if (!page) return null;
+    var b = $('pgcorb-info');
+    if (!b) {
+      var host = page.querySelector('.table-wrap'); if (!host) return null;
+      b = document.createElement('div'); b.id = 'pgcorb-info';
+      b.style.cssText = 'padding:10px 16px;font-size:12.5px;border-bottom:1px solid var(--border);background:rgba(0,158,96,.07);display:flex;gap:10px;flex-wrap:wrap;align-items:center;';
+      host.parentNode.insertBefore(b, host);
+    }
+    return b;
+  }
+
+  function renderScoped() {
+    var tbody = $('table-corbeille'), badge = $('badge-corbeille');
+    if (!tbody) return;
+    var all = DB.corbeille || [];
+    var vis = visiblesFiltrees(), total = visibles().length;
+    if (badge) { badge.textContent = total; badge.style.display = total > 0 ? 'inline-block' : 'none'; }
+
+    var b = ensureBanner();
+    if (b) {
+      var h = '🔒 <b>' + esc(libelleEspace()) + '</b> · ' + total + ' élément(s)';
+      if (isSuper()) {
+        var counts = {}; visibles().forEach(function (e) { counts[e.ecole_id || '—'] = (counts[e.ecole_id || '—'] || 0) + 1; });
+        h += ' &nbsp;<select id="pgcorb-f" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:12px;max-width:340px;"><option value="">Toutes les écoles</option>' +
+          Object.keys(counts).sort(function (a, c) { return ecoleNom(a).localeCompare(ecoleNom(c)); }).map(function (k) {
+            return '<option value="' + esc(k) + '"' + (k === filtreEcole ? ' selected' : '') + '>' + esc(ecoleNom(k)) + (ecoleIepp(k) ? ' (' + esc(ecoleIepp(k)) + ')' : '') + ' — ' + counts[k] + '</option>';
+          }).join('') + '</select>';
+      } else if (!canAct()) {
+        h += ' · <i>consultation seule</i>';
+      }
+      b.innerHTML = h;
+      var s = $('pgcorb-f'); if (s) s.onchange = function () { filtreEcole = s.value; renderScoped(); };
+    }
+
+    if (!vis.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>La corbeille de votre espace est vide</p></td></tr>'; return; }
+    var act = canAct(), sup = isSuper();
+    tbody.innerHTML = vis.map(function (e) {
+      var i = all.indexOf(e), isArch = e._archive === true;
+      var statut = isArch
+        ? '<span class="badge" style="background:#D97706;color:#fff;padding:2px 8px;border-radius:6px;">🎓 ' + esc(e._statut) + '</span>'
+        : '<span class="badge badge-red" style="padding:2px 8px;border-radius:6px;">🗑 Supprimé le ' + esc(e._supprime_le) + '</span>';
+      var acts = !act ? '<span style="color:var(--text3);font-size:11px;">—</span>' : (isArch
+        ? '<button class="icon-btn" onclick="supprimerDefinitif(' + i + ')" title="Supprimer définitivement" style="color:var(--danger);">💀</button>'
+        : '<button class="icon-btn" onclick="restaurerEleve(' + i + ')" title="Restaurer" style="color:var(--ci-vert);">↩️</button><button class="icon-btn" onclick="supprimerDefinitif(' + i + ')" style="color:var(--danger);">💀</button>');
+      return '<tr><td><strong>' + esc(e.nom) + '</strong> ' + esc(e.prenoms) + (sup ? '<br><small style="color:var(--text3)">🏫 ' + esc(ecoleNom(e.ecole_id)) + '</small>' : '') + '</td>' +
+        '<td><span class="badge badge-vert">' + esc(e.classe) + '</span></td><td><code style="font-size:11px;">' + esc(e.matricule) + '</code></td>' +
+        '<td style="font-size:11px;">' + esc(e._supprime_le || e._archive_le || '—') + '</td><td>' + statut + '</td><td><div class="actions-cell">' + acts + '</div></td></tr>';
+    }).join('');
+  }
+
+  /* Gardes : pas d'action hors de son espace */
+  function garde(nom) {
+    var o = window[nom]; if (typeof o !== 'function' || o.__pgcorb) return;
+    var w = function (idx) {
+      var e = (DB.corbeille || [])[idx];
+      if (!e) return;
+      if (!isSuper() && (!inScope(e) || !canAct())) { note('🔒 Cette entrée n’appartient pas à votre espace.', 'error'); renderScoped(); return; }
+      return o.apply(this, arguments);
+    };
+    w.__pgcorb = 1; window[nom] = w; try { eval(nom + '=w'); } catch (e) { }
+  }
+
+  function viderScoped() {
+    var oV = window.__pgCorbOrigVider;
+    var vis = visiblesFiltrees();
+    if (isSuper() && !filtreEcole) return oV.apply(this, arguments);
+    if (!canAct()) { note('🔒 Vous ne pouvez pas vider la corbeille.', 'error'); return; }
+    if (!vis.length) { note('La corbeille est vide', 'info'); return; }
+    if (!confirm('⚠️ Vider la corbeille de ' + (isSuper() ? ecoleNom(filtreEcole) : 'votre espace') + ' (' + vis.length + ' élément(s)) ?\nIrréversible.')) return;
+    vis.forEach(function (e) {
+      var id = e.id || e.matricule;
+      try { if (id && window._firebaseReady && window._fb) window._fb.del('corbeille', id).catch(function () { }); } catch (er) { }
+    });
+    DB.corbeille = (DB.corbeille || []).filter(function (e) { return vis.indexOf(e) === -1; });
+    try { save('corbeille'); } catch (e) { }
+    renderScoped();
+    note('🗑 Corbeille vidée (votre espace uniquement)', 'info');
+  }
+
+  function install() {
+    if (typeof window.renderCorbeille === 'function' && !window.renderCorbeille.__pgcorb) {
+      renderScoped.__pgcorb = 1; window.renderCorbeille = renderScoped; try { renderCorbeille = renderScoped; } catch (e) { }
+    }
+    garde('restaurerEleve'); garde('supprimerDefinitif');
+    if (typeof window.viderCorbeille === 'function' && !window.viderCorbeille.__pgcorb) {
+      window.__pgCorbOrigVider = window.viderCorbeille;
+      viderScoped.__pgcorb = 1; window.viderCorbeille = viderScoped; try { viderCorbeille = viderScoped; } catch (e) { }
+    }
+  }
+
+  /* Le compteur de la barre latérale est réécrit ailleurs avec le total global : on le recadre */
+  function surveillerBadge() {
+    var b = $('badge-corbeille'); if (!b || b.__pgobs) return; b.__pgobs = 1;
+    var fix = function () {
+      var n = 0; try { n = visibles().length; } catch (e) { }
+      var t = String(n), d = n > 0 ? 'inline-block' : 'none';
+      if (b.textContent !== t) b.textContent = t;
+      if (b.style.display !== d) b.style.display = d;
+    };
+    try { new MutationObserver(fix).observe(b, { childList: true, characterData: true, subtree: true }); } catch (e) { }
+    fix();
+  }
+
+  install(); surveillerBadge();
+  setInterval(function () { install(); surveillerBadge(); }, 2000);
+  setTimeout(install, 800);
+})();
+
+</script>
+
+
+<!-- ══ MODULE ADDITIF : SUPERVISION NATIONALE DU SUPER ADMINISTRATEUR — retirer ce bloc pour revenir à l'état précédent ══ -->
+<script id="pgnep-supervision">
+/* ================================================================
+   MODULE ADDITIF — SUPERVISION NATIONALE (réservée au super administrateur)
+   • Tous les comptes / tous les rôles avec leur périmètre et leur état.
+   • Navigation par DRENAET → IEPP → école (avec ◀ ▶ pour faire « tourner » les IEPP).
+   • Choix d'un utilisateur pour contrôler ses flux de remontées
+     (élèves, notes, classes, écoles de son périmètre, corbeille).
+   • Effectifs des remontées par IEPP et par école, export Excel.
+   Lecture seule : ce module ne modifie aucune donnée.
+   ================================================================ */
+(function () {
+  'use strict';
+  if (window.__pgSupervision) return; window.__pgSupervision = true;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function note(m, t) { try { showNotif(m, t || 'info'); } catch (e) { } }
+  function isSuper() {
+    var c = null; try { c = currentUser; } catch (e) { }
+    if (!c) return false;
+    var u = null; try { u = getCurrentUserData(); } catch (e) { }
+    return !!((u && (u.role === 'admin' || u.login === 'diomande')) || c.role === 'admin' || c.login === 'diomande');
+  }
+  function nf(n) { return Number(n || 0).toLocaleString('fr-FR'); }
+  function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function fr(d) { return d ? String(d).split('-').reverse().join('/') : '—'; }
+  function roleLabel(r) { try { return (ROLE_LABELS && ROLE_LABELS[r]) || r || '—'; } catch (e) { return r || '—'; } }
+  function rid(v) { try { return typeof resolveEcoleId === 'function' ? resolveEcoleId(v) : v; } catch (e) { return v; } }
+
+  var F = { drena: '', iepp: '', ecole: '', role: '', user: '', q: '', etat: '' };
+
+  /* ── Données de référence ── */
+  function ecoles() { return (DB.ecoles || []); }
+  function ecoleMap() { var m = {}; ecoles().forEach(function (e) { m[e.id] = e; }); return m; }
+  function userEcoleId(u) {
+    if (u.role === 'directeur') return rid(u.structure_val);
+    if (u.role === 'instituteur' || u.role === 'benevole') return rid(u.ecole_val);
+    if (u.structure_type === 'ecole') return rid(u.structure_val);
+    if (u.structure_type === 'classe') return rid(u.ecole_val);
+    return '';
+  }
+  function userGeo(u, EM) {
+    var e = EM[userEcoleId(u)] || null, iepp = '', drena = '';
+    if (e) { iepp = e.iepp || ''; drena = e.drena || ''; }
+    else if (u.structure_type === 'iepp') {
+      iepp = u.structure_val || '';
+      var s = ecoles().find(function (x) { return x.iepp === iepp; }); drena = s ? (s.drena || '') : '';
+    } else if (u.structure_type === 'drena') drena = u.structure_val || '';
+    return { ecole: e, iepp: iepp, drena: drena };
+  }
+  function etatUser(u) {
+    if (u.statut_validation === 'en_attente') return ['En attente', 'wait'];
+    if (u.statut_validation === 'refuse') return ['Refusé', 'off'];
+    if (u.actif === false) return ['Inactif', 'off'];
+    var t = today();
+    if (u.date_fin && t > u.date_fin) return ['Expiré', 'off'];
+    if (u.date_debut && t < u.date_debut) return ['Programmé', 'wait'];
+    return ['Actif', 'on'];
+  }
+
+  /* ── Agrégats ── */
+  function agregats() {
+    var EM = ecoleMap(), elevesParEcole = {}, filles = {}, notesParEcole = {}, corbParEcole = {}, e2e = {}, classes = {};
+    (DB.eleves || []).forEach(function (e) {
+      e2e[e.id] = e.ecole_id;
+      elevesParEcole[e.ecole_id] = (elevesParEcole[e.ecole_id] || 0) + 1;
+      if (/^f/i.test(String(e.sexe || ''))) filles[e.ecole_id] = (filles[e.ecole_id] || 0) + 1;
+      var k = e.ecole_id + '|' + (e.classe || ''); classes[k] = (classes[k] || 0) + 1;
+    });
+    (DB.notes || []).forEach(function (n) { var s = e2e[n.eleve_id]; if (s != null) notesParEcole[s] = (notesParEcole[s] || 0) + 1; });
+    (DB.corbeille || []).forEach(function (c) { corbParEcole[c.ecole_id] = (corbParEcole[c.ecole_id] || 0) + 1; });
+    var parEcoleUsers = {};
+    (DB.users || []).forEach(function (u) {
+      var s = userEcoleId(u); if (!s) return;
+      var o = parEcoleUsers[s] = parEcoleUsers[s] || { dir: [], ens: 0 };
+      if (u.role === 'directeur') o.dir.push(u); else if (u.role === 'instituteur' || u.role === 'benevole') o.ens++;
+    });
+    return { EM: EM, el: elevesParEcole, fi: filles, no: notesParEcole, co: corbParEcole, us: parEcoleUsers, cl: classes };
+  }
+
+  function ecolesFiltrees() {
+    return ecoles().filter(function (e) {
+      return (!F.drena || e.drena === F.drena) && (!F.iepp || e.iepp === F.iepp) && (!F.ecole || e.id === F.ecole);
+    });
+  }
+  function uniq(a) { return Array.from(new Set(a.filter(Boolean))).sort(function (x, y) { return String(x).localeCompare(String(y)); }); }
+  function listeDrena() { return uniq(ecoles().map(function (e) { return e.drena; }).concat((DB.users || []).filter(function (u) { return u.structure_type === 'drena'; }).map(function (u) { return u.structure_val; }))); }
+  function listeIepp() {
+    return uniq(ecoles().filter(function (e) { return !F.drena || e.drena === F.drena; }).map(function (e) { return e.iepp; })
+      .concat((DB.users || []).filter(function (u) { return u.structure_type === 'iepp' && !F.drena; }).map(function (u) { return u.structure_val; })));
+  }
+  function usersFiltres(A) {
+    var geo = !!(F.drena || F.iepp || F.ecole), q = F.q.toLowerCase();
+    return (DB.users || []).filter(function (u) {
+      if (F.role && u.role !== F.role) return false;
+      var g = userGeo(u, A.EM);
+      if (geo) {
+        if (F.ecole) { if (userEcoleId(u) !== F.ecole) return false; }
+        else if (F.iepp) { if (g.iepp !== F.iepp) return false; }
+        else if (F.drena) { if (g.drena !== F.drena) return false; }
+      }
+      if (F.etat && etatUser(u)[0] !== F.etat) return false;
+      if (q && (String(u.nom || '') + ' ' + String(u.login || '') + ' ' + String(u.telephone || '')).toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+  }
+
+  /* Périmètre réel d'un utilisateur : on réutilise EXACTEMENT les règles de l'application */
+  function scopeDe(u) {
+    var keep = null; try { keep = currentUser; } catch (e) { }
+    var r = { eleves: [], ecoles: [], users: [], corb: [] };
+    try {
+      currentUser = { login: u.login, nom: u.nom, role: u.role };
+      r.eleves = getScopeEleves() || []; r.ecoles = getScopeEcoles() || []; r.users = getScopeUsers() || [];
+      var kE = DB.eleves; try { DB.eleves = DB.corbeille || []; r.corb = getScopeEleves() || []; } finally { DB.eleves = kE; }
+    } catch (e) { } finally { try { currentUser = keep; } catch (e2) { } }
+    return r;
+  }
+
+  /* ── Interface ── */
+  var css = '#page-supervision .sv-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:14px 16px}' +
+    '#page-supervision .sv-bar label{font-size:11px;font-weight:700;color:var(--text2);display:flex;flex-direction:column;gap:3px}' +
+    '#page-supervision select,#page-supervision input[type=text]{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:12.5px;background:var(--bg,#fff);color:inherit;min-width:140px;max-width:260px}' +
+    '#page-supervision .sv-b{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface,#fff);cursor:pointer;font-weight:700;font-size:12.5px;color:inherit}' +
+    '#page-supervision .sv-b.p{background:#009E60;color:#fff;border-color:#009E60}' +
+    '#page-supervision .sv-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:0 16px 14px}' +
+    '#page-supervision .sv-k{border-radius:12px;padding:12px 14px;border:1px solid var(--border);border-top:4px solid #F77F00;background:var(--surface,#fff)}' +
+    '#page-supervision .sv-k:nth-child(3n+2){border-top-color:#009E60}#page-supervision .sv-k:nth-child(3n){border-top-color:#2563eb}' +
+    '#page-supervision .sv-k b{display:block;font-size:22px;margin-top:2px}#page-supervision .sv-k small{color:var(--text2);font-size:11px}' +
+    '#page-supervision .sv-t{width:100%;border-collapse:collapse;font-size:12.5px}#page-supervision .sv-t th{text-align:left;padding:8px;font-size:11px;text-transform:uppercase;color:var(--text2);border-bottom:2px solid var(--border);white-space:nowrap}' +
+    '#page-supervision .sv-t td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}#page-supervision .sv-t tr.sv-c{cursor:pointer}#page-supervision .sv-t tr.sv-c:hover{background:rgba(247,127,0,.08)}' +
+    '#page-supervision .sv-p{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700}' +
+    '#page-supervision .sv-on{background:#d9f5e7;color:#0a6b3f}#page-supervision .sv-off{background:#fde0dd;color:#b3261e}#page-supervision .sv-wait{background:#fff0d6;color:#a05a00}' +
+    '#page-supervision .sv-user{margin:0 16px 14px;border:2px solid #F77F00;border-radius:14px;padding:14px;background:rgba(247,127,0,.05)}' +
+    '#page-supervision .sv-sec{padding:4px 16px 16px;overflow:auto}#page-supervision h4{margin:6px 16px 6px;font-size:14px}' +
+    '#page-supervision .sv-bar2{display:flex;gap:8px;align-items:center;padding:0 16px 8px}';
+
+  function build() {
+    if ($('page-supervision')) return;
+    var ref = $('page-corbeille'); if (!ref || !ref.parentNode) return;
+    var st = document.createElement('style'); st.id = 'pgsv-style'; st.textContent = css; document.head.appendChild(st);
+    var p = document.createElement('div'); p.id = 'page-supervision'; p.className = 'page';
+    p.innerHTML = '<div class="card"><div class="card-header"><h3>🛰 Supervision nationale — comptes, rôles, périmètres et remontées</h3>' +
+      '<div class="card-actions"><button class="sv-b" id="sv-refresh">🔄 Actualiser</button><button class="sv-b p" id="sv-xl">📊 Exporter Excel</button></div></div>' +
+      '<div class="sv-bar" id="sv-bar"></div><div class="sv-bar2" id="sv-nav"></div><div class="sv-kpis" id="sv-kpis"></div>' +
+      '<div id="sv-user"></div>' +
+      '<h4>📍 Remontées par IEPP <small style="font-weight:400;color:var(--text2)">(cliquez sur une ligne pour entrer dans l’IEPP)</small></h4><div class="sv-sec" id="sv-iepp"></div>' +
+      '<h4>🏫 Écoles <span id="sv-ec-n" style="font-weight:400;color:var(--text2)"></span></h4><div class="sv-sec" id="sv-ecoles"></div>' +
+      '<h4>👥 Comptes utilisateurs <span id="sv-us-n" style="font-weight:400;color:var(--text2)"></span></h4><div class="sv-sec" id="sv-users"></div></div>';
+    ref.parentNode.insertBefore(p, ref.nextSibling);
+    p.addEventListener('change', onChange); p.addEventListener('input', onInput); p.addEventListener('click', onClick);
+    try { PAGE_LABELS['supervision'] = 'Supervision nationale'; } catch (e) { }
+  }
+  function ensureNav() {
+    if ($('pgsv-nav')) return;
+    var ref = $('nav-comptes'); if (!ref || !ref.parentNode) return;
+    var n = document.createElement('div'); n.className = 'nav-item'; n.id = 'pgsv-nav'; n.style.display = 'none';
+    n.setAttribute('onclick', "showPage('supervision')");
+    n.innerHTML = '<span class="nav-icon">🛰</span> Supervision (tous comptes)';
+    ref.parentNode.insertBefore(n, ref.nextSibling);
+  }
+
+  function opt(list, sel, all, fmt) {
+    return '<option value="">' + all + '</option>' + list.map(function (v) {
+      var val = Array.isArray(v) ? v[0] : v, lab = Array.isArray(v) ? v[1] : v;
+      return '<option value="' + esc(val) + '"' + (val === sel ? ' selected' : '') + '>' + esc(fmt ? fmt(lab) : lab) + '</option>';
+    }).join('');
+  }
+
+  function render() {
+    if (!isSuper()) { var pg = $('page-supervision'); if (pg) pg.querySelector('.card').innerHTML = '<div style="padding:30px;text-align:center">🔒 Réservé au super administrateur.</div>'; return; }
+    build(); if (!$('page-supervision')) return;
+    var A = agregats();
+    var sch = ecolesFiltrees(), us = usersFiltres(A);
+
+    /* barre de filtres */
+    var roles = uniq((DB.users || []).map(function (u) { return u.role; }));
+    var ecolesList = ecoles().filter(function (e) { return (!F.drena || e.drena === F.drena) && (!F.iepp || e.iepp === F.iepp); })
+      .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); }).map(function (e) { return [e.id, e.nom || e.id]; });
+    var usersList = us.slice().sort(function (a, b) { return String(a.nom || a.login).localeCompare(String(b.nom || b.login)); }).slice(0, 400)
+      .map(function (u) { return [u.login, (u.nom || u.login) + ' — ' + roleLabel(u.role)]; });
+    $('sv-bar').innerHTML =
+      '<label>DRENAET<select data-f="drena">' + opt(listeDrena(), F.drena, 'Toutes') + '</select></label>' +
+      '<label>IEPP / circonscription<select data-f="iepp">' + opt(listeIepp(), F.iepp, 'Toutes') + '</select></label>' +
+      '<label>École<select data-f="ecole">' + opt(ecolesList, F.ecole, 'Toutes') + '</select></label>' +
+      '<label>Rôle<select data-f="role">' + opt(roles.map(function (r) { return [r, roleLabel(r)]; }), F.role, 'Tous les rôles') + '</select></label>' +
+      '<label>État du compte<select data-f="etat">' + opt(['Actif', 'Inactif', 'En attente', 'Expiré', 'Programmé', 'Refusé'], F.etat, 'Tous') + '</select></label>' +
+      '<label>🎯 Contrôler un utilisateur<select data-f="user">' + opt(usersList, F.user, 'Choisir un utilisateur…') + '</select></label>' +
+      '<label>Recherche<input type="text" data-f="q" placeholder="nom, identifiant, tél." value="' + esc(F.q) + '"></label>' +
+      '<button class="sv-b" data-a="reset">✖ Réinitialiser</button>';
+    var iepps = listeIepp(), ix = iepps.indexOf(F.iepp);
+    $('sv-nav').innerHTML = '<button class="sv-b" data-a="prev">◀ IEPP précédent</button><button class="sv-b" data-a="next">IEPP suivant ▶</button>' +
+      '<span style="font-size:12.5px;color:var(--text2)">' + (F.iepp ? '📍 <b>' + esc(F.iepp) + '</b> (' + (ix + 1) + '/' + iepps.length + ')' : 'Vue nationale — ' + iepps.length + ' IEPP') + '</span>';
+
+    /* KPI */
+    var nEl = 0, nFi = 0, nNo = 0, nCo = 0, ayant = 0;
+    sch.forEach(function (e) { var a = A.el[e.id] || 0; nEl += a; nFi += A.fi[e.id] || 0; nNo += A.no[e.id] || 0; nCo += A.co[e.id] || 0; if (a > 0) ayant++; });
+    var cEtat = { on: 0, off: 0, wait: 0 }; us.forEach(function (u) { cEtat[etatUser(u)[1]]++; });
+    $('sv-kpis').innerHTML = [
+      ['Écoles', nf(sch.length), nf(ayant) + ' ont remonté des élèves'],
+      ['Comptes', nf(us.length), nf(cEtat.on) + ' actifs · ' + nf(cEtat.off) + ' inactifs · ' + nf(cEtat.wait) + ' en attente'],
+      ['Élèves remontés', nf(nEl), nf(nFi) + ' filles · ' + nf(nEl - nFi) + ' garçons'],
+      ['Notes saisies', nf(nNo), 'évaluations enregistrées'],
+      ['Taux de remontée', sch.length ? Math.round(ayant * 100 / sch.length) + ' %' : '—', 'écoles avec élèves'],
+      ['En corbeille', nf(nCo), 'élèves supprimés/archivés']
+    ].map(function (k) { return '<div class="sv-k"><small>' + k[0] + '</small><b>' + k[1] + '</b><small>' + k[2] + '</small></div>'; }).join('');
+
+    /* fiche utilisateur */
+    var box = $('sv-user'), cu = F.user ? (DB.users || []).find(function (u) { return u.login === F.user; }) : null;
+    if (!cu) box.innerHTML = '';
+    else {
+      var sc = scopeDe(cu), g = userGeo(cu, A.EM), es = etatUser(cu);
+      var parClasse = {}; sc.eleves.forEach(function (e) { parClasse[e.classe || '—'] = (parClasse[e.classe || '—'] || 0) + 1; });
+      var ids = {}; sc.eleves.forEach(function (e) { ids[e.id] = 1; });
+      var nbNotes = (DB.notes || []).filter(function (n) { return ids[n.eleve_id]; }).length;
+      var parClNotes = {}; var cl = {}; sc.eleves.forEach(function (e) { cl[e.id] = e.classe || '—'; });
+      (DB.notes || []).forEach(function (n) { if (cl[n.eleve_id]) parClNotes[cl[n.eleve_id]] = (parClNotes[cl[n.eleve_id]] || 0) + 1; });
+      var rows = Object.keys(parClasse).sort().map(function (k) { return '<tr><td>' + esc(k) + '</td><td>' + nf(parClasse[k]) + '</td><td>' + nf(parClNotes[k] || 0) + '</td></tr>'; }).join('');
+      box.innerHTML = '<div class="sv-user"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b style="font-size:16px">🎯 ' + esc(cu.nom || cu.login) + '</b> <small>@' + esc(cu.login) + '</small><br>' +
+        '<span class="sv-p sv-' + es[1] + '">' + es[0] + '</span> · Rôle : <b>' + esc(roleLabel(cu.role)) + '</b> · Périmètre : <b>' + esc((typeof getStructureLabel === 'function' ? getStructureLabel(cu) : '').replace(/^[^\wÀ-ÿ]+/, '')) + '</b><br>' +
+        '<small>DRENAET : ' + esc(g.drena || '—') + ' · IEPP : ' + esc(g.iepp || '—') + ' · Période : ' + fr(cu.date_debut) + ' → ' + fr(cu.date_fin) + ' · Créé par : ' + esc(cu.cree_par || cu.demande_par || '—') + '</small></div>' +
+        '<button class="sv-b" data-a="closeuser">✖ Fermer</button></div>' +
+        '<div class="sv-kpis" style="padding:10px 0 6px"><div class="sv-k"><small>Écoles dans son périmètre</small><b>' + nf(sc.ecoles.length) + '</b></div><div class="sv-k"><small>Élèves visibles</small><b>' + nf(sc.eleves.length) + '</b></div>' +
+        '<div class="sv-k"><small>Notes saisies</small><b>' + nf(nbNotes) + '</b></div><div class="sv-k"><small>Comptes qu’il gère</small><b>' + nf(sc.users.length) + '</b></div><div class="sv-k"><small>Sa corbeille</small><b>' + nf(sc.corb.length) + '</b></div></div>' +
+        (rows ? '<table class="sv-t" style="max-width:480px"><thead><tr><th>Classe</th><th>Élèves</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table>' : '<i>Aucun élève dans son périmètre : aucune remontée.</i>') +
+        '<div style="margin-top:8px;font-size:12px;color:var(--text2)">Calculé avec les mêmes règles de périmètre que l’application : ce que cet utilisateur voit et remonte.</div></div>';
+    }
+
+    /* tableau IEPP */
+    var parIepp = {};
+    ecoles().filter(function (e) { return !F.drena || e.drena === F.drena; }).forEach(function (e) {
+      var k = e.iepp || '(sans IEPP)', o = parIepp[k] = parIepp[k] || { iepp: k, drena: e.drena || '', ec: 0, ay: 0, el: 0, fi: 0, no: 0, co: 0, dir: 0, ens: 0 };
+      o.ec++; var a = A.el[e.id] || 0; o.el += a; o.fi += A.fi[e.id] || 0; o.no += A.no[e.id] || 0; o.co += A.co[e.id] || 0; if (a > 0) o.ay++;
+      var uo = A.us[e.id]; if (uo) { o.dir += uo.dir.length; o.ens += uo.ens; }
+    });
+    var li = Object.keys(parIepp).sort().map(function (k) { return parIepp[k]; });
+    var tot = { ec: 0, ay: 0, el: 0, no: 0, co: 0, dir: 0, ens: 0 };
+    $('sv-iepp').innerHTML = '<table class="sv-t"><thead><tr><th>IEPP</th><th>DRENAET</th><th>Écoles</th><th>Ont remonté</th><th>Taux</th><th>Directeurs</th><th>Enseignants</th><th>Élèves</th><th>Notes</th><th>Corbeille</th></tr></thead><tbody>' +
+      li.map(function (o) {
+        ['ec', 'ay', 'el', 'no', 'co', 'dir', 'ens'].forEach(function (k) { tot[k] += o[k]; });
+        return '<tr class="sv-c" data-iepp="' + esc(o.iepp) + '"' + (o.iepp === F.iepp ? ' style="background:rgba(0,158,96,.12)"' : '') + '><td><b>' + esc(o.iepp) + '</b></td><td>' + esc(o.drena) + '</td><td>' + nf(o.ec) + '</td><td>' + nf(o.ay) + '</td><td>' + (o.ec ? Math.round(o.ay * 100 / o.ec) : 0) + ' %</td><td>' + nf(o.dir) + '</td><td>' + nf(o.ens) + '</td><td>' + nf(o.el) + '</td><td>' + nf(o.no) + '</td><td>' + nf(o.co) + '</td></tr>';
+      }).join('') +
+      '<tr style="font-weight:800;background:rgba(0,0,0,.04)"><td>TOTAL</td><td></td><td>' + nf(tot.ec) + '</td><td>' + nf(tot.ay) + '</td><td>' + (tot.ec ? Math.round(tot.ay * 100 / tot.ec) : 0) + ' %</td><td>' + nf(tot.dir) + '</td><td>' + nf(tot.ens) + '</td><td>' + nf(tot.el) + '</td><td>' + nf(tot.no) + '</td><td>' + nf(tot.co) + '</td></tr></tbody></table>';
+
+    /* tableau écoles */
+    var LIM = 200, se = sch.slice().sort(function (a, b) { return (A.el[b.id] || 0) - (A.el[a.id] || 0); });
+    $('sv-ec-n').textContent = '(' + se.length + (se.length > LIM ? ', ' + LIM + ' premières affichées' : '') + ')';
+    $('sv-ecoles').innerHTML = '<table class="sv-t"><thead><tr><th>École</th><th>IEPP</th><th>Directeur</th><th>Enseignants</th><th>Élèves (F)</th><th>Notes</th><th>Corbeille</th></tr></thead><tbody>' +
+      se.slice(0, LIM).map(function (e) {
+        var uo = A.us[e.id] || { dir: [], ens: 0 }, d = uo.dir[0];
+        return '<tr class="sv-c" data-ecole="' + esc(e.id) + '"><td><b>' + esc(e.nom || e.id) + '</b></td><td>' + esc(e.iepp || '—') + '</td><td>' + (d ? esc(d.nom || d.login) + ' <span class="sv-p sv-' + etatUser(d)[1] + '">' + etatUser(d)[0] + '</span>' : '<span class="sv-p sv-off">aucun</span>') + '</td><td>' + nf(uo.ens) + '</td><td>' + nf(A.el[e.id] || 0) + ' (' + nf(A.fi[e.id] || 0) + ')</td><td>' + nf(A.no[e.id] || 0) + '</td><td>' + nf(A.co[e.id] || 0) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+
+    /* tableau comptes */
+    var LU = 300, su = us.slice().sort(function (a, b) { return String(a.role).localeCompare(String(b.role)) || String(a.nom || a.login).localeCompare(String(b.nom || b.login)); });
+    $('sv-us-n').textContent = '(' + su.length + (su.length > LU ? ', ' + LU + ' premiers affichés — affinez les filtres' : '') + ')';
+    $('sv-users').innerHTML = '<table class="sv-t"><thead><tr><th>Nom</th><th>Identifiant</th><th>Rôle</th><th>Périmètre</th><th>IEPP</th><th>DRENAET</th><th>État</th><th>Période</th><th></th></tr></thead><tbody>' +
+      su.slice(0, LU).map(function (u) {
+        var g = userGeo(u, A.EM), es = etatUser(u), per = '';
+        try { per = getStructureLabel(u).replace(/^[^\wÀ-ÿ]+/, ''); } catch (e) { }
+        return '<tr><td><b>' + esc(u.nom || '—') + '</b></td><td>@' + esc(u.login) + '</td><td>' + esc(roleLabel(u.role)) + '</td><td>' + esc(per) + '</td><td>' + esc(g.iepp || '—') + '</td><td>' + esc(g.drena || '—') + '</td><td><span class="sv-p sv-' + es[1] + '">' + es[0] + '</span></td><td>' + (u.date_debut || u.date_fin ? fr(u.date_debut) + ' → ' + fr(u.date_fin) : '—') + '</td><td><button class="sv-b" data-user="' + esc(u.login) + '">🎯 Contrôler</button></td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  /* ── Événements ── */
+  function onChange(e) {
+    var f = e.target && e.target.getAttribute && e.target.getAttribute('data-f'); if (!f || f === 'q') return;
+    F[f] = e.target.value;
+    if (f === 'drena') { F.iepp = ''; F.ecole = ''; }
+    if (f === 'iepp') { F.ecole = ''; }
+    if (f === 'ecole' && F.ecole) { var s = ecoles().find(function (x) { return x.id === F.ecole; }); if (s) { F.iepp = s.iepp || F.iepp; } }
+    if (f !== 'user') F.user = F.user && usersFiltres(agregats()).some(function (u) { return u.login === F.user; }) ? F.user : '';
+    render();
+  }
+  var tq = null;
+  function onInput(e) {
+    if (e.target && e.target.getAttribute && e.target.getAttribute('data-f') === 'q') {
+      F.q = e.target.value; clearTimeout(tq);
+      tq = setTimeout(function () { var pos = e.target.selectionStart; render(); var n = document.querySelector('#sv-bar [data-f=q]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (x) { } } }, 350);
+    }
+  }
+  function onClick(e) {
+    var t = e.target; if (!t || !t.closest) return;
+    var b = t.closest('[data-a]');
+    if (b) {
+      var a = b.getAttribute('data-a');
+      if (a === 'reset') F = { drena: '', iepp: '', ecole: '', role: '', user: '', q: '', etat: '' };
+      else if (a === 'closeuser') F.user = '';
+      else if (a === 'prev' || a === 'next') {
+        var l = listeIepp(); if (!l.length) return;
+        var i = l.indexOf(F.iepp); i = a === 'next' ? (i + 1) % l.length : (i <= 0 ? l.length - 1 : i - 1);
+        F.iepp = l[i]; F.ecole = ''; F.user = '';
+      }
+      render(); return;
+    }
+    var bu = t.closest('[data-user]'); if (bu) { F.user = bu.getAttribute('data-user'); render(); var uEl = $('sv-user'); if (uEl && uEl.scrollIntoView) uEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    var ri = t.closest('tr[data-iepp]'); if (ri) { F.iepp = ri.getAttribute('data-iepp'); F.ecole = ''; F.user = ''; render(); return; }
+    var re = t.closest('tr[data-ecole]'); if (re) { F.ecole = re.getAttribute('data-ecole'); F.user = ''; render(); return; }
+    if (t.id === 'sv-refresh') { render(); }
+    if (t.id === 'sv-xl') exporter();
+  }
+
+  function exporter() {
+    var A = agregats(), us = usersFiltres(A), sch = ecolesFiltrees();
+    var cptes = us.map(function (u) { var g = userGeo(u, A.EM), es = etatUser(u); var per = ''; try { per = getStructureLabel(u).replace(/^[^\wÀ-ÿ]+/, ''); } catch (e) { }
+      return { Nom: u.nom || '', Identifiant: u.login, Rôle: roleLabel(u.role), Périmètre: per, IEPP: g.iepp, DRENAET: g.drena, École: g.ecole ? g.ecole.nom : '', État: es[0], Début: u.date_debut || '', Fin: u.date_fin || '', 'Créé par': u.cree_par || u.demande_par || '' }; });
+    var ecs = sch.map(function (e) { var uo = A.us[e.id] || { dir: [], ens: 0 }; return { École: e.nom || e.id, IEPP: e.iepp || '', DRENAET: e.drena || '', Directeur: uo.dir[0] ? (uo.dir[0].nom || uo.dir[0].login) : '', Enseignants: uo.ens, Élèves: A.el[e.id] || 0, Filles: A.fi[e.id] || 0, Notes: A.no[e.id] || 0, Corbeille: A.co[e.id] || 0 }; });
+    try {
+      if (typeof XLSX === 'undefined') throw new Error('XLSX indisponible');
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ecs), 'Écoles & remontées');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cptes), 'Comptes');
+      XLSX.writeFile(wb, 'Supervision_Perroquet_' + today() + '.xlsx');
+    } catch (e) {
+      var rows = cptes, keys = rows.length ? Object.keys(rows[0]) : [];
+      var csv = [keys.join(';')].concat(rows.map(function (r) { return keys.map(function (k) { return '"' + String(r[k]).replace(/"/g, '""') + '"'; }).join(';'); })).join('\n');
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = 'Supervision_comptes_' + today() + '.csv'; a.click();
+    }
+    note('📊 Export généré', 'success');
+  }
+
+  /* ── Branchement sur showPage + visibilité du menu ── */
+  function hook() {
+    ensureNav(); build();
+    var n = $('pgsv-nav'); if (n) n.style.display = isSuper() ? 'flex' : 'none';
+    if (typeof window.showPage === 'function' && !window.showPage.__pgsv) {
+      var o = window.showPage;
+      var w = function (name) {
+        if (name === 'supervision' && !isSuper()) { note('🔒 Réservé au super administrateur.', 'error'); return; }
+        var r = o.apply(this, arguments);
+        if (name === 'supervision') {
+          try { render(); } catch (e) { console.warn('[supervision]', e); }
+          var nv = $('pgsv-nav'); if (nv) nv.classList.add('active');
+        }
+        return r;
+      };
+      w.__pgsv = 1; window.showPage = w; try { showPage = w; } catch (e) { }
+    }
+  }
+  hook();
+  setInterval(hook, 2000);
+  setTimeout(hook, 600);
+})();
+
+</script>
+
 </body>
 </html>
