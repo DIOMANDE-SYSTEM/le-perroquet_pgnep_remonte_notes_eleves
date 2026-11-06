@@ -3,6 +3,163 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script id="pgnep-ls-overflow">
+/* ═════════════════════════════════════════════════════════════════════
+   PGNEP_LS — Débordement automatique de localStorage vers IndexedDB
+   Bloc ADDITIF (aucune fonction existante modifiée ni supprimée).
+   Principe :
+   • localStorage reste utilisé EXACTEMENT comme avant.
+   • Si une écriture est refusée (quota plein), la valeur est enregistrée
+     automatiquement dans IndexedDB (centaines de Mo à plusieurs Go) et
+     relue de façon transparente par getItem().
+   • Les données déjà présentes dans localStorage ne sont ni déplacées,
+     ni modifiées, ni supprimées.
+   • Au rechargement, les valeurs en débordement sont restaurées avant la
+     connexion de l'utilisateur.
+   ═════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (window.PGNEP_LS) return;
+  var proto = Storage.prototype;
+  var oSet = proto.setItem, oGet = proto.getItem, oRem = proto.removeItem;
+  var oKey = proto.key, oClear = proto.clear;
+  var lenDesc = Object.getOwnPropertyDescriptor(proto, 'length');
+  var DB_NAME = 'PGNEP_LS_OVERFLOW', STORE = 'kv';
+  var ov = Object.create(null);          /* clé -> valeur (débordement)   */
+  var ovCount = 0, ready = false, notified = false, idb = null;
+  var readyCbs = [];
+
+  function isLS(o) { try { return o === window.localStorage; } catch (e) { return false; } }
+
+  /* ── IndexedDB ───────────────────────────────────────────────────── */
+  function openDB() {
+    if (idb) return idb;
+    idb = new Promise(function (res, rej) {
+      if (!window.indexedDB) { rej(new Error('IndexedDB indisponible')); return; }
+      var rq = indexedDB.open(DB_NAME, 1);
+      rq.onupgradeneeded = function () { rq.result.createObjectStore(STORE, { keyPath: 'k' }); };
+      rq.onsuccess = function () { res(rq.result); };
+      rq.onerror = function () { rej(rq.error); };
+    });
+    idb.catch(function () {});
+    return idb;
+  }
+  function idbPut(k, v) {
+    return openDB().then(function (d) {
+      return new Promise(function (res, rej) {
+        var t = d.transaction(STORE, 'readwrite'); t.objectStore(STORE).put({ k: k, v: v, t: Date.now() });
+        t.oncomplete = function () { res(true); }; t.onerror = t.onabort = function () { rej(t.error); };
+      });
+    });
+  }
+  function idbDel(k) {
+    return openDB().then(function (d) {
+      return new Promise(function (res) {
+        var t = d.transaction(STORE, 'readwrite'); t.objectStore(STORE).delete(k);
+        t.oncomplete = function () { res(true); }; t.onerror = t.onabort = function () { res(false); };
+      });
+    }).catch(function () {});
+  }
+  function idbAll() {
+    return openDB().then(function (d) {
+      return new Promise(function (res) {
+        var rq = d.transaction(STORE, 'readonly').objectStore(STORE).getAll();
+        rq.onsuccess = function () { res(rq.result || []); }; rq.onerror = function () { res([]); };
+      });
+    }).catch(function () { return []; });
+  }
+
+  function notifyOnce() {
+    if (notified) return; notified = true;
+    try { setTimeout(function () { if (typeof showNotif === 'function') showNotif('💾 Stockage étendu activé : vos données continuent d\'être enregistrées sur cet appareil.', 'info'); }, 600); } catch (e) {}
+  }
+  function setOv(k, v) { if (!(k in ov)) ovCount++; ov[k] = v; }
+  function delOv(k) { if (k in ov) { delete ov[k]; ovCount--; return true; } return false; }
+
+  /* ── Remplacements transparents ──────────────────────────────────── */
+  proto.setItem = function (k, v) {
+    if (!isLS(this)) return oSet.apply(this, arguments);
+    k = String(k); v = String(v);
+    try {
+      oSet.call(this, k, v);
+      if (delOv(k)) idbDel(k);            /* la valeur tient de nouveau dans localStorage */
+    } catch (e) {
+      /* Écriture refusée (quota plein) → IndexedDB. Rien n'est supprimé. */
+      setOv(k, v);
+      var p = idbPut(k, v);
+      p.catch(function (err) { console.error('[PGNEP_LS] IndexedDB a refusé l\'écriture de', k, err); });
+      notifyOnce();
+    }
+  };
+  proto.getItem = function (k) {
+    if (isLS(this)) { k = String(k); if (k in ov) return ov[k]; }
+    return oGet.apply(this, arguments);
+  };
+  proto.removeItem = function (k) {
+    if (isLS(this)) { k = String(k); if (delOv(k)) idbDel(k); }
+    return oRem.apply(this, arguments);
+  };
+  proto.clear = function () {
+    if (isLS(this)) {
+      var ks = Object.keys(ov); ks.forEach(function (x) { delOv(x); idbDel(x); });
+    }
+    return oClear.apply(this, arguments);
+  };
+  /* length / key() : les clés en débordement sont listées après les clés natives */
+  function ovOnlyKeys() {
+    var out = []; for (var k in ov) { var native = null; try { native = oGet.call(window.localStorage, k); } catch (e) {} if (native === null) out.push(k); } return out;
+  }
+  if (lenDesc && lenDesc.get) {
+    Object.defineProperty(proto, 'length', { configurable: true, enumerable: lenDesc.enumerable,
+      get: function () { var n = lenDesc.get.call(this); return isLS(this) && ovCount ? n + ovOnlyKeys().length : n; } });
+    proto.key = function (i) {
+      if (!isLS(this) || !ovCount) return oKey.apply(this, arguments);
+      var n = lenDesc.get.call(this);
+      return i < n ? oKey.call(this, i) : (ovOnlyKeys()[i - n] || null);
+    };
+  }
+
+  /* ── Restauration au chargement ──────────────────────────────────── */
+  function rehydrate() {
+    return idbAll().then(function (rows) {
+      rows.forEach(function (r) { if (r && r.k != null && !(r.k in ov)) setOv(r.k, r.v); });
+      return rows.length;
+    });
+  }
+  function finish(n) {
+    ready = true;
+    var cbs = readyCbs.splice(0);
+    if (n) {
+      /* Les scripts de l'appli ont lu localStorage avant la restauration : on recharge l'état. */
+      try { if (typeof loadDB === 'function') loadDB(); } catch (e) { console.warn('[PGNEP_LS] loadDB', e); }
+      try { window.dispatchEvent(new CustomEvent('pgnep-ls-hydrated', { detail: { keys: n } })); } catch (e) {}
+    }
+    cbs.forEach(function (f) { try { f(); } catch (e) {} });
+  }
+  var started = rehydrate().then(function (n) { finish(n); }, function () { finish(0); });
+  function whenReady(f) { if (ready) f(); else readyCbs.push(f); }
+
+  /* La connexion attend la fin (très brève) de la restauration */
+  function guardLogin() {
+    if (typeof window.doLogin !== 'function' || window.doLogin.__lsg) return;
+    var o = window.doLogin;
+    var w = function () { var a = arguments, self = this; if (ready) return o.apply(self, a); whenReady(function () { o.apply(self, a); }); };
+    w.__lsg = 1; window.doLogin = w;
+  }
+  document.addEventListener('DOMContentLoaded', guardLogin);
+  window.addEventListener('load', guardLogin);
+
+  /* Demande de stockage persistant (évite l'effacement automatique par le navigateur) */
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
+
+  window.PGNEP_LS = {
+    ready: started,
+    stats: function () { return { overflowKeys: Object.keys(ov), count: ovCount, bytes: Object.keys(ov).reduce(function (s, k) { return s + (k.length + ov[k].length) * 2; }, 0) }; },
+    estimate: function () { return (navigator.storage && navigator.storage.estimate) ? navigator.storage.estimate() : Promise.resolve(null); }
+  };
+})();
+</script>
+
 
 <!-- ══ SEO Google ══ -->
 <title>Le Perroquet · PGNEP — Plateforme de Gestion des Notes du Primaire</title>
@@ -25257,5 +25414,188 @@ console.log('✅ PGNEP : mises à jour automatiques activées');
 
 </script>
 
+<script id="pgnep-offline-login">
+/* ═════════════════════════════════════════════════════════════════════
+   PGNEP_OFFLINE — Connexion hors ligne + reprise de la synchronisation
+   Bloc ADDITIF placé en dernier : enveloppe doLogin sans le remplacer.
+   • En ligne : comportement inchangé (connexion Supabase). Après une
+     connexion réussie, une empreinte SÉCURISÉE (PBKDF2-SHA256 salée) du
+     mot de passe est mémorisée sur l'appareil pour l'accès hors ligne.
+     Le mot de passe n'est jamais enregistré en clair.
+   • Sans Internet (ou Supabase injoignable) : vérification locale du
+     couple identifiant / mot de passe, ouverture de l'espace de travail.
+   • Les modifications faites hors ligne restent dans la file durable
+     (IndexedDB « pgnep-sync ») et partent vers Supabase dès le retour du
+     réseau, sans écrasement ni perte.
+   ═════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  if (window.PGNEP_OFFLINE) return;
+  var KEY = 'pgnep_offline_auth_v1', ITER = 120000;
+  var probeAt = 0, probeOk = true;
+
+  function $(i) { return document.getElementById(i); }
+  function norm(s) { return String(s || '').trim().toLowerCase(); }
+  function notif(m, t) { try { if (typeof showNotif === 'function') showNotif(m, t || 'info'); } catch (e) {} }
+  function loadStore() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
+  function saveStore(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { console.warn('[offline] stockage', e); } }
+  function b64(buf) { var a = new Uint8Array(buf), s = ''; for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s); }
+  function unb64(s) { var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+
+  /* ── Empreinte PBKDF2 ─────────────────────────────────────────── */
+  function derive(pass, salt) {
+    var subtle = window.crypto && window.crypto.subtle;
+    if (!subtle) return Promise.reject(new Error('WebCrypto indisponible'));
+    return subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveBits'])
+      .then(function (k) { return subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: salt, iterations: ITER }, k, 256); })
+      .then(b64);
+  }
+  function remember(login, pass, user) {
+    var salt = window.crypto.getRandomValues(new Uint8Array(16));
+    return derive(pass, salt).then(function (h) {
+      var s = loadStore();
+      s[login] = { salt: b64(salt), hash: h, it: ITER, nom: user.nom, role: user.role, email: user.email || '', uid: user.uid || null, at: Date.now() };
+      saveStore(s);
+    }).catch(function (e) { console.warn('[offline] empreinte non mémorisée', e); });
+  }
+  function checkLocal(login, pass) {
+    var s = loadStore(), r = s[login];
+    if (r) {
+      return derive(pass, unb64(r.salt)).then(function (h) {
+        return h === r.hash ? { login: login, nom: r.nom, role: r.role, email: r.email, uid: r.uid } : null;
+      }).catch(function () { return null; });
+    }
+    /* Compte déjà présent sur l'appareil mais jamais connecté depuis cette mise à jour */
+    try {
+      var u = (DB.users || []).find(function (x) { return norm(x.login) === login; });
+      if (u && typeof verifyPass === 'function' && verifyPass(pass, u.pass)) return Promise.resolve({ login: u.login, nom: u.nom, role: u.role, email: u.email || '', uid: u.uid || null });
+    } catch (e) {}
+    return Promise.resolve(null);
+  }
+
+  /* ── Joignabilité du serveur ──────────────────────────────────── */
+  function supaUrl() {
+    try { var c = JSON.parse(localStorage.getItem('pgnep_sb_cfg') || '{}'); if (c.url) return c.url; } catch (e) {}
+    try { return (window.PGNEP_SB_DEFAULT && window.PGNEP_SB_DEFAULT.url) || ''; } catch (e) { return ''; }
+  }
+  function reachable() {
+    if (navigator.onLine === false) return Promise.resolve(false);
+    if (Date.now() - probeAt < 10000) return Promise.resolve(probeOk);
+    var url = supaUrl(); if (!url) return Promise.resolve(true);
+    var ctl = ('AbortController' in window) ? new AbortController() : null;
+    var t = setTimeout(function () { if (ctl) ctl.abort(); }, 3500);
+    return fetch(url.replace(/\/+$/, '') + '/auth/v1/health', { mode: 'no-cors', cache: 'no-store', signal: ctl ? ctl.signal : undefined })
+      .then(function () { probeOk = true; }, function () { probeOk = false; })
+      .then(function () { clearTimeout(t); probeAt = Date.now(); return probeOk; });
+  }
+
+  /* ── Ouverture de l'espace de travail (même séquence que la connexion normale) ─ */
+  function openOffline(u) {
+    try {
+      var rec = (DB.users || []).find(function (x) { return norm(x.login) === norm(u.login); });
+      if (!rec) { /* compte absent de DB.users : on ne crée rien de sensible, simple profil de session */ }
+      currentUser = { login: u.login, nom: u.nom || u.login, role: u.role || 'lecteur', email: u.email || (u.login + '@pgnep-menaet.ci'), uid: u.uid || null, offline: true };
+    } catch (e) { console.warn('[offline] currentUser', e); return; }
+    try { if (typeof clearAttempts === 'function') clearAttempts(u.login); } catch (e) {}
+    try { if (typeof resetSessionTimer === 'function') resetSessionTimer(); } catch (e) {}
+    var login = $('login-screen'), app = $('app'), splash = $('firebase-splash');
+    if (login) { login.style.display = 'none'; login.style.visibility = 'hidden'; }
+    if (splash) { splash.classList.remove('visible'); splash.style.display = 'none'; }
+    if (app) { app.style.display = ''; app.classList.add('visible'); }
+    try { if (typeof applyRoleUI === 'function') applyRoleUI(); } catch (e) {}
+    try { if (typeof showPage === 'function') showPage('dashboard'); } catch (e) {}
+    try { if (typeof initApp === 'function') initApp(); } catch (e) { console.warn('[offline] initApp', e); }
+    notif('📴 Mode hors ligne — vos modifications seront envoyées automatiquement au retour d\'Internet.', 'info');
+    badge();
+  }
+
+  /* ── Pastille d'état ──────────────────────────────────────────── */
+  function badge() {
+    var b = $('pgnep-offline-badge');
+    var off = navigator.onLine === false || !probeOk;
+    var pend = 0; try { if (window.PGSYNC && PGSYNC.state) { var st = PGSYNC.state(); pend = (st.pending || 0); } } catch (e) {}
+    if (!off && !pend) { if (b) b.style.display = 'none'; return; }
+    if (!b) {
+      b = document.createElement('div'); b.id = 'pgnep-offline-badge';
+      b.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:9000;padding:6px 12px;border-radius:999px;font:700 12px system-ui,sans-serif;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.25);pointer-events:none';
+      document.body.appendChild(b);
+    }
+    b.style.display = 'block';
+    b.style.background = off ? '#B45309' : '#0369A1';
+    b.textContent = off ? '📴 Hors ligne' + (pend ? ' · ' + pend + ' en attente' : '') : '🔄 Synchronisation… ' + pend + ' en attente';
+  }
+
+  /* ── Reprise de la synchronisation ────────────────────────────── */
+  var resyncing = false;
+  function resync() {
+    if (resyncing || !window.currentUser && typeof currentUser === 'undefined') return;
+    if (typeof currentUser === 'undefined' || !currentUser) return;
+    resyncing = true; probeAt = 0;
+    reachable().then(function (ok) {
+      if (!ok) return;
+      var start = Promise.resolve();
+      if (currentUser.offline && window._fb && typeof _fb.signIn === 'function') {
+        /* La session Supabase n'a pas été ouverte (connexion faite hors ligne) : on l'ouvre avec le compte local */
+        var u = (DB.users || []).find(function (x) { return norm(x.login) === norm(currentUser.login); });
+        var pw = null; try { pw = u && typeof decodePass === 'function' ? decodePass(u.pass) : null; } catch (e) {}
+        if (pw) start = Promise.resolve(_fb.signIn(currentUser.email, pw)).then(function () { currentUser.offline = false; }).catch(function (e) { console.warn('[offline] session', e); notif('🔑 Reconnectez-vous une fois avec Internet pour synchroniser vos modifications.', 'warning'); });
+      }
+      return start.then(function () {
+        if (window.PGSYNC && PGSYNC.flush) return PGSYNC.flush(false);
+      }).then(function () {
+        if (typeof window._loadFirebaseDB === 'function') return window._loadFirebaseDB();
+      }).then(function () { notif('✅ Connexion rétablie — synchronisation effectuée.', 'success'); });
+    }).catch(function (e) { console.warn('[offline] resync', e); })
+      .then(function () { resyncing = false; badge(); });
+  }
+  window.addEventListener('online', function () { setTimeout(resync, 800); badge(); });
+  window.addEventListener('offline', function () { probeOk = false; probeAt = Date.now(); badge(); });
+  setInterval(function () { badge(); if (typeof currentUser !== 'undefined' && currentUser && (currentUser.offline || (window.PGSYNC && PGSYNC.state && PGSYNC.state().pending))) resync(); }, 45000);
+
+  /* ── Enveloppe de doLogin ─────────────────────────────────────── */
+  function wrapLogin() {
+    var prev = window.doLogin;
+    if (typeof prev !== 'function' || prev.__off) return;
+    var w = function () {
+      var self = this, args = arguments;
+      var login = norm($('login-user') && $('login-user').value), pass = $('login-pass') ? $('login-pass').value : '';
+      if (!login || !pass) return prev.apply(self, args);
+      var err = $('login-error');
+      return reachable().then(function (ok) {
+        if (ok) {
+          /* En ligne : connexion normale, puis mémorisation sécurisée pour le mode hors ligne */
+          var r = prev.apply(self, args), n = 0;
+          var iv = setInterval(function () {
+            n++;
+            try {
+              if (typeof currentUser !== 'undefined' && currentUser && norm(currentUser.login) === login) { clearInterval(iv); remember(login, pass, currentUser); }
+            } catch (e) {}
+            if (n > 120) clearInterval(iv);
+          }, 500);
+          return r;
+        }
+        /* Hors ligne */
+        return checkLocal(login, pass).then(function (u) {
+          if (!u) {
+            try { if (typeof isLocked === 'function' && isLocked(login)) { var m = typeof getRemainingLockTime === 'function' ? getRemainingLockTime(login) : 15; if (err) { err.textContent = '🔒 Compte verrouillé — réessayez dans ' + m + ' minute(s).'; err.style.display = 'block'; } return; } } catch (e) {}
+            var known = loadStore()[login] || (DB.users || []).some(function (x) { return norm(x.login) === login; });
+            try { if (known && typeof recordFailedAttempt === 'function') recordFailedAttempt(login); } catch (e) {}
+            if (err) { err.textContent = known ? 'Identifiant ou mot de passe incorrect.' : '📴 Hors ligne : aucun compte « ' + login + ' » enregistré sur cet appareil. Connectez-vous une première fois avec Internet.'; err.style.display = 'block'; }
+            var pe = $('login-pass'); if (pe) pe.value = '';
+            return;
+          }
+          openOffline(u);
+        });
+      });
+    };
+    w.__off = 1; window.doLogin = w;
+  }
+  wrapLogin();
+  window.addEventListener('load', function () { setTimeout(wrapLogin, 0); });
+  setTimeout(badge, 1500);
+
+  window.PGNEP_OFFLINE = { resync: resync, remember: remember, store: loadStore, reachable: reachable };
+})();
+</script>
 </body>
 </html>
