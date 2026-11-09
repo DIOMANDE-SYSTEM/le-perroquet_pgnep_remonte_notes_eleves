@@ -7698,19 +7698,20 @@ function printBulletinDFA() {
 
   // Déterminer les évaluations selon la classe
   const isCM2 = el.classe === 'CM2';
+  const _pgbX = window.PGBAR ? PGBAR.extraEvals(el) : []; // v3.1 : compositions supplémentaires CM1/CM2
   const evalList = isCM2
-    ? ['composition1','composition2','examen_blanc1','examen_blanc2','entree6']
-    : ['composition1','composition2','composition3','composition4'];
+    ? ['composition1','composition2','examen_blanc1','examen_blanc2'].concat(_pgbX, ['entree6'])
+    : ['composition1','composition2','composition3','composition4'].concat(_pgbX);
   const evalNames = isCM2
-    ? ['Composition 1','Composition 2','Examen Blanc 1','Examen Blanc 2','Entrée en 6ème']
-    : ['Composition 1','Composition 2','Composition 3','Composition 4'];
+    ? ['Composition 1','Composition 2','Examen Blanc 1','Examen Blanc 2'].concat(_pgbX.map(k=>EVAL_LABELS[k]||k), ['Entrée en 6ème'])
+    : ['Composition 1','Composition 2','Composition 3','Composition 4'].concat(_pgbX.map(k=>EVAL_LABELS[k]||k));
 
   // Calculer les moyennes de chaque composition
   const moyennes = evalList.map(ev => {
     const n = DB.notes.find(x => x.eleve_id === el.id && x.eval_type === ev);
     if (!n) return null;
     const { moy, maxMoy } = calcNote(n);
-    return maxMoy > 0 ? Math.round((moy / maxMoy * 20) * 100) / 100 : null;
+    return maxMoy > 0 ? Math.round((moy / maxMoy * (pass.maxNote||20)) * 100) / 100 : null;
   });
 
   const hasAll = moyennes.every(m => m !== null);
@@ -7718,8 +7719,8 @@ function printBulletinDFA() {
   // Construire les lignes du tableau
   const rows = evalNames.map((name, i) => {
     const m = moyennes[i];
-    const disp = m !== null ? m.toFixed(2) + ' /20' : '<em style="color:#9CA3AF;">Non saisie</em>';
-    const poids = i === 3 ? '×2 (coef. double)' : '×1';
+    const disp = m !== null ? m.toFixed(2) + ' /' + (pass.maxNote||20) : '<em style="color:#9CA3AF;">Non saisie</em>';
+    const poids = (window.PGBAR && PGBAR.coefLabel(el, evalList[i])) || (i === 3 ? '×2 (coef. double)' : '×1');
     return '<tr style="background:' + (i%2===0?'#F0FAF5':'#fff') + ';">' +
       '<td style="padding:7px 10px;font-weight:600;">' + name + '</td>' +
       '<td style="padding:7px 10px;text-align:center;">' + poids + '</td>' +
@@ -7730,11 +7731,11 @@ function printBulletinDFA() {
   // Formule affichée
   const formule = isCM2
     ? '[ Moy1 + Moy2 + EB1×2 + EB2×2 + MoyExamen×2 ] ÷ 8'
-    : '[ (Moy1 + Moy2 + Moy3) + Moy4 × 2 ] ÷ 5';
+    : ((window.PGBAR && PGBAR.formulaLabel(el)) || '[ (Moy1 + Moy2 + Moy3) + Moy4 × 2 ] ÷ 5');
 
   const dfaColor = pass.statut === 'admis' ? '#006B3F' : pass.statut === 'echec' ? '#DC2626' : '#9CA3AF';
   const dfaLabel = pass.moy !== null
-    ? pass.label + ' &mdash; Moyenne DFA : <strong>' + pass.moy + ' / 20</strong>'
+    ? pass.label + ' &mdash; Moyenne DFA : <strong>' + pass.moy + ' / ' + (pass.maxNote||20) + '</strong>'
     : 'Incomplet &mdash; toutes les compositions doivent être saisies';
 
   const armoSrc = "data:image/jpeg;base64,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";
@@ -7844,7 +7845,7 @@ function exportBulletinExcel() {
   const el = DB.eleves.find(e=>e.id===eleveId);
   if (!el) return;
   const ec = DB.ecoles.find(x=>x.id===el.ecole_id);
-  const evalTypes = ['composition1','composition2','composition3','composition4','examen_blanc1','examen_blanc2','entree6'];
+  const evalTypes = ['composition1','composition2','composition3','composition4'].concat(window.PGBAR ? PGBAR.extraEvals(el) : [], ['examen_blanc1','examen_blanc2','entree6']);
   const lignesNotes = evalTypes.map(ev=>{
     const n = DB.notes.find(x=>x.eleve_id===eleveId && x.eval_type===ev);
     if (!n) return null;
@@ -23218,7 +23219,7 @@ window.PGDR={canActOn:canActOn,isDR:isDR,isSA:isSA};
 <script id="pgnep-pied-affichage">
 /* Ajout : pied de page EPLUS (menu latéral + espace de travail) et garde d'affichage après connexion. Supprimable sans effet sur le reste. */
 (function(){
-var TXT='© EPLUS 2026 - Tous droits réservés  |  Dernière mise à jour le 07 octobre 2026  |  Conception et design DIOM-2YA — contact : +225 01-72-710-337 / 05-05-154-169. Email: diomyaya28@yahoo.fr / eplus2026@gmail.com';
+var TXT='© EPLUS 2026 - Tous droits réservés  |  Dernière mise à jour le Lundi 09 novembre 2026  |  Conception et design DIOM-2YA — contact : +225 01-72-710-337 / 05-05-154-169. Email: diomyaya28@yahoo.fr / eplus2026@gmail.com';
 var css=document.createElement('style');css.id='pgnep-pied-css';
 css.textContent='.pgnep-pied{box-sizing:border-box;width:100%;max-width:100%;font-size:10.5px;line-height:1.45;text-align:center;padding:9px 12px;word-break:break-word;overflow-wrap:anywhere}'
 +'.sidebar .pgnep-pied{color:rgba(255,255,255,.65);border-top:1px solid rgba(255,255,255,.15);margin-top:auto;flex:0 0 auto;font-size:9.5px}'
@@ -25595,6 +25596,1313 @@ console.log('✅ PGNEP : mises à jour automatiques activées');
   setTimeout(badge, 1500);
 
   window.PGNEP_OFFLINE = { resync: resync, remember: remember, store: loadStore, reachable: reachable };
+})();
+</script>
+<script id="pgnep-bareme-v31">
+/* ══════════════════════════════════════════════════════════════════════════
+   [pgnep-bareme-v31] — MOTEUR DE BARÈMES, ÉCHELLES ET COMPOSITIONS (Perroquet 3.1)
+   Mise à jour : Dimanche 08 novembre 2026
+   100 % additif : aucune ligne existante de calcul n'est supprimée. Les fonctions
+   d'origine sont conservées et rappelées telles quelles tant qu'aucun paramétrage
+   n'est enregistré (anciennes formules = comportement par défaut).
+   Fonctions enveloppées : calcNote, getBloc, buildNoteForm, calcLive, saveNote,
+   onEleveSelect, showPage, initApp, calcMoyAnnuelle, getStatutPassage.
+   Stockage : localStorage « pgnep_bareme_config » + collection cloud « bareme_config »
+   (table générique existante « docs » : aucune migration de schéma nécessaire).
+   Retirer ce <script> suffit pour revenir exactement au comportement précédent.
+   ══════════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+if(window.PGBAR) return;
+
+var LSKEY='pgnep_bareme_config', COL='bareme_config', VCALC=2, MAJ='Dimanche 08 novembre 2026';
+var EXTRA_RE=/^composition(\d+)$/;
+var BASE_EV=['composition1','composition2','composition3','composition4'];
+var SEL_IDS=['sel-eval','bul-eval','filt-res-eval','rpt-eval','dash-liste-eval'];
+
+/* ───────── utilitaires ───────── */
+function $(i){return document.getElementById(i);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function notif(m,t){try{showNotif(m,t||'info');}catch(e){try{console.log(m);}catch(_){}}}
+function r2(x){return Math.round(x*100)/100;}
+function clone(o){return JSON.parse(JSON.stringify(o));}
+function num(v,d){var n=Number(v);return isFinite(n)&&n>0?n:d;}
+function fr(n){return String(n).replace('.',',');}
+function annee(){return String(window.ANNEE_SCOLAIRE||'2026-2027');}
+function cuser(){try{return currentUser||null;}catch(e){return null;}}
+function udata(){try{return getCurrentUserData();}catch(e){return null;}}
+function rid(v){try{return typeof resolveEcoleId==='function'?resolveEcoleId(v):v;}catch(e){return v;}}
+function noteValSafe(v){return (v===501||v==='501')?null:(parseFloat(v)||0);}
+function isExtraEv(ev){var m=EXTRA_RE.exec(ev||'');return !!(m&&+m[1]>=5);}
+function evNum(ev){var m=EXTRA_RE.exec(ev||'');return m?+m[1]:0;}
+function isCPc(c){return c==='CP1'||c==='CP2';}
+function isCEc(c){return c==='CE1'||c==='CE2';}
+function isCMc(c){return c==='CM1'||c==='CM2';}
+
+/* ───────── fonctions d'origine (conservées) ───────── */
+var O={
+  calcNote:window.calcNote, getBloc:window.getBloc, calcMoy:window.calcMoyAnnuelle,
+  statut:window.getStatutPassage, build:window.buildNoteForm, live:window.calcLive,
+  save:window.saveNote, onEleve:window.onEleveSelect, showPage:window.showPage, initApp:window.initApp
+};
+if(typeof O.calcNote!=='function'||typeof O.getBloc!=='function'||typeof MATIERES==='undefined'){
+  console.warn('[bareme] socle de calcul introuvable : module inactif.');return;
+}
+
+/* matières d'origine (copie figée) + libellés par clé */
+var LEG={}, LBL={};
+Object.keys(MATIERES).forEach(function(b){
+  LEG[b]=clone(MATIERES[b]);
+  LEG[b].forEach(function(m){if(!LBL[m.key])LBL[m.key]=m.label;});
+});
+
+/* ───────── stockage des paramètres ───────── */
+var CFG={}, CLS={};
+function reindex(){CLS={};Object.keys(CFG).forEach(function(id){if(CFG[id]&&CFG[id].classe)CLS[CFG[id].classe]=true;});}
+function loadLS(){try{CFG=JSON.parse(localStorage.getItem(LSKEY)||'{}')||{};}catch(e){CFG={};}reindex();}
+function saveLS(){try{localStorage.setItem(LSKEY,JSON.stringify(CFG));}catch(e){console.warn('[bareme] stockage local',e);}}
+function pushCloud(c){
+  try{
+    if(window._firebaseReady&&window._fb&&typeof window._fb.set==='function'){
+      var p=window._fb.set(COL,c.id,JSON.parse(JSON.stringify(c)));
+      if(p&&p.catch)p.catch(function(e){console.warn('[bareme] synchro paramètres :',e);});
+    }
+  }catch(e){console.warn('[bareme] synchro paramètres :',e);}
+}
+function pullCloud(){
+  try{
+    if(!(window._firebaseReady&&window._fb&&typeof window._fb.getAll==='function'))return;
+    var p=window._fb.getAll(COL);
+    if(!p||!p.then)return;
+    p.then(function(arr){
+      var ch=false;
+      (arr||[]).forEach(function(r){
+        if(!r||!r.id||!r.classe)return;
+        var l=CFG[r.id];
+        if(!l||String(r.modifie_le||'')>String(l.modifie_le||'')){CFG[r.id]=r;ch=true;}
+      });
+      if(ch){saveLS();reindex();registerEvals();renderPanel();}
+    }).catch(function(){});
+  }catch(e){}
+}
+function cid(ecole,classe,an){return ecole+'__'+(an||annee())+'__'+classe;}
+function getCfg(ecole,classe,an){return ecole?(CFG[cid(ecole,classe,an)]||null):null;}
+function supOf(cfg,ev){var a=(cfg&&cfg.compositions_sup)||[];for(var i=0;i<a.length;i++)if(a[i].eval===ev)return a[i];return null;}
+function supList(cfg){return ((cfg&&cfg.compositions_sup)||[]).slice().sort(function(a,b){return evNum(a.eval)-evNum(b.eval);});}
+
+/* cache élèves */
+var EC={ref:null,len:-1,map:{}};
+function elMap(){
+  var a=(typeof DB!=='undefined'&&DB.eleves)||[];
+  if(EC.ref!==a||EC.len!==a.length){EC.ref=a;EC.len=a.length;EC.map={};a.forEach(function(e){EC.map[e.id]=e;});}
+  return EC.map;
+}
+
+/* ───────── spécifications de calcul ───────── */
+function hash(s){var h=5381;for(var i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return (h>>>0).toString(36);}
+function regBloc(classe,ev,mats){
+  var name='PGB:'+hash(classe+'|'+ev+'|'+JSON.stringify(mats));
+  if(!MATIERES[name])MATIERES[name]=clone(mats);
+  return name;
+}
+function paramsOf(cfg,classe){
+  return {
+    option_bareme:(cfg&&cfg.option_bareme==='A')?'A':'B',
+    echelle_moyenne:num(cfg&&cfg.echelle_moyenne,isCPc(classe)?10:20),
+    bareme_saisie:num(cfg&&cfg.bareme_saisie,10)
+  };
+}
+function compEntry(cfg,ev){return (cfg&&cfg.comp&&ev&&cfg.comp[ev])||null;}
+function paramsFor(cfg,classe,ev){return paramsOf(compEntry(cfg,ev)||cfg,classe);}
+function curEval(){var sv=$('sel-eval');return sv&&sv.value?sv.value:'';}
+function sum(a){return a.reduce(function(s,m){return s+m.max;},0);}
+function formuleOf(sp){
+  if(sp.isCP)return 'Moyenne /'+sp.echelle+' = (Total obtenu ÷ Total possible) × '+sp.echelle+' — total possible = barème des matières saisies';
+  var d=r2(sp.totalMax/sp.echelle);
+  return 'Moyenne /'+sp.echelle+' = Total obtenu ÷ '+fr(d)+' (Total possible '+sp.totalMax+' ÷ '+sp.echelle+')';
+}
+function buildSpec(classe,ev,p,cfg){
+  p=p||{};
+  var bloc0=O.getBloc(classe,ev), mats, ech, legacy=true, opt='ancien', isCP=false;
+  if(isCPc(classe)){
+    isCP=true;
+    var bs=num(p.bareme_saisie,10), e1=num(p.echelle_moyenne,10);
+    mats=LEG.CP.map(function(m){return {key:m.key,label:m.label,max:bs};});
+    ech=e1; legacy=(bs===10&&e1===10); opt='CP';
+  }else if(isCEc(classe)&&/^composition[1-4]$/.test(ev)){
+    var o=(p.option_bareme==='A')?'A':'B', e2=num(p.echelle_moyenne,20);
+    var mp=(o==='A')?30:50, md=(o==='A')?10:20;
+    mats=[
+      {key:'cecm_dictee',label:LBL.cecm_dictee||'Dictée',max:md},
+      {key:'cecm_exploitation',label:LBL.cecm_exploitation||'Exploitation de Texte',max:mp},
+      {key:'cecm_maths',label:LBL.cecm_maths||'Mathématiques',max:mp},
+      {key:'cecm_eveil',label:LBL.cecm_eveil||'Éveil au Milieu',max:mp}
+    ];
+    ech=e2; legacy=(o==='B'&&e2===20); opt=o;
+  }else if(isCMc(classe)&&isExtraEv(ev)){
+    var sup=supOf(cfg,ev);
+    mats=sup&&sup.matieres&&sup.matieres.length?clone(sup.matieres):clone(LEG.CECM);
+    ech=20; legacy=false; opt='CM+';
+  }else{
+    mats=clone(LEG[bloc0]||LEG.CECM);
+    ech=isCPc(classe)?10:20;
+  }
+  var lab=false;
+  if(classe==='CP1'&&ev==='composition1'&&cfg&&cfg.matieres_cp1_compo1){
+    mats.forEach(function(m){
+      var l=cfg.matieres_cp1_compo1[m.key];
+      if(l&&String(l).trim()&&String(l).trim()!==m.label){m.label=String(l).trim();lab=true;}
+    });
+  }
+  var sp={classe:classe,ev:ev,matieres:mats,echelle:ech,legacy:legacy,option:opt,isCP:isCP,
+          labels:lab,totalMax:sum(mats),bareme_saisie:isCP?mats[0].max:null};
+  sp.bloc=(legacy&&!lab)?bloc0:regBloc(classe,ev,mats);
+  sp.formule=formuleOf(sp);
+  return sp;
+}
+function specFromSnapshot(classe,ev,c,cfg){
+  var sp=buildSpec(classe,ev,{option_bareme:c.option_bareme,echelle_moyenne:c.echelle,bareme_saisie:c.bareme_saisie},cfg);
+  var snapSig=JSON.stringify((c.matieres||[]).map(function(m){return [m.key,m.max];}));
+  var curSig=JSON.stringify(sp.matieres.map(function(m){return [m.key,m.max];}));
+  if(snapSig!==curSig||sp.echelle!==c.echelle){
+    sp.matieres=(c.matieres||[]).map(function(m){
+      var cur=null;sp.matieres.forEach(function(x){if(x.key===m.key)cur=x;});
+      return {key:m.key,label:cur?cur.label:(LBL[m.key]||m.key),max:m.max};
+    });
+    sp.echelle=num(c.echelle,sp.echelle);sp.legacy=false;sp.totalMax=sum(sp.matieres);
+    sp.bloc=regBloc(classe,ev,sp.matieres);sp.formule=formuleOf(sp);
+  }
+  return sp;
+}
+function histAt(cfg,ts){
+  var h=(cfg&&cfg.historique)||[];
+  if(!h.length||!ts)return null;
+  var best=null;
+  h.forEach(function(e){if(String(e.depuis)<=String(ts)&&(!best||String(e.depuis)>=String(best.depuis)))best=e;});
+  return best;
+}
+/* spécification applicable à une note déjà enregistrée */
+function noteSpec(note){
+  var el=elMap()[note.eleve_id]||null, classe=note.classe||(el&&el.classe), ev=note.eval_type;
+  var ecole=el?el.ecole_id:null;
+  var an=(note.calc&&note.calc.annee_scolaire)||annee();
+  var cfg=ecole?getCfg(ecole,classe,an):null;
+  if(note.calc&&note.calc.matieres)return specFromSnapshot(classe,ev,note.calc,cfg);
+  var ent=compEntry(cfg,ev),p=null;
+  if(cfg){p=histAt(ent||cfg,note.horodatage);if(!p&&ent)p=histAt(cfg,note.horodatage);}
+  if(!p&&cfg&&isExtraEv(ev))p=paramsOf(cfg,classe);
+  return buildSpec(classe,ev,p||{},cfg);
+}
+/* spécification applicable à une nouvelle saisie */
+function specNow(el,ev){
+  var cfg=getCfg(el.ecole_id,el.classe);
+  return buildSpec(el.classe,ev,paramsFor(cfg,el.classe,ev),cfg);
+}
+function compute(note,sp){
+  var n=note.notes||{},total=0,bEff=0,nbAbs=0,nbS=0,tb=0;
+  sp.matieres.forEach(function(m){
+    var v=noteValSafe(n[m.key]);tb+=m.max;
+    if(v===null){nbAbs++;}else{total+=v;bEff+=m.max;nbS++;}
+  });
+  var o={total:total,bareme:tb,baremeEffectif:bEff,moy:bEff>0?r2(total/bEff*sp.echelle):0,maxMoy:sp.echelle,nbAbs:nbAbs};
+  if(sp.isCP){o.nbSaisies=nbS;o.isCP=true;}
+  return o;
+}
+function snapshotOf(sp,ecole){
+  var cfg=getCfg(ecole,sp.classe);
+  return {
+    version_calcul:VCALC, annee_scolaire:annee(), ecole_id:ecole, classe:sp.classe, eval:sp.ev,
+    mode_calcul:cfg?(cfg.mode_calcul||'personnalise'):'ancien',
+    option_bareme:sp.option, bareme_saisie:sp.bareme_saisie, echelle:sp.echelle,
+    matieres:sp.matieres.map(function(m){return {key:m.key,max:m.max};}),
+    total_max:sp.totalMax, formule:sp.formule, date_validation:new Date().toISOString()
+  };
+}
+
+/* ───────── contexte de saisie (formulaire courant) ───────── */
+var FORM=null, FORCE={}, HINT=null, hintT=null;
+function setForm(){
+  FORM=null;
+  var se=$('sel-eleve'), sv=$('sel-eval');
+  if(!se||!sv||!se.value||!sv.value)return;
+  var el=elMap()[se.value];if(!el)return;
+  var ex=null;
+  (DB.notes||[]).some(function(n){if(n.eleve_id===el.id&&n.eval_type===sv.value){ex=n;return true;}return false;});
+  var key=el.id+'|'+sv.value, sp, locked=false;
+  if(ex&&!FORCE[key]){sp=noteSpec(ex);locked=true;}
+  else sp=specNow(el,sv.value);
+  FORM={eleveId:el.id,eval:sv.value,classe:el.classe,ecole:el.ecole_id,spec:sp,existing:!!ex,locked:locked,key:key,
+        diff:locked&&(sp.totalMax!==specNow(el,sv.value).totalMax||sp.echelle!==specNow(el,sv.value).echelle)};
+}
+function resolveForCalc(note){
+  if(FORM&&!note.id&&note.eleve_id===FORM.eleveId&&note.eval_type===FORM.eval)return FORM.spec;
+  return noteSpec(note);
+}
+
+/* ───────── enveloppes : calcNote / getBloc ───────── */
+window.calcNote=function(note){
+  try{
+    if(note&&note.notes){
+      var hasCalc=!!(note.calc&&note.calc.matieres);
+      if(hasCalc||CLS[note.classe]||(FORM&&!note.id&&note.eleve_id===FORM.eleveId)){
+        var sp=resolveForCalc(note);
+        HINT=note;clearTimeout(hintT);hintT=setTimeout(function(){HINT=null;},0);
+        if(sp&&!sp.legacy)return compute(note,sp);
+        return O.calcNote.apply(this,arguments);
+      }
+    }
+  }catch(e){console.warn('[bareme] calcNote',e);}
+  return O.calcNote.apply(this,arguments);
+};
+window.getBloc=function(classe,ev){
+  try{
+    if(HINT&&HINT.classe===classe&&HINT.eval_type===ev){
+      var s1=resolveForCalc(HINT);if(s1)return s1.bloc;
+    }
+    if(FORM&&FORM.classe===classe&&FORM.eval===ev)return FORM.spec.bloc;
+  }catch(e){}
+  return O.getBloc.apply(this,arguments);
+};
+
+/* ───────── enveloppes : formulaire de saisie ───────── */
+function titleFor(sp){
+  var lab=(typeof EVAL_LABELS!=='undefined'&&EVAL_LABELS[sp.ev])||sp.ev;
+  if(sp.isCP)return 'NOTES '+sp.classe+' — '+lab+' (sur '+sp.matieres[0].max+' par matière) · Moy. /'+sp.echelle;
+  if(isCEc(sp.classe))return 'NOTES '+sp.classe+' — '+lab+' (Option '+sp.option+' : /'+sp.matieres[1].max+' et dictée /'+sp.matieres[0].max+') · Moy. /'+sp.echelle;
+  return 'NOTES '+sp.classe+' — '+lab+' · Moy. /'+sp.echelle;
+}
+function patchForm(){
+  if(!FORM)return;
+  var sp=FORM.spec;
+  if(!(sp.legacy&&!sp.labels)){
+    var t=document.querySelector('#note-form-card .notes-group-title');
+    if(t)t.textContent='📝 '+titleFor(sp);
+    var rt=$('res-total');
+    if(rt&&/—\s*undefined|undefined/.test(rt.textContent))rt.textContent='Total : — /'+sp.totalMax+' — Moy. /'+sp.echelle;
+  }
+  var info=$('existing-note-info');
+  if(info&&FORM.locked&&FORM.diff){
+    info.style.display='block';
+    info.innerHTML='⚠️ Notes déjà enregistrées avec un autre barème (total /'+sp.totalMax+', moyenne /'+sp.echelle+') : ce barème d\'origine est conservé.'+
+      ' <button type="button" class="pgb-lk" onclick="PGBAR.act(\'ressaisir\')">Ressaisir avec le barème actuel</button>';
+  }else if(info&&FORM.locked&&!FORM.diff&&FORM.existing){
+    info.style.display='block';
+    info.textContent='⚠️ Des notes existent déjà pour cette évaluation. La sauvegarde les mettra à jour.';
+  }
+}
+window.buildNoteForm=function(){
+  try{setForm();}catch(e){console.warn('[bareme] setForm',e);FORM=null;}
+  var r=O.build.apply(this,arguments);
+  try{patchForm();renderPanel();}catch(e){console.warn('[bareme] patchForm',e);}
+  return r;
+};
+window.calcLive=function(){
+  var r=O.live.apply(this,arguments);
+  try{
+    if(FORM){
+      var nl=!(FORM.spec.legacy&&!FORM.spec.labels);
+      var any=false,tmp={eleve_id:FORM.eleveId,eval_type:FORM.eval,classe:FORM.classe,notes:{}};
+      FORM.spec.matieres.forEach(function(m){
+        var inp=$('inp-'+m.key);
+        if(inp){var raw=inp.value.trim();if(raw!=='')any=true;tmp.notes[m.key]=raw==='501'?501:(parseFloat(raw)||0);}
+      });
+      if(any){
+        var c=window.calcNote(tmp),men=getMention(c.moy,c.maxMoy);
+        if(nl){
+          $('res-total').textContent='Total : '+c.total+'/'+c.bareme+(c.nbAbs>0?' ('+c.nbAbs+' ABS)':'');
+          $('res-mention').textContent=men.label;
+        }
+        $('res-moy').textContent=c.moy.toFixed(2)+'/'+c.maxMoy;
+      }
+    }
+  }catch(e){console.warn('[bareme] calcLive',e);}
+  return r;
+};
+window.saveNote=function(){
+  try{setForm();}catch(e){FORM=null;}
+  var ctx=FORM, before=null;
+  if(ctx){(DB.notes||[]).some(function(n){if(n.eleve_id===ctx.eleveId&&n.eval_type===ctx.eval){before=n.horodatage||'';return true;}return false;});}
+  var r=O.save.apply(this,arguments);
+  try{
+    if(ctx){
+      var rec=null;
+      (DB.notes||[]).some(function(n){if(n.eleve_id===ctx.eleveId&&n.eval_type===ctx.eval){rec=n;return true;}return false;});
+      if(rec&&(before===null||rec.horodatage!==before)){
+        rec.calc=snapshotOf(ctx.spec,ctx.ecole);
+        try{localStorage.setItem('pgnep_notes',JSON.stringify(DB.notes));}catch(e){}
+        try{if(window._firebaseReady&&window._fb&&window._fb.set){var p=window._fb.set('notes',rec.id,JSON.parse(JSON.stringify(rec)));if(p&&p.catch)p.catch(function(){});}}catch(e){}
+        delete FORCE[ctx.key];
+        try{if(typeof renderDashboard==='function')renderDashboard();}catch(e){}
+      }
+      if(rec&&(before===null||rec.horodatage!==before))advanceNext(ctx);
+    }
+  }catch(e){console.warn('[bareme] snapshot',e);}
+  return r;
+};
+
+/* ───────── passage automatique à l'élève suivant ───────── */
+function advanceNext(ctx){
+  try{
+    var se=$('sel-eleve'),sv=$('sel-eval');if(!se||!sv)return;
+    var opts=Array.prototype.slice.call(se.options).filter(function(o){return o.value;}),idx=-1,m=elMap(),ev=ctx.eval,i,next=null;
+    opts.forEach(function(o,k){if(o.value===ctx.eleveId)idx=k;});
+    function ok(o){var e=m[o.value];return !!(e&&e.classe===ctx.classe&&e.ecole_id===ctx.ecole&&!findNote(o.value,ev));}
+    for(i=idx+1;i<opts.length&&!next;i++)if(ok(opts[i]))next=opts[i];
+    for(i=0;i<idx&&!next;i++)if(ok(opts[i]))next=opts[i];
+    if(!next){notif('✅ Tous les élèves de '+ctx.classe+' ont une note pour cette composition','success');return;}
+    se.value=next.value;window.onEleveSelect();sv.value=ev;window.buildNoteForm();
+    var f=document.querySelector('#note-form-card .note-input');if(f&&f.focus)f.focus();
+  }catch(e){console.warn('[bareme] élève suivant',e);}
+}
+
+/* ───────── DFA / moyenne annuelle ───────── */
+function annualEchelle(cfg,classe){
+  if(isCMc(classe))return 20;
+  if(cfg&&cfg.echelle_annuelle)return num(cfg.echelle_annuelle,20);
+  return paramsOf(cfg,classe).echelle_moyenne;
+}
+function normMoy(n,E){
+  var c=window.calcNote(n);
+  return c.maxMoy>0?r2(c.moy/c.maxMoy*E):null;
+}
+function findNote(eleveId,ev){
+  var a=DB.notes||[];
+  for(var i=0;i<a.length;i++)if(a[i].eleve_id===eleveId&&a[i].eval_type===ev)return a[i];
+  return null;
+}
+function baseCoefs(cfg,classe){
+  var c={composition1:1,composition2:1,composition3:1,composition4:2};
+  if(classe==='CM1'&&cfg&&cfg.coefs){Object.keys(cfg.coefs).forEach(function(k){var v=Number(cfg.coefs[k]);if(isFinite(v)&&v>0)c[k]=v;});}
+  return c;
+}
+function evalsOf(cfg,classe){
+  var list=BASE_EV.slice();
+  supList(cfg).forEach(function(s){list.push(s.eval);});
+  return list;
+}
+window.calcMoyAnnuelle=function(eleveId,classe){
+  try{
+    var el=elMap()[eleveId], cfg=el?getCfg(el.ecole_id,classe):null;
+    if(cfg){
+      var E=annualEchelle(cfg,classe), i, n, m;
+      if(isCPc(classe)){
+        var s1=0;
+        for(i=0;i<4;i++){n=findNote(eleveId,BASE_EV[i]);if(!n)return null;m=normMoy(n,E);if(m===null)return null;s1+=m;}
+        return r2(s1/4);
+      }
+      if(classe==='CE1'||classe==='CE2'||classe==='CM1'){
+        var cf=baseCoefs(cfg,classe), ev=evalsOf(cfg,classe), sc=0, sw=0;
+        for(i=0;i<ev.length;i++){
+          n=findNote(eleveId,ev[i]);if(!n)return null;m=normMoy(n,E);if(m===null)return null;
+          var w=cf[ev[i]];if(w==null){var sp=supOf(cfg,ev[i]);w=sp?num(sp.coef,1):1;}
+          sc+=m*w;sw+=w;
+        }
+        return sw>0?r2(sc/sw):null;
+      }
+      if(classe==='CM2'&&supList(cfg).length){
+        var cc=['composition1','composition2','examen_blanc1','examen_blanc2'].concat(supList(cfg).map(function(s){return s.eval;}));
+        var a=0,b=0;
+        for(i=0;i<cc.length;i++){
+          n=findNote(eleveId,cc[i]);if(!n)return null;m=normMoy(n,20);if(m===null)return null;
+          var w2=1,sp2=supOf(cfg,cc[i]);if(sp2)w2=num(sp2.coef,1);
+          a+=m*w2;b+=w2;
+        }
+        var MGA=a/b,T2=Math.round(8.5*MGA*100)/100;
+        var nE6=findNote(eleveId,'entree6');if(!nE6)return null;
+        var ce6=window.calcNote(nE6);
+        var T1=Math.round((ce6.total/ce6.bareme)*100*100)/100;
+        var TGP=Math.round(((6*T1+4*T2)/10)*100)/100;
+        return {TGP:TGP,T1:T1,T2:T2,MGA:Math.round(MGA*100)/100};
+      }
+    }
+  }catch(e){console.warn('[bareme] calcMoyAnnuelle',e);}
+  return O.calcMoy.apply(this,arguments);
+};
+window.getStatutPassage=function(eleveId,classe){
+  try{
+    var el=elMap()[eleveId], cfg=el?getCfg(el.ecole_id,classe):null;
+    if(cfg&&classe!=='CM2'){
+      var E=annualEchelle(cfg,classe), res=window.calcMoyAnnuelle(eleveId,classe);
+      if(res===null){
+        return {statut:'incomplet',label:'⏳ Incomplet ('+evalsOf(cfg,classe).length+' compositions requises)',color:'var(--text3)',moy:null};
+      }
+      var admis=res>=E/2;
+      return {statut:admis?'admis':'echec',
+        label:admis?'✅ DFA Admis — Moy: '+res+'/'+E:'❌ DFA Échec — Moy: '+res+'/'+E,
+        color:admis?'var(--ci-vert)':'var(--danger)',moy:res,maxNote:E,peutMigrer:admis};
+    }
+  }catch(e){console.warn('[bareme] getStatutPassage',e);}
+  return O.statut.apply(this,arguments);
+};
+
+/* ───────── évaluations supplémentaires (CM1 / CM2) ───────── */
+function scopeEcoleIds(){
+  if(isSuper())return null;
+  try{return getScopeEcoles().map(function(e){return e.id;});}catch(e){return null;}
+}
+function extrasUnion(){
+  var sc=scopeEcoleIds(),out={};
+  Object.keys(CFG).forEach(function(id){
+    var c=CFG[id];if(!c||(sc&&sc.indexOf(c.ecole_id)<0))return;
+    (c.compositions_sup||[]).forEach(function(s){if(!out[s.eval])out[s.eval]=s.label||('Composition '+evNum(s.eval));});
+  });
+  return out;
+}
+function extraEvals(el){
+  if(!el||!isCMc(el.classe))return [];
+  return supList(getCfg(el.ecole_id,el.classe)).map(function(s){return s.eval;});
+}
+function registerEvals(){
+  try{
+    var ex=extrasUnion();
+    Object.keys(ex).forEach(function(k){EVAL_LABELS[k]=ex[k];});
+    SEL_IDS.forEach(function(sid){
+      var s=$(sid);if(!s)return;
+      var have={};Array.prototype.forEach.call(s.options,function(o){have[o.value]=o;});
+      Object.keys(ex).sort(function(a,b){return evNum(a)-evNum(b);}).forEach(function(k){
+        if(!have[k]){
+          var o=document.createElement('option');o.value=k;o.textContent=ex[k];o.setAttribute('data-pgb','1');
+          s.insertBefore(o,have.examen_blanc1||null);
+        }else have[k].textContent=ex[k];
+      });
+      Array.prototype.slice.call(s.options).forEach(function(o){if(o.getAttribute('data-pgb')&&!ex[o.value])s.removeChild(o);});
+    });
+    syncSaisieOptions();
+  }catch(e){console.warn('[bareme] registerEvals',e);}
+}
+function syncSaisieOptions(){
+  [['sel-eval','sel-eleve'],['bul-eval','bul-eleve']].forEach(function(pr){
+    var s=$(pr[0]),se=$(pr[1]);if(!s)return;
+    var el=se&&se.value?elMap()[se.value]:null;
+    Array.prototype.forEach.call(s.options,function(o){
+      if(!isExtraEv(o.value))return;
+      var ok=!el||(isCMc(el.classe)&&!!supOf(getCfg(el.ecole_id,el.classe),o.value));
+      o.disabled=!ok;o.style.display=ok?'':'none';
+      if(!ok&&s.value===o.value)s.value='';
+    });
+  });
+}
+window.onEleveSelect=function(){
+  var r=O.onEleve.apply(this,arguments);
+  try{syncSaisieOptions();}catch(e){}
+  return r;
+};
+window.showPage=function(name){
+  var r=O.showPage.apply(this,arguments);
+  try{registerEvals();if(name==='saisie')renderPanel();}catch(e){}
+  return r;
+};
+window.initApp=function(){
+  var r=O.initApp.apply(this,arguments);
+  try{pullCloud();registerEvals();}catch(e){}
+  return r;
+};
+
+/* ───────── droits ───────── */
+function isSuper(){var u=cuser();return !!(u&&(u.role==='admin'||u.login==='diomande'));}
+function canParam(ctx){
+  var u=cuser();if(!u||!ctx)return false;
+  if(isSuper())return true;
+  if(u.role==='instituteur'||u.role==='benevole'){
+    var d=udata();return !!(d&&d.structure_val===ctx.classe&&rid(d.ecole_val)===ctx.ecole);
+  }
+  return false;
+}
+function canRenameCP1(ctx){
+  var u=cuser();if(!u||!ctx||ctx.classe!=='CP1')return false;
+  if(u.role!=='instituteur'&&u.role!=='benevole')return false;
+  var d=udata();return !!(d&&d.structure_val==='CP1'&&rid(d.ecole_val)===ctx.ecole);
+}
+
+/* ───────── modification des paramètres ───────── */
+function ecoleNom(id){var e=(DB.ecoles||[]).filter(function(x){return x.id===id;})[0];return e?e.nom:id;}
+function newCfg(ecole,classe){
+  return {id:cid(ecole,classe),ecole_id:ecole,annee_scolaire:annee(),classe:classe,
+    option_bareme:'B',bareme_principal:50,bareme_dictee:20,bareme_saisie:10,
+    echelle_moyenne:isCPc(classe)?10:20,nombre_compositions:4,mode_calcul:'ancien',version_calcul:VCALC,
+    coefs:{composition1:1,composition2:1,composition3:1,composition4:2},
+    compositions_sup:[],matieres_cp1_compo1:{},historique:[],modifie_le:'',modifie_par:''};
+}
+function commit(c){
+  var u=cuser();
+  c.modifie_le=new Date().toISOString();c.modifie_par=u?u.login:'';
+  c.nombre_compositions=4+(c.compositions_sup||[]).length;
+  c.bareme_principal=c.option_bareme==='A'?30:50;c.bareme_dictee=c.option_bareme==='A'?10:20;
+  var p=paramsOf(c,c.classe),leg=isCPc(c.classe)?(p.bareme_saisie===10&&p.echelle_moyenne===10):
+    (isCEc(c.classe)?(p.option_bareme==='B'&&p.echelle_moyenne===20):true);
+  c.mode_calcul=(leg&&!(c.compositions_sup||[]).length&&!Object.keys(c.comp||{}).length)?'ancien':'personnalise';
+  CFG[c.id]=c;saveLS();reindex();pushCloud(c);registerEvals();
+}
+function updateParams(ecole,classe,patch){
+  var c=getCfg(ecole,classe)||newCfg(ecole,classe);
+  var before=JSON.stringify(paramsOf(c,classe)),isNew=!c.historique||!c.historique.length;
+  Object.keys(patch).forEach(function(k){c[k]=patch[k];});
+  var p=paramsOf(c,classe);
+  if(isNew||JSON.stringify(p)!==before){
+    c.historique=(c.historique||[]).concat([{depuis:new Date().toISOString(),option_bareme:p.option_bareme,
+      echelle_moyenne:p.echelle_moyenne,bareme_saisie:p.bareme_saisie,par:(cuser()||{}).login||''}]);
+  }
+  commit(c);return c;
+}
+function updateCompParams(ecole,classe,evs,patch){
+  var c=getCfg(ecole,classe)||newCfg(ecole,classe),now=new Date().toISOString(),who=(cuser()||{}).login||'';
+  c.comp=c.comp||{};
+  evs.forEach(function(ev){
+    var cur=paramsFor(c,classe,ev),e=c.comp[ev]||{historique:[]};
+    e.option_bareme=patch.option_bareme||cur.option_bareme;
+    e.echelle_moyenne=patch.echelle_moyenne||cur.echelle_moyenne;
+    e.bareme_saisie=patch.bareme_saisie||cur.bareme_saisie;
+    e.historique=(e.historique||[]).concat([{depuis:now,option_bareme:e.option_bareme,echelle_moyenne:e.echelle_moyenne,bareme_saisie:e.bareme_saisie,par:who}]);
+    e.modifie_le=now;c.comp[ev]=e;
+  });
+  c.echelle_annuelle=patch.echelle_moyenne||paramsFor(c,classe,evs[0]).echelle_moyenne;
+  commit(c);return c;
+}
+function notesCount(ecole,classe){
+  var ids={},cnt={};
+  (DB.eleves||[]).forEach(function(e){if(e.ecole_id===ecole&&e.classe===classe)ids[e.id]=1;});
+  (DB.notes||[]).forEach(function(n){if(ids[n.eleve_id])cnt[n.eval_type]=(cnt[n.eval_type]||0)+1;});
+  return cnt;
+}
+function evLabel(k){return (typeof EVAL_LABELS!=='undefined'&&EVAL_LABELS[k])||k;}
+function refreshViews(){
+  try{
+    var a=document.querySelector('.page.active'),id=a?a.id:'';
+    if(typeof updateStats==='function')updateStats();
+    if(id==='page-saisie'&&typeof buildNoteForm==='function')window.buildNoteForm();
+    else if(id==='page-resultats'&&typeof renderResultats==='function')renderResultats();
+    else if(id==='page-bulletins'&&typeof genBulletin==='function')genBulletin();
+    else if(typeof renderDashboard==='function')renderDashboard();
+  }catch(e){console.warn('[bareme] refresh',e);}
+}
+
+/* ───────── interface : fenêtres ───────── */
+function mClose(){var m=$('pgb-modal');if(m)m.parentNode.removeChild(m);}
+function mOpen(title,html,btns){
+  mClose();
+  var o=document.createElement('div');o.id='pgb-modal';o.className='pgb-ov';
+  o.innerHTML='<div class="pgb-md"><div class="pgb-mh"><b>'+esc(title)+'</b><button type="button" class="pgb-x" id="pgb-x">✕</button></div>'+
+    '<div class="pgb-mb">'+html+'</div><div class="pgb-mf" id="pgb-mf"></div></div>';
+  document.body.appendChild(o);
+  $('pgb-x').onclick=mClose;
+  (btns||[]).forEach(function(b){
+    var el=document.createElement('button');el.type='button';el.className='pgb-b '+(b.cls||'');el.textContent=b.label;
+    el.onclick=function(){if(b.fn)b.fn();};$('pgb-mf').appendChild(el);
+  });
+}
+
+/* ───────── interface : panneau dans le menu de saisie ───────── */
+var CSS='.pgb{margin:0 0 16px;padding:16px 18px;border-left:4px solid var(--ci-orange,#F77F00)}'+
+ '.pgb *{box-sizing:border-box}.pgb-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}'+
+ '.pgb-h b{font-size:14px}.pgb-tag{font-size:11px;padding:3px 9px;border-radius:12px;background:#ECFDF5;color:#065F46;border:1px solid #6EE7B7}'+
+ '.pgb-tag.o{background:#FFF7ED;color:#9A3412;border-color:#FED7AA}'+
+ '.pgb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}'+
+ '.pgb-col{background:var(--surface,#F8FAFC);border-radius:8px;padding:12px;min-width:0}'+
+ '.pgb-t{font-weight:700;font-size:12px;margin-bottom:8px}.pgb-r{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;margin:6px 0;cursor:pointer}'+
+ '.pgb-tb{width:100%;border-collapse:collapse;font-size:12px}.pgb-tb td,.pgb-tb th{padding:4px 6px;border-bottom:1px solid #E5E7EB;text-align:left}'+
+ '.pgb-tb td:last-child,.pgb-tb th:last-child{text-align:right}.pgb-tot td{font-weight:700;background:#F0FAF5}'+
+ '.pgb-max{margin-top:8px;text-align:center;font-size:11px;color:#6B7280}.pgb-max b{display:block;font-size:22px;color:var(--ci-vert,#006B3F)}'+
+ '.pgb-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.pgb-b{border:0;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;background:#E5E7EB;color:#111827}'+
+ '.pgb-b.p{background:var(--ci-vert,#006B3F);color:#fff}.pgb-b.o{background:var(--ci-orange,#F77F00);color:#fff}.pgb-b.r{background:#DC2626;color:#fff}.pgb-b[disabled]{opacity:.5;cursor:not-allowed}'+
+ '.pgb-note{font-size:11.5px;color:#6B7280;margin-top:8px;line-height:1.5}.pgb-lk{border:0;background:none;color:#1D4ED8;text-decoration:underline;cursor:pointer;font-size:12px;padding:0}'+
+ '.pgb-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;display:flex;align-items:center;justify-content:center;padding:12px}'+
+ '.pgb-md{background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}'+
+ '.pgb-mh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #E5E7EB}.pgb-x{border:0;background:none;font-size:16px;cursor:pointer}'+
+ '.pgb-mb{padding:14px 16px;overflow-y:auto;overflow-x:hidden;font-size:13px}.pgb-mf{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;padding:10px 16px;border-top:1px solid #E5E7EB}'+
+ '.pgb-in{width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:6px;font-size:12.5px}.pgb-f{padding:6px 9px;border-radius:6px;margin:4px 0;font-size:12.5px;line-height:1.45}'+
+ '.pgb-f.ok{background:#ECFDF5}.pgb-f.warn{background:#FFFBEB}.pgb-f.err{background:#FEF2F2}.pgb-f.info{background:#EFF6FF}';
+function injectCss(){
+  if($('pgb-css'))return;
+  var s=document.createElement('style');s.id='pgb-css';s.textContent=CSS;document.head.appendChild(s);
+}
+function panelCtx(){
+  var se=$('sel-eleve'),el=se&&se.value?elMap()[se.value]:null;
+  if(el)return {classe:el.classe,ecole:el.ecole_id,eleve:el};
+  var u=udata(),r=(cuser()||{}).role;
+  if(u&&(r==='instituteur'||r==='benevole')&&u.structure_val)return {classe:u.structure_val,ecole:rid(u.ecole_val)};
+  return null;
+}
+function mount(){
+  var pg=$('page-saisie');if(!pg)return null;
+  var p=$('pgbar-panel');
+  if(!p){p=document.createElement('div');p.id='pgbar-panel';p.className='card pgb';pg.insertBefore(p,pg.firstChild);}
+  return p;
+}
+function radio(name){var r=document.querySelector('input[name="'+name+'"]:checked');return r?r.value:null;}
+function renderPanel(){
+  try{
+    injectCss();
+    var p=mount();if(!p)return;
+    var ctx=panelCtx();
+    if(!ctx){
+      p.innerHTML='<div class="pgb-h"><b>⚙️ Paramètres de notation</b></div><div class="pgb-note">Sélectionnez un élève pour afficher les barèmes et les échelles de sa classe.</div>';
+      return;
+    }
+    var cfg=getCfg(ctx.ecole,ctx.classe),scoped=isCEc(ctx.classe)||isCPc(ctx.classe),ev=curEval();
+    var P=paramsFor(cfg,ctx.classe,ev),edit=canParam(ctx),dis=edit?'':' disabled',ent=compEntry(cfg,ev);
+    var tag=ent?('<span class="pgb-tag o">Paramétrage enregistré · '+esc(evLabel(ev))+' · version de calcul '+(cfg.version_calcul||VCALC)+'</span>'):
+      '<span class="pgb-tag">Anciennes règles de calcul (par défaut)</span>';
+    var h='<div class="pgb-h"><b>⚙️ Paramètres de notation — '+esc(ctx.classe)+(scoped&&ev?' · '+esc(evLabel(ev)):'')+' · '+esc(ecoleNom(ctx.ecole))+' · '+esc(annee())+'</b>'+(scoped?tag:'')+'</div>';
+    if(scoped&&BASE_EV.indexOf(ev)<0){
+      p.innerHTML=h+'<div class="pgb-note">Choisissez le <b>type d\'évaluation (composition)</b> : le paramétrage s\'applique à la composition choisie, pour tous les élèves de la classe.</div>'+
+        '<div class="pgb-act"><button type="button" class="pgb-b" onclick="PGBAR.act(\'ia\')">🤖 Assistant de vérification</button>'+
+        (canRenameCP1(ctx)?'<button type="button" class="pgb-b o" onclick="PGBAR.act(\'rename\')">✏️ Renommer les matières de la 1re composition</button>':'')+'</div>';
+      return;
+    }
+    if(isCEc(ctx.classe)){
+      h+='<div class="pgb-grid">'+
+        '<div class="pgb-col"><div class="pgb-t">A. Choix du barème des compositions</div>'+
+        '<label class="pgb-r"><input type="radio" name="pgb-opt" value="A"'+(P.option_bareme==='A'?' checked':'')+dis+' onchange="PGBAR.preview()"> <span><b>Option A</b> : matières /30 – Dictée /10</span></label>'+
+        '<label class="pgb-r"><input type="radio" name="pgb-opt" value="B"'+(P.option_bareme==='B'?' checked':'')+dis+' onchange="PGBAR.preview()"> <span><b>Option B</b> : matières /50 – Dictée /20</span></label></div>'+
+        '<div class="pgb-col"><div class="pgb-t">B. Choix de l\'échelle des moyennes</div>'+
+        '<label class="pgb-r"><input type="radio" name="pgb-ech" value="10"'+(P.echelle_moyenne===10?' checked':'')+dis+' onchange="PGBAR.preview()"> <span>Sur 10</span></label>'+
+        '<label class="pgb-r"><input type="radio" name="pgb-ech" value="20"'+(P.echelle_moyenne===20?' checked':'')+dis+' onchange="PGBAR.preview()"> <span>Sur 20</span></label></div>'+
+        '<div class="pgb-col"><div class="pgb-t">C. Barèmes appliqués automatiquement</div><div id="pgb-prev"></div></div></div>';
+    }else if(isCPc(ctx.classe)){
+      h+='<div class="pgb-grid">'+
+        '<div class="pgb-col"><div class="pgb-t">A. Barème de saisie (par matière)</div>'+
+        '<label class="pgb-r"><input type="radio" name="pgb-bs" value="10"'+(P.bareme_saisie===10?' checked':'')+dis+' onchange="PGBAR.preview()"> <span>Notes sur 10 (par défaut)</span></label>'+
+        '<label class="pgb-r"><input type="radio" name="pgb-bs" value="20"'+(P.bareme_saisie===20?' checked':'')+dis+' onchange="PGBAR.preview()"> <span>Notes sur 20</span></label></div>'+
+        '<div class="pgb-col"><div class="pgb-t">B. Échelle des moyennes</div>'+
+        '<label class="pgb-r"><input type="radio" name="pgb-ech" value="10"'+(P.echelle_moyenne===10?' checked':'')+dis+' onchange="PGBAR.preview()"> <span>Moyenne sur 10 (par défaut)</span></label>'+
+        '<label class="pgb-r"><input type="radio" name="pgb-ech" value="20"'+(P.echelle_moyenne===20?' checked':'')+dis+' onchange="PGBAR.preview()"> <span>Moyenne sur 20</span></label></div>'+
+        '<div class="pgb-col"><div class="pgb-t">C. Barèmes appliqués automatiquement</div><div id="pgb-prev"></div></div></div>';
+    }else{
+      var sl=supList(cfg);
+      h+='<div class="pgb-col"><div class="pgb-t">Compositions de '+esc(ctx.classe)+'</div>'+
+        '<div class="pgb-note" style="margin:0 0 6px">Ancien système de calcul conservé par défaut ('+(ctx.classe==='CM2'?'Compo 1, Compo 2, Examen blanc 1 et 2 + Entrée en 6ème':'4 compositions : [(M1+M2+M3)+M4×2]÷5')+').'+
+        ' Compositions supplémentaires : <b>'+sl.length+'</b>'+(sl.length?' ('+sl.map(function(s){return esc(s.label);}).join(', ')+')':'')+'.</div>'+
+        '<div class="pgb-act" style="margin-top:0"><button type="button" class="pgb-b p" onclick="PGBAR.act(\'cm\')"'+(edit?'':' disabled')+'>🧩 Gérer les compositions</button></div></div>';
+    }
+    h+='<div class="pgb-act">';
+    if(scoped)h+='<button type="button" class="pgb-b p" onclick="PGBAR.act(\'apply\')"'+(edit?'':' disabled')+'>✔ Appliquer à '+esc(evLabel(ev))+' (tous les élèves)</button>'+
+      (edit?'<label class="pgb-r" style="margin:0;align-self:center"><input type="checkbox" id="pgb-all"> <span>Appliquer aussi aux autres compositions non encore saisies</span></label>':'');
+    if(canRenameCP1(ctx))h+='<button type="button" class="pgb-b o" onclick="PGBAR.act(\'rename\')">✏️ Renommer les matières de la 1re composition</button>';
+    h+='<button type="button" class="pgb-b" onclick="PGBAR.act(\'ia\')">🤖 Assistant de vérification</button></div>';
+    if(!edit)h+='<div class="pgb-note">🔒 Lecture seule : seuls le maître de la classe et le super administrateur peuvent modifier ces paramètres.</div>';
+    else h+='<div class="pgb-note">Ce paramétrage vaut pour la composition choisie et tous les élèves de la classe ; il reste fixé jusqu\'à une nouvelle modification (confirmation demandée). Les notes déjà saisies conservent leur barème d\'origine.</div>';
+    p.innerHTML=h;
+    preview();
+  }catch(e){console.warn('[bareme] renderPanel',e);}
+}
+function preview(){
+  var box=$('pgb-prev');if(!box)return;
+  var ctx=panelCtx();if(!ctx)return;
+  var cfg=getCfg(ctx.ecole,ctx.classe),P=paramsFor(cfg,ctx.classe,curEval()),rows,tot,E,t='';
+  if(isCEc(ctx.classe)){
+    var o=radio('pgb-opt')||P.option_bareme;E=+(radio('pgb-ech')||P.echelle_moyenne);
+    var mp=o==='A'?30:50,md=o==='A'?10:20;tot=3*mp+md;
+    rows=[['Exploitation de texte',mp],['Éveil au milieu',mp],['Mathématiques',mp],['Dictée',md]];
+  }else{
+    var bs=+(radio('pgb-bs')||P.bareme_saisie);E=+(radio('pgb-ech')||P.echelle_moyenne);tot=8*bs;
+    rows=(ctx.classe==='CP1'&&cfg&&cfg.matieres_cp1_compo1?LEG.CP.map(function(m){return [cfg.matieres_cp1_compo1[m.key]||m.label,bs];}):LEG.CP.map(function(m){return [m.label,bs];}));
+  }
+  t='<table class="pgb-tb">'+rows.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td>/'+r[1]+'</td></tr>';}).join('')+
+    '<tr class="pgb-tot"><td>Total maximal</td><td>/'+tot+'</td></tr></table>'+
+    '<div class="pgb-max">MOYENNE MAXIMALE<b>'+E+'/'+E+'</b>Calculée automatiquement : '+(isCEc(ctx.classe)?'Total obtenu ÷ '+fr(r2(tot/E))+' (= '+tot+' ÷ '+E+')':'Total obtenu ÷ Total possible × '+E)+'</div>';
+  box.innerHTML=t;
+}
+function apply(){
+  var ctx=panelCtx();if(!ctx||!canParam(ctx)){notif('🔒 Accès refusé','error');return;}
+  var ev=curEval();
+  if(BASE_EV.indexOf(ev)<0){notif('Choisissez d\'abord la composition à paramétrer','error');return;}
+  var cfg=getCfg(ctx.ecole,ctx.classe),P=paramsFor(cfg,ctx.classe,ev),ent=compEntry(cfg,ev),patch,desc,curDesc;
+  if(isCEc(ctx.classe)){
+    var o=radio('pgb-opt'),e=+radio('pgb-ech');if(!o||!e)return;
+    patch={option_bareme:o,echelle_moyenne:e};
+    desc='Option '+o+' (/'+(o==='A'?100:170)+') · moyenne /'+e;curDesc='Option '+P.option_bareme+' (/'+(P.option_bareme==='A'?100:170)+') · moyenne /'+P.echelle_moyenne;
+    if(ent&&o===P.option_bareme&&e===P.echelle_moyenne){notif('Aucun changement de paramétrage','info');return;}
+  }else{
+    var bs=+radio('pgb-bs'),e2=+radio('pgb-ech');if(!bs||!e2)return;
+    patch={bareme_saisie:bs,echelle_moyenne:e2};
+    desc='saisie /'+bs+' · moyenne /'+e2;curDesc='saisie /'+P.bareme_saisie+' · moyenne /'+P.echelle_moyenne;
+    if(ent&&bs===P.bareme_saisie&&e2===P.echelle_moyenne){notif('Aucun changement de paramétrage','info');return;}
+  }
+  var cnt=notesCount(ctx.ecole,ctx.classe),all=$('pgb-all')&&$('pgb-all').checked,targets=[ev];
+  if(all)BASE_EV.forEach(function(k){if(k!==ev&&!cnt[k])targets.push(k);});
+  var msg='Paramétrer '+evLabel(ev)+' — '+ctx.classe+' — '+ecoleNom(ctx.ecole)+' ?\n\nActuel : '+curDesc+'\nNouveau : '+desc+
+    '\n\n• Valable pour TOUS les élèves de la classe, pour : '+targets.map(evLabel).join(', ')+
+    '\n• '+(cnt[ev]?cnt[ev]+' élève(s) déjà noté(s) dans '+evLabel(ev)+' : leurs notes sont conservées avec l\'ancien barème (non modifiées).':'Aucune note déjà saisie dans '+evLabel(ev)+'.')+
+    '\n• Le paramétrage reste fixé tant que vous ne le modifiez pas.\n\nConfirmer ?';
+  if(!confirm(msg))return;
+  updateCompParams(ctx.ecole,ctx.classe,targets,patch);
+  notif('✅ '+evLabel(ev)+' paramétrée pour tous les élèves : '+desc,'success');
+  renderPanel();refreshViews();
+}
+
+/* ───────── CP1 : renommer les matières de la 1re composition ───────── */
+function renameModal(){
+  var ctx=panelCtx();if(!ctx||!canRenameCP1(ctx)){notif('🔒 Réservé au maître du CP1','error');return;}
+  var cfg=getCfg(ctx.ecole,'CP1')||{},map=cfg.matieres_cp1_compo1||{};
+  var h='<div class="pgb-note" style="margin:0 0 8px">Seules les matières de la <b>première composition du CP1</b> peuvent être renommées. Les notes déjà saisies sont conservées (le lien élève ↔ note repose sur l\'identifiant interne de la matière) et le nouveau nom est repris dans les tableaux de saisie, bulletins et relevés.</div>'+
+    '<table class="pgb-tb"><thead><tr><th>Matière d\'origine</th><th>Nouveau nom</th></tr></thead><tbody>'+
+    LEG.CP.map(function(m){return '<tr><td>'+esc(m.label)+'</td><td><input class="pgb-in" id="pgb-rn-'+m.key+'" maxlength="40" value="'+esc(map[m.key]||m.label)+'"></td></tr>';}).join('')+'</tbody></table>';
+  mOpen('✏️ Matières — CP1, 1re composition',h,[
+    {label:'Annuler',fn:mClose},
+    {label:'Rétablir les noms d\'origine',fn:function(){LEG.CP.forEach(function(m){var i=$('pgb-rn-'+m.key);if(i)i.value=m.label;});}},
+    {label:'Enregistrer',cls:'p',fn:function(){
+      var out={},seen={},bad=null;
+      LEG.CP.forEach(function(m){
+        var v=String($('pgb-rn-'+m.key).value||'').trim();
+        if(!v){bad='Le nom d\'une matière ne peut pas être vide.';return;}
+        var k=v.toLowerCase();if(seen[k])bad='Deux matières portent le même nom : '+v;seen[k]=1;
+        if(v!==m.label)out[m.key]=v;
+      });
+      if(bad){notif(bad,'error');return;}
+      updateParams(ctx.ecole,'CP1',{matieres_cp1_compo1:out});
+      mClose();notif('✅ Noms des matières mis à jour (notes conservées)','success');renderPanel();refreshViews();
+    }}
+  ]);
+}
+
+/* ───────── CM1 / CM2 : gestion des compositions ───────── */
+function cmModal(){
+  var ctx=panelCtx();if(!ctx||!canParam(ctx)||!isCMc(ctx.classe)){notif('🔒 Accès refusé','error');return;}
+  var cfg=getCfg(ctx.ecole,ctx.classe)||newCfg(ctx.ecole,ctx.classe),cnt=notesCount(ctx.ecole,ctx.classe),cf=baseCoefs(cfg,ctx.classe);
+  var base=ctx.classe==='CM2'?[['composition1'],['composition2'],['examen_blanc1'],['examen_blanc2']]:BASE_EV.map(function(k){return [k];});
+  var h='<div class="pgb-note" style="margin:0 0 8px">Les '+(ctx.classe==='CM2'?'4 évaluations':'4 compositions')+' d\'origine sont conservées. Vous pouvez ajouter des compositions (5, 6, … ), les nommer, fixer leurs matières, barèmes et coefficients. La moyenne est recalculée automatiquement : <b>Σ(coef × moyenne) ÷ Σ coef</b>.</div>'+
+    '<table class="pgb-tb"><thead><tr><th>Composition</th><th>Total</th><th>Coef.</th><th>Notes</th><th></th></tr></thead><tbody>';
+  base.forEach(function(b){
+    var k=b[0],c=ctx.classe==='CM1'?(cf[k]||1):1;
+    h+='<tr><td>'+esc(evLabel(k))+' <span class="pgb-note">(origine)</span></td><td>/'+(k.indexOf('examen')===0?190:170)+'</td><td>'+
+      (ctx.classe==='CM1'?'<input class="pgb-in" style="width:60px" type="number" min="0.5" step="0.5" id="pgb-cf-'+k+'" value="'+c+'">':'1')+'</td><td>'+(cnt[k]||0)+'</td><td></td></tr>';
+  });
+  supList(cfg).forEach(function(s){
+    var tot=sum(s.matieres||[]);
+    h+='<tr><td>'+esc(s.label)+'</td><td>/'+tot+'</td><td>'+s.coef+'</td><td>'+(cnt[s.eval]||0)+'</td><td style="white-space:nowrap">'+
+      '<button type="button" class="pgb-lk" onclick="PGBAR.act(\'edit\',\''+s.eval+'\')">modifier</button> · '+
+      '<button type="button" class="pgb-lk" style="color:#DC2626" onclick="PGBAR.act(\'del\',\''+s.eval+'\')">supprimer</button></td></tr>';
+  });
+  h+='</tbody></table>';
+  mOpen('🧩 Compositions — '+ctx.classe,h,[
+    {label:'Fermer',fn:mClose},
+    {label:'➕ Ajouter une composition',cls:'o',fn:function(){saveBaseCoefs(ctx,cfg);addComposition(ctx);}},
+    {label:'Enregistrer les coefficients',cls:'p',fn:function(){saveBaseCoefs(ctx,cfg,true);}}
+  ]);
+}
+function saveBaseCoefs(ctx,cfg,notify){
+  if(ctx.classe!=='CM1')return;
+  var c=getCfg(ctx.ecole,ctx.classe)||cfg,co={};
+  BASE_EV.forEach(function(k){var i=$('pgb-cf-'+k);var v=i?Number(i.value):NaN;co[k]=(isFinite(v)&&v>0)?v:(baseCoefs(c,'CM1')[k]);});
+  c.coefs=co;commit(c);
+  if(notify){notif('✅ Coefficients enregistrés — moyennes recalculées','success');mClose();renderPanel();refreshViews();}
+}
+function addComposition(ctx){
+  var c=getCfg(ctx.ecole,ctx.classe)||newCfg(ctx.ecole,ctx.classe);
+  var mx=4;supList(c).forEach(function(s){mx=Math.max(mx,evNum(s.eval));});
+  if(mx>=12){notif('Nombre maximal de compositions atteint (12).','error');return;}
+  var k='composition'+(mx+1);
+  c.compositions_sup=(c.compositions_sup||[]).concat([{eval:k,label:'Composition '+(mx+1),coef:1,cree_le:new Date().toISOString(),
+    matieres:clone(LEG.CECM)}]);
+  if(!(c.historique||[]).length){var p=paramsOf(c,ctx.classe);c.historique=[{depuis:new Date().toISOString(),option_bareme:p.option_bareme,echelle_moyenne:p.echelle_moyenne,bareme_saisie:p.bareme_saisie,par:(cuser()||{}).login||''}];}
+  commit(c);notif('✅ '+evLabel(k)+' ajoutée','success');
+  editComposition(ctx,k);
+}
+function editComposition(ctx,k){
+  var c=getCfg(ctx.ecole,ctx.classe),s=supOf(c,k);if(!s)return;
+  var locked=!!(notesCount(ctx.ecole,ctx.classe)[k]);
+  var h='<div class="pgb-note" style="margin:0 0 8px">'+(locked?'🔒 Des notes sont déjà enregistrées : les barèmes et matières sont verrouillés (intitulé et coefficient modifiables).':'Définissez les matières concernées et leur barème.')+'</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 100px;gap:8px;margin-bottom:8px"><div><label class="pgb-note">Intitulé</label><input class="pgb-in" id="pgb-cl" maxlength="40" value="'+esc(s.label)+'"></div>'+
+    '<div><label class="pgb-note">Coefficient</label><input class="pgb-in" id="pgb-cc" type="number" min="0.5" step="0.5" value="'+esc(s.coef)+'"></div></div>'+
+    '<table class="pgb-tb"><thead><tr><th>Matière</th><th>Barème</th><th></th></tr></thead><tbody id="pgb-mt">'+
+    s.matieres.map(function(m,i){return matRow(m,i,locked);}).join('')+'</tbody></table>'+
+    (locked?'':'<div class="pgb-act" style="margin-top:6px"><button type="button" class="pgb-b" id="pgb-addm">➕ Ajouter une matière</button></div>');
+  mOpen('✏️ '+s.label+' — '+ctx.classe,h,[
+    {label:'Retour',fn:function(){cmModal();}},
+    {label:'Enregistrer',cls:'p',fn:function(){
+      var lab=String($('pgb-cl').value||'').trim(),co=Number($('pgb-cc').value);
+      if(!lab){notif('L\'intitulé est obligatoire.','error');return;}
+      if(!(co>0)){notif('Le coefficient doit être supérieur à 0.','error');return;}
+      var mats=s.matieres;
+      if(!locked){
+        mats=[];var seen={},bad=null;
+        Array.prototype.forEach.call(document.querySelectorAll('#pgb-mt tr'),function(tr){
+          var key=tr.getAttribute('data-k'),l=String(tr.querySelector('.ml').value||'').trim(),mx=Number(tr.querySelector('.mx').value);
+          if(!l)return;
+          if(!(mx>0))bad='Le barème de « '+l+' » doit être supérieur à 0.';
+          if(seen[l.toLowerCase()])bad='Matière en double : '+l;seen[l.toLowerCase()]=1;
+          mats.push({key:key,label:l,max:mx});
+        });
+        if(bad){notif(bad,'error');return;}
+        if(!mats.length){notif('Au moins une matière est requise.','error');return;}
+      }
+      var cc=getCfg(ctx.ecole,ctx.classe),ss=supOf(cc,k);
+      ss.label=lab;ss.coef=co;ss.matieres=mats;commit(cc);
+      notif('✅ Composition enregistrée — moyennes recalculées','success');cmModal();renderPanel();refreshViews();
+    }}
+  ]);
+  var add=$('pgb-addm');
+  if(add)add.onclick=function(){
+    var tb=$('pgb-mt'),i=tb.children.length,key='x_'+Date.now().toString(36)+i;
+    tb.insertAdjacentHTML('beforeend',matRow({key:key,label:'',max:10},i,false));
+  };
+}
+function matRow(m,i,locked){
+  return '<tr data-k="'+esc(m.key)+'"><td><input class="pgb-in ml" value="'+esc(m.label)+'"'+(locked?' disabled':'')+' maxlength="40"></td>'+
+    '<td><input class="pgb-in mx" type="number" min="1" step="1" style="width:80px" value="'+esc(m.max)+'"'+(locked?' disabled':'')+'></td>'+
+    '<td>'+(locked?'':'<button type="button" class="pgb-lk" style="color:#DC2626" onclick="this.closest(\'tr\').remove()">retirer</button>')+'</td></tr>';
+}
+function delComposition(k){
+  var ctx=panelCtx();if(!ctx||!canParam(ctx))return;
+  var c=getCfg(ctx.ecole,ctx.classe),s=supOf(c,k);if(!s)return;
+  if(notesCount(ctx.ecole,ctx.classe)[k]){notif('🔒 Composition déjà validée (des notes sont enregistrées) : suppression impossible.','error');return;}
+  if(!confirm('Supprimer « '+s.label+' » ?\nAucune note n\'est enregistrée pour cette composition. Cette action demande une autorisation : confirmer ?'))return;
+  c.compositions_sup=c.compositions_sup.filter(function(x){return x.eval!==k;});
+  commit(c);notif('🗑 Composition supprimée','info');cmModal();renderPanel();refreshViews();
+}
+
+/* ───────── assistant de vérification (règles fixes, aucune modification des données) ───────── */
+function analyse(ecole,classe){
+  var out=[],cfg=getCfg(ecole,classe),P=paramsOf(cfg,classe);
+  function add(n,t){out.push({n:n,t:t});}
+  add(cfg?'ok':'info',cfg?('Paramétrage enregistré (version de calcul '+(cfg.version_calcul||VCALC)+', mode « '+(cfg.mode_calcul||'personnalise')+' »).'):'Aucun paramétrage enregistré : les anciennes règles de calcul s\'appliquent.');
+  if(isCEc(classe)||isCPc(classe)){
+    BASE_EV.forEach(function(ev){
+      var Pe=paramsFor(cfg,classe,ev),mark=compEntry(cfg,ev)?'paramétrée':'ancienne règle';
+      if(isCEc(classe)){
+        var tot=Pe.option_bareme==='A'?100:170;
+        add('ok',evLabel(ev)+' ('+mark+') : option '+Pe.option_bareme+', total /'+tot+', moyenne /'+Pe.echelle_moyenne+' = Total obtenu ÷ '+fr(r2(tot/Pe.echelle_moyenne))+'.');
+      }else add('ok',evLabel(ev)+' ('+mark+') : notes sur '+Pe.bareme_saisie+' par matière, moyenne /'+Pe.echelle_moyenne+'.');
+    });
+    var EA=annualEchelle(cfg,classe);
+    add('info',(isCEc(classe)?'Moyenne annuelle : [(M1+M2+M3)+M4×2] ÷ 5':'Moyenne annuelle : moyenne des 4 compositions')+', chaque moyenne ramenée sur '+EA+'. Seuil DFA : '+EA/2+'/'+EA+'.');
+  }else{
+    add('info','Formule proposée : Moyenne /20 = Total obtenu ÷ 8,5 pour un barème de 170 (÷ 9,5 pour 190, ou Total possible ÷ 20 pour une composition personnalisée) ; moyenne annuelle = Σ(coef × moyenne) ÷ Σ coef.');
+    var seenL={};
+    supList(cfg).forEach(function(s){
+      var mats=s.matieres||[];
+      if(!mats.length)add('err',s.label+' : aucune matière définie.');
+      mats.forEach(function(m){if(!(m.max>0))add('err',s.label+' / '+m.label+' : barème invalide.');});
+      if(!(Number(s.coef)>0))add('err',s.label+' : coefficient invalide.');
+      if(seenL[(s.label||'').toLowerCase()])add('warn',s.label+' : intitulé en double.');seenL[(s.label||'').toLowerCase()]=1;
+      add('ok',s.label+' : total /'+sum(mats)+', coefficient '+s.coef+'.');
+    });
+    var nums=supList(cfg).map(function(s){return evNum(s.eval);});
+    for(var i=1;i<nums.length;i++)if(nums[i]!==nums[i-1]+1)add('warn','Numérotation des compositions non continue.');
+  }
+  var ids={};(DB.eleves||[]).forEach(function(e){if(e.ecole_id===ecole&&e.classe===classe)ids[e.id]=e;});
+  var notes=(DB.notes||[]).filter(function(n){return ids[n.eleve_id];}),anom=[],sig={};
+  notes.forEach(function(n){
+    var sp=noteSpec(n),k=(sp.option||'')+' · /'+sp.totalMax+' · moy /'+sp.echelle;sig[k]=(sig[k]||0)+1;
+    sp.matieres.forEach(function(m){
+      var v=(n.notes||{})[m.key];if(v===undefined||v===501||v==='501')return;
+      var x=Number(v);
+      if(!isFinite(x)||x<0||x>m.max)anom.push((ids[n.eleve_id].nom||'?')+' — '+evLabel(n.eval_type)+' — '+m.label+' : '+v+' (barème /'+m.max+')');
+    });
+    var c=window.calcNote(n);if(c.moy>c.maxMoy+0.001)anom.push((ids[n.eleve_id].nom||'?')+' — '+evLabel(n.eval_type)+' : moyenne '+c.moy+' > '+c.maxMoy);
+  });
+  add('info',notes.length+' note(s) analysée(s) pour '+classe+'.');
+  if(anom.length){add('err',anom.length+' anomalie(s) détectée(s) (à vérifier par le maître, aucune correction automatique) :');anom.slice(0,15).forEach(function(a){add('warn',a);});if(anom.length>15)add('warn','… et '+(anom.length-15)+' autre(s).');}
+  else if(notes.length)add('ok','Aucune note hors barème, aucune moyenne supérieure à l\'échelle.');
+  var ks=Object.keys(sig);
+  if(ks.length>1)add('warn','Plusieurs barèmes coexistent dans la classe (conservés par composition) : '+ks.map(function(k){return k+' → '+sig[k]+' note(s)';}).join(' ; ')+'.');
+  add('info','Cet assistant applique des règles de contrôle fixes et transparentes. Il ne modifie jamais les notes ni les décisions de fin d\'année : les calculs officiels reposent uniquement sur les formules ci-dessus.');
+  return out;
+}
+function iaModal(){
+  var ctx=panelCtx();if(!ctx){notif('Sélectionnez un élève ou une classe.','error');return;}
+  var res=analyse(ctx.ecole,ctx.classe);
+  var ico={ok:'✅',warn:'⚠️',err:'❌',info:'ℹ️'};
+  mOpen('🤖 Assistant de vérification — '+ctx.classe,res.map(function(r){return '<div class="pgb-f '+r.n+'">'+ico[r.n]+' '+esc(r.t)+'</div>';}).join(''),[{label:'Fermer',fn:mClose}]);
+}
+
+/* ───────── API publique ───────── */
+window.PGBAR={
+  version:VCALC, maj:MAJ,
+  cfg:function(ecole,classe){return getCfg(ecole,classe);},
+  spec:noteSpec, compute:compute, analyse:analyse, extraEvals:extraEvals, preview:preview, refresh:renderPanel,
+  coefLabel:function(el,ev){
+    var cfg=el?getCfg(el.ecole_id,el.classe):null;
+    if(!cfg||el.classe==='CM2')return null;
+    if(isCPc(el.classe))return '×1';
+    var w;if(isExtraEv(ev)){var s=supOf(cfg,ev);w=s?num(s.coef,1):1;}else w=baseCoefs(cfg,el.classe)[ev];
+    if(w==null)return null;
+    return w===1?'×1':(w===2?'×2 (coef. double)':'×'+fr(w));
+  },
+  formulaLabel:function(el){
+    var cfg=el?getCfg(el.ecole_id,el.classe):null;
+    if(!cfg||el.classe==='CM2')return null;
+    if(isCPc(el.classe))return '[ Moy1 + Moy2 + Moy3 + Moy4 ] ÷ 4';
+    var ev=evalsOf(cfg,el.classe),cf=baseCoefs(cfg,el.classe),den=0;
+    var parts=ev.map(function(k,i){
+      var w=cf[k];if(w==null){var s=supOf(cfg,k);w=s?num(s.coef,1):1;}
+      den+=w;return 'Moy'+(i+1)+(w===1?'':' × '+fr(w));
+    });
+    return '[ '+parts.join(' + ')+' ] ÷ '+fr(den);
+  },
+  act:function(a,arg){
+    if(a==='apply')apply();
+    else if(a==='rename')renameModal();
+    else if(a==='cm')cmModal();
+    else if(a==='edit'){var c=panelCtx();if(c)editComposition(c,arg);}
+    else if(a==='del')delComposition(arg);
+    else if(a==='ia')iaModal();
+    else if(a==='ressaisir'){
+      if(!FORM)return;
+      if(confirm('Ressaisir cette composition avec le barème actuel ?\n\nLes notes enregistrées restent inchangées tant que vous n\'enregistrez pas. À l\'enregistrement, elles seront remplacées par les nouvelles notes saisies sur le nouveau barème.')){
+        FORCE[FORM.key]=true;window.buildNoteForm();
+      }
+    }
+  }
+};
+
+/* ───────── démarrage ───────── */
+loadLS();
+registerEvals();
+document.addEventListener('DOMContentLoaded',function(){injectCss();registerEvals();});
+setTimeout(function(){injectCss();pullCloud();registerEvals();renderPanel();},1500);
+console.log('[bareme] Perroquet 3.1 — moteur de barèmes chargé (mise à jour : '+MAJ+')');
+})();
+</script>
+<script id="pgnep-photo-camera">
+/* ══════════════════════════════════════════════════════════════════════════
+   [pgnep-photo-camera] — PHOTO DE L'ÉLÈVE : caméra / scanner / fichier
+   Mise à jour : Lundi 09 novembre 2026
+   Module 100 % additif : il intercepte uniquement le bouton « 📷 Photo / Changer »
+   situé sous chaque carte d'identité scolaire (Espace Directeur). La photo obtenue
+   est transmise au module « Carte d'identité scolaire » existant (même chemin que
+   « Choisir un fichier ») : recadrage 3:4, enregistrement et dessin de la carte
+   restent inchangés. Retirer ce <script> rétablit l'ouverture directe du sélecteur.
+   ══════════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+if(window.PGCAM) return;
+var ORIG=window.cidPhoto;
+if(typeof ORIG!=='function'){ console.warn('[photo] module Carte d\'identité absent : intégration ignorée'); return; }
+
+var S={id:null,stream:null,mode:'user',shot:null,orig:null,enh:true,kind:'cam'};
+function $(i){return document.getElementById(i);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function notif(m,t){try{showNotif(m,t||'info');}catch(e){try{console.log(m);}catch(_){}}}
+function nom(id){try{var e=DB.eleves.filter(function(x){return x.id===id;})[0];return e?((e.nom||'')+' '+(e.prenoms||'')).trim():'';}catch(e){return '';}}
+
+var CSS='.pcm-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100001;display:flex;align-items:center;justify-content:center;padding:10px}'+
+ '.pcm-md{background:#fff;border-radius:14px;width:100%;max-width:460px;max-height:96vh;overflow-y:auto;overflow-x:hidden;padding:14px 16px;box-sizing:border-box}'+
+ '.pcm-md *{box-sizing:border-box}.pcm-h{display:flex;justify-content:space-between;align-items:center;font-size:15px}'+
+ '.pcm-x{border:0;background:none;font-size:18px;cursor:pointer}.pcm-sub{font-size:12.5px;color:#6B7280;margin:2px 0 10px}'+
+ '.pcm-opts{display:grid;gap:10px}.pcm-opt{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto;column-gap:10px;text-align:left;border:1.5px solid #E5E7EB;border-radius:12px;background:#F8FAFC;padding:12px;cursor:pointer;font-family:inherit}'+
+ '.pcm-opt span{grid-row:1/3;font-size:28px;align-self:center;text-align:center}.pcm-opt b{font-size:14px;color:#111827}.pcm-opt small{font-size:11.5px;color:#6B7280}'+
+ '.pcm-opt:hover,.pcm-opt:active{border-color:#006B3F;background:#ECFDF5}'+
+ '.pcm-err{background:#FEF2F2;color:#991B1B;border-radius:8px;padding:8px 10px;font-size:12.5px;margin:0 0 10px;line-height:1.4}'+
+ '.pcm-stage{position:relative;width:min(100%,calc(58vh*.75));aspect-ratio:3/4;margin:10px auto;background:#000;border-radius:10px;overflow:hidden}'+
+ '.pcm-stage video,.pcm-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}'+
+ '.pcm-oval{position:absolute;left:22%;right:22%;top:12%;bottom:26%;border:2px dashed rgba(255,255,255,.85);border-radius:50%;pointer-events:none}'+
+ '.pcm-msg{font-size:12px;color:#6B7280;text-align:center;min-height:16px}'+
+ '.pcm-bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px}'+
+ '.pcm-b{border:0;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;background:#E5E7EB;color:#111827;font-family:inherit}'+
+ '.pcm-b.p{background:#006B3F;color:#fff}.pcm-b.o{background:#F77F00;color:#fff}';
+function injectCss(){ if($('pcm-css'))return; var s=document.createElement('style');s.id='pcm-css';s.textContent=CSS;document.head.appendChild(s); }
+function stopStream(){ if(S.stream){try{S.stream.getTracks().forEach(function(t){t.stop();});}catch(e){} S.stream=null;} }
+function closeAll(){ stopStream(); var o=$('pcm-ov'); if(o&&o.parentNode)o.parentNode.removeChild(o); }
+function ov(html){ closeAll(); injectCss(); var o=document.createElement('div');o.id='pcm-ov';o.className='pcm-ov';o.innerHTML='<div class="pcm-md">'+html+'</div>';
+  document.body.appendChild(o); o.addEventListener('click',function(e){if(e.target===o)closeAll();}); return o; }
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&$('pcm-ov'))closeAll(); });
+
+/* transmission au module « Carte d'identité » (même chemin que « Choisir un fichier ») */
+function push(id,file){
+  var inp=$('cid-file-photo');
+  if(!inp){ notif('Ouvrez l\'onglet « Carte d\'identité scolaire » pour enregistrer la photo.','error'); return; }
+  inp.dataset.eid=id;
+  try{ var dt=new DataTransfer(); dt.items.add(file); inp.files=dt.files; }
+  catch(e){ notif('Navigateur non compatible : utilisez « Choisir un fichier ».','error'); return; }
+  if(typeof inp.onchange==='function')inp.onchange(); else inp.dispatchEvent(new Event('change'));
+}
+function toFile(d){
+  var a=d.split(','),mime=(a[0].match(/:(.*?);/)||[])[1]||'image/jpeg',b=atob(a[1]),n=b.length,u=new Uint8Array(n);
+  while(n--)u[n]=b.charCodeAt(n);
+  return new File([u],'photo-eleve.jpg',{type:mime});
+}
+
+function chooser(id,msg){
+  S.id=id;
+  ov('<div class="pcm-h"><b>📷 Photo de l\'élève</b><button type="button" class="pcm-x" onclick="PGCAM.close()">✕</button></div>'+
+    '<div class="pcm-sub">'+esc(nom(id))+'</div>'+(msg?'<div class="pcm-err">'+esc(msg)+'</div>':'')+
+    '<div class="pcm-opts">'+
+    '<button type="button" class="pcm-opt" onclick="PGCAM.cam(\'user\')"><span>📸</span><b>Prendre une photo</b><small>Avec la caméra du téléphone ou de l\'ordinateur</small></button>'+
+    '<button type="button" class="pcm-opt" onclick="PGCAM.cam(\'environment\')"><span>📄</span><b>Scanner</b><small>Caméra arrière : photographier une photo imprimée (marges retirées automatiquement)</small></button>'+
+    '<button type="button" class="pcm-opt" onclick="PGCAM.file()"><span>🖼️</span><b>Choisir un fichier</b><small>Galerie ou dossier de l\'ordinateur, avec cadrage et amélioration automatiques</small></button>'+
+    '</div>'+(hasPhoto(id)?'<div class="pcm-bar"><button type="button" class="pcm-b" style="background:#FEE2E2;color:#991B1B" onclick="PGCAM.del()">🗑 Supprimer la photo actuelle</button></div>':''));
+}
+function hasPhoto(id){ return !!document.querySelector('button[onclick^="cidDelPhoto(\''+id+'\'"]'); }
+function fallbackCapture(mode,msg){
+  var i=document.createElement('input');i.type='file';i.accept='image/*';i.setAttribute('capture',mode==='environment'?'environment':'user');
+  i.style.display='none';document.body.appendChild(i);
+  i.onchange=function(){ var f=i.files&&i.files[0]; if(i.parentNode)i.parentNode.removeChild(i); if(f){ loadImg(f,function(c){review(c,mode==='environment'?'scan':'cam');},function(){notif('⚠️ Image illisible','error');}); } };
+  if(msg)notif(msg,'info');
+  i.click();
+}
+function camUi(){
+  ov('<div class="pcm-h"><b id="pcm-t">'+(S.mode==='environment'?'📄 Scanner':'📸 Prendre la photo')+'</b><button type="button" class="pcm-x" onclick="PGCAM.close()">✕</button></div>'+
+    '<div class="pcm-sub">'+esc(nom(S.id))+' — cadrez le visage dans l\'ovale</div>'+
+    '<div class="pcm-stage" id="pcm-stage"><video id="pcm-v" autoplay playsinline muted></video><div class="pcm-oval" id="pcm-oval"></div></div>'+
+    '<div class="pcm-msg" id="pcm-msg">Autorisez l\'accès à la caméra si le navigateur le demande…</div>'+
+    '<div class="pcm-bar" id="pcm-bar"><button type="button" class="pcm-b" onclick="PGCAM.back()">⬅ Retour</button>'+
+    '<button type="button" class="pcm-b" onclick="PGCAM.flip()">🔄 Changer de caméra</button>'+
+    '<button type="button" class="pcm-b p" onclick="PGCAM.shoot()">📸 Capturer</button></div>');
+}
+function start(){
+  stopStream();
+  var v=$('pcm-v');if(!v)return;
+  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:S.mode},width:{ideal:1280},height:{ideal:1280}},audio:false}).then(function(s){
+    if(!$('pcm-v')){s.getTracks().forEach(function(t){t.stop();});return;}
+    S.stream=s;v.srcObject=s;v.muted=true;v.setAttribute('playsinline','');
+    v.style.transform=S.mode==='user'?'scaleX(-1)':'none';
+    var p=v.play();if(p&&p.catch)p.catch(function(){});
+    var m=$('pcm-msg');if(m)m.textContent='';
+  }).catch(function(e){
+    var n=e&&e.name,msg=n==='NotAllowedError'?'Accès à la caméra refusé. Autorisez-la dans le navigateur (icône cadenas de la barre d\'adresse) ou choisissez un autre mode.':
+      n==='NotFoundError'?'Aucune caméra détectée sur cet appareil.':'Caméra indisponible pour le moment.';
+    chooser(S.id,msg);
+  });
+}
+function openCam(mode){
+  S.mode=mode;S.shot=null;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||window.isSecureContext===false){
+    fallbackCapture(mode,'Caméra intégrée indisponible ici : ouverture de l\'appareil photo du téléphone.');return;
+  }
+  camUi();start();
+}
+function shoot(){
+  var v=$('pcm-v');
+  if(!v||!v.videoWidth){notif('La caméra n\'est pas encore prête…','error');return;}
+  var c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0);
+  stopStream();
+  review(c,S.mode==='environment'?'scan':'cam');
+}
+/* ── Assistant photo intégré (analyse locale, sans envoi de données) ── */
+function loadImg(file,cb,er){
+  var u=URL.createObjectURL(file),im=new Image();
+  im.onload=function(){ var c=document.createElement('canvas'),m=1600,k=Math.min(1,m/Math.max(im.width,im.height));
+    c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);cb(c); };
+  im.onerror=function(){URL.revokeObjectURL(u);er();}; im.src=u;
+}
+function trimMargins(c){ /* scanner : retire le fond / les marges autour de la photo imprimée */
+  var w=c.width,h=c.height,k=Math.min(1,400/Math.max(w,h)),sw=Math.round(w*k),sh=Math.round(h*k),t=document.createElement('canvas');
+  t.width=sw;t.height=sh;var x=t.getContext('2d');x.drawImage(c,0,0,sw,sh);var d=x.getImageData(0,0,sw,sh).data;
+  function px(i,j){var o=(j*sw+i)*4;return[d[o],d[o+1],d[o+2]];}
+  var cs=[px(1,1),px(sw-2,1),px(1,sh-2),px(sw-2,sh-2)],bg=[0,1,2].map(function(q){return(cs[0][q]+cs[1][q]+cs[2][q]+cs[3][q])/4;});
+  var x0=sw,y0=sh,x1=0,y1=0;
+  for(var j=0;j<sh;j++)for(var i=0;i<sw;i++){var o=(j*sw+i)*4;
+    if(Math.abs(d[o]-bg[0])+Math.abs(d[o+1]-bg[1])+Math.abs(d[o+2]-bg[2])>90){if(i<x0)x0=i;if(i>x1)x1=i;if(j<y0)y0=j;if(j>y1)y1=j;}}
+  if(x1-x0<sw*.25||y1-y0<sh*.25)return{c:c,done:false};
+  var m=Math.round(sw*.01),X=Math.max(0,x0+m)/k,Y=Math.max(0,y0+m)/k,W=Math.min(sw,x1-m)/k-X,H=Math.min(sh,y1-m)/k-Y;
+  if(W<w*.3||H<h*.3)return{c:c,done:false};
+  var o2=document.createElement('canvas');o2.width=Math.round(W);o2.height=Math.round(H);
+  o2.getContext('2d').drawImage(c,X,Y,W,H,0,0,o2.width,o2.height);return{c:o2,done:true};
+}
+function findFace(c){
+  if(!('FaceDetector' in window))return Promise.resolve(null);
+  try{ return new window.FaceDetector({fastMode:true,maxDetectedFaces:3}).detect(c).then(function(f){
+    if(!f||!f.length)return null; f.sort(function(a,b){return b.boundingBox.width*b.boundingBox.height-a.boundingBox.width*a.boundingBox.height;});
+    return{box:f[0].boundingBox,n:f.length}; }).catch(function(){return null;}); }catch(e){return Promise.resolve(null);}
+}
+function crop34(c,face){
+  var W=c.width,H=c.height,cw,ch,sx,sy;
+  if(face){ var b=face.box,fx=b.x+b.width/2,fy=b.y+b.height/2;
+    ch=Math.min(H,b.height/0.40);cw=ch*.75; if(cw>W){cw=W;ch=cw/.75;}
+    sx=Math.min(Math.max(0,fx-cw/2),W-cw); sy=Math.min(Math.max(0,fy-ch*.44),H-ch);
+  }else{ if(W/H>.75){ch=H;cw=H*.75;}else{cw=W;ch=W/.75;} sx=(W-cw)/2;sy=(H-ch)/2; }
+  var o=document.createElement('canvas');o.width=600;o.height=800;o.getContext('2d').drawImage(c,sx,sy,cw,ch,0,0,600,800);return o;
+}
+function analyse(c){
+  var g=document.createElement('canvas');g.width=150;g.height=200;var x=g.getContext('2d');x.drawImage(c,0,0,150,200);
+  var d=x.getImageData(0,0,150,200).data,L=new Float32Array(30000),sum=0,i;
+  for(i=0;i<30000;i++){L[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];sum+=L[i];}
+  var mean=sum/30000,lap=0,n=0;
+  for(var j=1;j<199;j++)for(i=1;i<149;i++){var k=j*150+i,v=4*L[k]-L[k-1]-L[k+1]-L[k-150]-L[k+150];lap+=v*v;n++;}
+  return{mean:mean,sharp:lap/n};
+}
+function enhance(c,mean){
+  var o=document.createElement('canvas');o.width=c.width;o.height=c.height;var x=o.getContext('2d');x.drawImage(c,0,0);
+  var im=x.getImageData(0,0,o.width,o.height),d=im.data,hist=new Uint32Array(256),N=o.width*o.height,i;
+  for(i=0;i<N;i++)hist[Math.round(.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2])]++;
+  var lo=0,hi=255,acc=0;for(i=0;i<256;i++){acc+=hist[i];if(acc>=N*.01){lo=i;break;}}
+  acc=0;for(i=255;i>=0;i--){acc+=hist[i];if(acc>=N*.01){hi=i;break;}}
+  lo=Math.min(lo,25);hi=Math.max(hi,180);
+  var gam=mean<95?.78:mean>170?1.2:1,lut=new Uint8ClampedArray(256);
+  for(i=0;i<256;i++){var t=Math.min(1,Math.max(0,(i-lo)/(hi-lo)));lut[i]=255*Math.pow(t,gam);}
+  for(i=0;i<N;i++){d[i*4]=lut[d[i*4]];d[i*4+1]=lut[d[i*4+1]];d[i*4+2]=lut[d[i*4+2]];}
+  x.putImageData(im,0,0);return o;
+}
+function review(src,kind){
+  S.kind=kind;S.shot=null;S.orig=null;
+  ov('<div class="pcm-h"><b>✨ Assistant photo</b><button type="button" class="pcm-x" onclick="PGCAM.close()">✕</button></div>'+
+    '<div class="pcm-sub">'+esc(nom(S.id))+'</div><div class="pcm-stage" id="pcm-stage"></div>'+
+    '<div class="pcm-msg" id="pcm-msg">Analyse de la photo en cours…</div><div id="pcm-rep"></div><div class="pcm-bar" id="pcm-bar"></div>');
+  var notes=[];
+  var trimmed=kind==='scan'?trimMargins(src):{c:src,done:false};
+  if(trimmed.done)notes.push(['ok','Photo imprimée détectée : marges retirées.']);
+  else if(kind==='scan')notes.push(['w','Contours non détectés : photo centrée automatiquement.']);
+  findFace(trimmed.c).then(function(face){
+    var cr=crop34(trimmed.c,face),a=analyse(cr),en=enhance(cr,a.mean);
+    if(face){notes.push(['ok','Visage détecté et cadré (format portrait 3:4).']);if(face.n>1)notes.push(['w',face.n+' visages détectés : le plus grand a été retenu.']);}
+    else notes.push(['i','Cadrage centré (détection de visage non disponible sur cet appareil) : vérifiez le cadrage.']);
+    notes.push(a.mean<80?['w','Photo sombre : luminosité corrigée. Mieux vaut refaire face à la lumière.']:a.mean>185?['w','Photo très claire : exposition corrigée.']:['ok','Luminosité correcte.']);
+    notes.push(a.sharp<35?['w','Photo floue : refaire la prise en gardant l\'appareil immobile.']:['ok','Netteté correcte.']);
+    notes.push(['ok','Contraste et couleurs améliorés automatiquement.']);
+    S.orig=cr.toDataURL('image/jpeg',0.92);S.shot=en.toDataURL('image/jpeg',0.92);S.enh=true;
+    var st=$('pcm-stage');if(!st)return;
+    st.innerHTML='<img id="pcm-img" alt="Aperçu" src="'+S.shot+'">';
+    $('pcm-msg').textContent='';
+    var ic={ok:'✅',w:'⚠️',i:'ℹ️'};
+    $('pcm-rep').innerHTML='<div style="font-size:12px;line-height:1.5;margin:6px 0">'+notes.map(function(n){return'<div>'+ic[n[0]]+' '+esc(n[1])+'</div>';}).join('')+'</div>';
+    $('pcm-bar').innerHTML='<button type="button" class="pcm-b" onclick="PGCAM.again()">↺ Reprendre</button>'+
+      '<button type="button" class="pcm-b" id="pcm-tg" onclick="PGCAM.toggle()">Voir l\'originale</button>'+
+      '<button type="button" class="pcm-b p" onclick="PGCAM.use()">✔ Utiliser cette photo</button>';
+  });
+}
+function pickFile(mode){
+  var id=S.id,i=document.createElement('input');i.type='file';i.accept='image/*';i.style.display='none';document.body.appendChild(i);
+  i.onchange=function(){var f=i.files&&i.files[0];if(i.parentNode)i.parentNode.removeChild(i);if(!f)return;
+    S.id=id;S.mode=mode==='scan'?'environment':'user';
+    loadImg(f,function(c){review(c,mode);S.kind=mode;},function(){notif('⚠️ Image illisible','error');});};
+  i.click();
+}
+function use(){
+  var d=S.enh?S.shot:S.orig; if(!d)return;
+  var id=S.id,f=toFile(d);S.shot=S.orig=null;closeAll();push(id,f);
+}
+window.PGCAM={
+  open:function(id){chooser(id);},
+  cam:openCam,
+  file:function(){var id=S.id;closeAll();S.id=id;pickFile('file');},
+  flip:function(){S.mode=S.mode==='user'?'environment':'user';var t=$('pcm-t');if(t)t.textContent=S.mode==='environment'?'📄 Scanner':'📸 Prendre la photo';start();},
+  shoot:shoot,use:use,
+  retake:function(){S.shot=null;openCam(S.mode);},
+  again:function(){ if(S.kind==='file')chooser(S.id); else openCam(S.mode); },
+  toggle:function(){S.enh=!S.enh;var im=$('pcm-img'),b=$('pcm-tg');if(im)im.src=S.enh?S.shot:S.orig;if(b)b.textContent=S.enh?'Voir l\'originale':'Voir l\'améliorée';},
+  back:function(){chooser(S.id);},
+  del:function(){var id=S.id;closeAll();if(typeof window.cidDelPhoto==='function')window.cidDelPhoto(id);},
+  close:closeAll,
+  _push:push
+};
+/* le bouton « 📷 Photo / Changer » sous la carte appelle cidPhoto(id) : on propose le choix */
+window.cidPhoto=function(id){ try{ window.PGCAM.open(id); }catch(e){ console.warn('[photo]',e); ORIG(id); } };
+console.log('[photo] Caméra / scanner / fichier pour la photo élève — chargé (Lundi 09 novembre 2026)');
+})();
+</script>
+<script id="pgnep-sauvegarde-totale">
+/* ══════════════════════════════════════════════════════════════════════════
+   [pgnep-sauvegarde-totale] — Console Super Administrateur › « Sauvegarde & restauration »
+   Mise à jour : Lundi 09 novembre 2026
+   Module 100 % additif : ajoute une carte « Sauvegarde TOTALE » sous les cartes existantes
+   (qui restent intactes). Elle regroupe en UN fichier : toutes les données de l'application
+   enregistrées sur l'appareil (comptes, écoles, élèves, notes, barèmes, réglages…) ET les
+   photos des cartes d'identité. Réservé au Super Administrateur.
+   ══════════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+if(window.PGTOT) return;
+var TYPE='pgnep-sauvegarde-totale';
+function $(i){return document.getElementById(i);}
+function notif(m,t){try{showNotif(m,t||'info');}catch(e){try{alert(m);}catch(_){}}}
+function me(){try{return (typeof getCurrentUserData==='function'&&getCurrentUserData())||(typeof currentUser!=='undefined'?currentUser:null);}catch(e){return null;}}
+function isSA(){var u=me();return !!(u&&(u.role==='admin'||u.role==='superadmin'||u.role==='super_admin'||u.login==='diomande'));}
+function skip(k){return /token|^sb-|supabase\.auth|session/i.test(k);}   /* jamais d'identifiants de session dans le fichier */
+function today(){return new Date().toISOString().slice(0,10);}
+
+function lsDump(){
+  var o={},n=0;
+  try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k==null||skip(k))continue;
+    var v=localStorage.getItem(k); if(v!=null){o[k]=v;n++;} } }catch(e){ console.warn('[sauvegarde]',e); }
+  return o;
+}
+function openPh(){
+  return new Promise(function(res){
+    if(!window.indexedDB){res(null);return;}
+    var r; try{r=indexedDB.open('pgnep_cartes',1);}catch(e){res(null);return;}
+    r.onupgradeneeded=function(){ if(!r.result.objectStoreNames.contains('photos'))r.result.createObjectStore('photos'); };
+    r.onerror=function(){res(null);}; r.onsuccess=function(){res(r.result);};
+  });
+}
+function photosDump(){
+  return openPh().then(function(db){
+    if(!db)return {};
+    return new Promise(function(ok){
+      var out={};
+      try{ var t=db.transaction('photos','readonly'),c=t.objectStore('photos').openCursor();
+        c.onsuccess=function(){var cur=c.result;if(cur){out[cur.key]=cur.value;cur.continue();}};
+        t.oncomplete=function(){db.close();ok(out);}; t.onerror=function(){db.close();ok(out);};
+      }catch(e){ok(out);}
+    });
+  });
+}
+function photosRestore(m){
+  var ids=Object.keys(m||{}); if(!ids.length)return Promise.resolve(0);
+  return openPh().then(function(db){
+    if(!db)return 0;
+    return new Promise(function(ok){
+      var t=db.transaction('photos','readwrite'),s=t.objectStore('photos');
+      ids.forEach(function(id){ s.put(m[id],id); });
+      t.oncomplete=function(){db.close();ok(ids.length);}; t.onerror=function(){db.close();ok(0);};
+    });
+  });
+}
+function dl(obj,name){
+  var b=new Blob([JSON.stringify(obj)],{type:'application/json'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);if(a.parentNode)a.parentNode.removeChild(a);},1500);
+}
+function build(){
+  return photosDump().then(function(ph){
+    var ls=lsDump();
+    return {type:TYPE,version:1,app:'Le Perroquet PGNEP',date:new Date().toISOString(),par:(me()||{}).login||'',
+      nb_cles:Object.keys(ls).length,nb_photos:Object.keys(ph).length,ls:ls,photos:ph};
+  });
+}
+function backup(tag){
+  if(!isSA()){notif('🔒 Réservé au Super Administrateur','error');return Promise.resolve();}
+  return build().then(function(o){
+    dl(o,'Sauvegarde_TOTALE_'+(tag||'')+today()+'.json');
+    notif('✅ Sauvegarde totale téléchargée ('+o.nb_cles+' blocs de données, '+o.nb_photos+' photo(s))','success');
+  }).catch(function(e){console.error(e);notif('⚠️ Sauvegarde impossible : '+(e&&e.message||e),'error');});
+}
+function restore(){
+  if(!isSA()){notif('🔒 Réservé au Super Administrateur','error');return;}
+  var inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
+  inp.onchange=function(){
+    var f=inp.files&&inp.files[0];if(!f)return;var rd=new FileReader();
+    rd.onload=function(ev){
+      var p; try{p=JSON.parse(ev.target.result);}catch(e){alert('Lecture impossible : fichier non valide.');return;}
+      if(!p||p.type!==TYPE||!p.ls||typeof p.ls!=='object'){
+        alert('Ce fichier n\'est pas une « Sauvegarde TOTALE ».\nPour une ancienne sauvegarde (.json de la carte « Sauvegarde complète »), utilisez le bouton « Choisir un fichier de sauvegarde » juste au-dessus.');return; }
+      var nk=Object.keys(p.ls).length,np=Object.keys(p.photos||{}).length;
+      var d=p.date?new Date(p.date).toLocaleString('fr-FR'):'date inconnue';
+      if(!confirm('Restaurer « '+f.name+' » ?\n\nSauvegarde faite le : '+d+'\n• '+nk+' blocs de données\n• '+np+' photo(s)\n\nLes données de ces blocs seront REMPLACÉES sur cet appareil. Une sauvegarde de sécurité sera téléchargée avant. L\'application se rechargera ensuite.'))return;
+      backup('avant_restauration_').then(function(){
+        var bad=0;
+        Object.keys(p.ls).forEach(function(k){ if(skip(k))return; try{localStorage.setItem(k,p.ls[k]);}catch(e){bad++;console.warn('[restauration]',k,e);} });
+        return photosRestore(p.photos).then(function(){
+          notif(bad?('⚠️ Restauration terminée avec '+bad+' bloc(s) non écrit(s)'):'✅ Restauration terminée — rechargement…',bad?'error':'success');
+          setTimeout(function(){location.reload();},1800);
+        });
+      });
+    };
+    rd.readAsText(f,'utf-8');
+  };
+  inp.click();
+}
+
+var HTML='<div class="csa-card" id="pgtot-card"><div class="csa-ch"><h3>🧳 Sauvegarde TOTALE (recommandée avant toute mise à jour)</h3></div>'+
+ '<p class="csa-mut">Un seul fichier contenant <b>toutes les données de cet appareil</b> : comptes, écoles, élèves, notes, <b>barèmes</b>, réglages et <b>photos des cartes d\'identité</b>. '+
+ 'Conservez-le en lieu sûr : il contient des données d\'élèves et les mots de passe chiffrés.</p>'+
+ '<div class="csa-row"><button type="button" class="btn btn-primary" onclick="PGTOT.backup()">⬇️ Sauvegarder toutes mes données</button>'+
+ '<button type="button" class="btn btn-secondary" onclick="PGTOT.restore()">📥 Restaurer une sauvegarde totale</button></div>'+
+ '<p class="csa-mut" style="margin-top:8px">La restauration remplace les données de cet appareil par celles du fichier (une sauvegarde de sécurité est téléchargée avant) puis recharge l\'application.</p></div>';
+function inject(){
+  var c=$('csa-content'); if(!c||$('pgtot-card'))return;
+  if(c.textContent.indexOf('Restauration')<0||c.textContent.indexOf('Sauvegarde complète')<0)return;
+  if(!isSA())return;
+  c.insertAdjacentHTML('afterbegin',HTML);
+}
+function watch(){
+  var t=null;
+  new MutationObserver(function(){ clearTimeout(t); t=setTimeout(inject,60); }).observe(document.body,{childList:true,subtree:true});
+}
+window.PGTOT={backup:backup,restore:restore,build:build,inject:inject,_photosRestore:photosRestore};
+if(document.body)watch(); else document.addEventListener('DOMContentLoaded',watch);
+console.log('[sauvegarde] Sauvegarde TOTALE (données + barèmes + photos) — chargé');
 })();
 </script>
 </body>
