@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="pgnep-build" content="2026.11.13.01">
 <script id="pgnep-ls-overflow">
 /* ═════════════════════════════════════════════════════════════════════
    PGNEP_LS — Débordement automatique de localStorage vers IndexedDB
@@ -159,6 +160,79 @@
   };
 })();
 </script>
+
+<!-- ══ MODULE ADDITIF : SAUVEGARDE DE SÉCURITÉ AUTOMATIQUE AU PREMIER LANCEMENT DE CHAQUE VERSION — retirer ce bloc pour revenir à l'état précédent ══ -->
+<script id="pgnep-safety-snapshot">
+/* ================================================================
+   Avant que la nouvelle version ne touche quoi que ce soit, une COPIE COMPLÈTE
+   des données de cet appareil (toutes les clés localStorage « pgnep… », y compris
+   le débordement vers IndexedDB) est enregistrée dans une base IndexedDB séparée
+   (« pgnep-safety »), une fois par numéro de version. Les 3 dernières copies sont
+   conservées. LECTURE SEULE sur les données d'origine : rien n'est modifié.
+   Téléchargement : Corbeille → « 📦 Sauvegarde de sécurité » (Super Administrateur)
+   ou PGSNAP.download() dans la console.
+   ================================================================ */
+(function () {
+  'use strict';
+  if (window.PGSNAP) return;
+  var m = document.querySelector('meta[name="pgnep-build"]');
+  var BUILD = m ? String(m.getAttribute('content') || '').trim() : '';
+  function open() {
+    return new Promise(function (res, rej) {
+      if (!window.indexedDB) { rej(new Error('IndexedDB indisponible')); return; }
+      var r = indexedDB.open('pgnep-safety', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('snap', { keyPath: 'build' }); };
+      r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); };
+    });
+  }
+  function collect() {
+    var o = {};
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && /^pgnep/i.test(k)) o[k] = localStorage.getItem(k); } } catch (e) { }
+    return o;
+  }
+  function run() {
+    if (!BUILD) return Promise.resolve(false);
+    return open().then(function (db) {
+      return new Promise(function (res) {
+        var tx = db.transaction('snap', 'readwrite'), st = tx.objectStore('snap'), g = st.get(BUILD);
+        g.onsuccess = function () {
+          if (g.result) { res(false); return; }
+          var ls = collect(), n = Object.keys(ls).length;
+          if (!n) { res(false); return; }
+          st.put({ build: BUILD, date: new Date().toISOString(), n: n, ls: ls });
+          var all = st.getAll();
+          all.onsuccess = function () { var rows = (all.result || []).sort(function (a, b) { return String(a.date) < String(b.date) ? 1 : -1; }); rows.slice(3).forEach(function (r) { st.delete(r.build); }); };
+        };
+        tx.oncomplete = function () { res(true); }; tx.onerror = function () { res(false); }; tx.onabort = function () { res(false); };
+      });
+    }).catch(function () { return false; });
+  }
+  function latest() {
+    return open().then(function (db) {
+      return new Promise(function (res) {
+        var rq = db.transaction('snap', 'readonly').objectStore('snap').getAll();
+        rq.onsuccess = function () { var rows = (rq.result || []).sort(function (a, b) { return String(a.date) < String(b.date) ? 1 : -1; }); res(rows); };
+        rq.onerror = function () { res([]); };
+      });
+    }).catch(function () { return []; });
+  }
+  function download() {
+    return latest().then(function (rows) {
+      if (!rows.length) { try { showNotif('Aucune sauvegarde de sécurité sur cet appareil pour le moment.', 'info'); } catch (e) { } return false; }
+      var r = rows[0];                                        /* la plus récente = état des données juste avant le premier lancement de cette version */
+      var blob = new Blob([JSON.stringify({ meta: { type: 'sauvegarde-securite-perroquet', version: r.build, date: r.date, cles: r.n }, localStorage: r.ls })], { type: 'application/json' });
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'Sauvegarde_securite_Perroquet_' + String(r.build).replace(/[^\w.-]/g, '_') + '.json';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+      return true;
+    });
+  }
+  window.PGSNAP = { run: run, list: latest, download: download, build: BUILD };
+  run();                                                      /* dès le chargement : avant toute connexion / manipulation */
+})();
+
+</script>
+
 
 
 <!-- ══ SEO Google ══ -->
@@ -24502,36 +24576,94 @@ window.pgnepAskInstall=open;
 </script>
 
 
-<!-- ══ MODULE ADDITIF : MISES À JOUR AUTOMATIQUES (détection d'une nouvelle version + rechargement sécurisé) — retirer ce bloc pour revenir à l'état précédent ══ -->
+<!-- ══ MODULE : MISES À JOUR PAR NUMÉRO DE VERSION (annonce unique par version) — remplace l'ancien détecteur basé sur les en-têtes HTTP ══ -->
 <script id="pgnep-auto-update">
+/* ================================================================
+   ANNONCE DE MISE À JOUR — IDENTIFICATION FIABLE DES VERSIONS
+   • La version publiée est lue dans <meta name="pgnep-build"> (en-tête de index.html).
+   • L'annonce n'apparaît que si la version EN LIGNE est strictement plus récente
+     que la version en cours d'exécution (une copie plus ancienne servie par un
+     cache/CDN ne déclenche jamais d'annonce).
+   • « Annuler » ou « Mettre à jour » mémorisent la version concernée : l'annonce
+     ne revient plus pour cette version. Une nouvelle annonce n'apparaît qu'à la
+     publication d'un NOUVEAU numéro de version.
+   • AUCUNE donnée n'est lue, modifiée ou supprimée par ce module
+     (localStorage, IndexedDB et Supabase ne sont pas touchés) : seul le code
+     (index.html) est rechargé.
+   POUR PUBLIER UNE NOUVELLE VERSION : changer la valeur de
+   <meta name="pgnep-build" content="AAAA.MM.JJ.NN"> (ex. 2026.11.20.01).
+   ================================================================ */
 (function(){
 'use strict';
 if(window.__pgnepUpdLoaded) return; window.__pgnepUpdLoaded=true;
 if(!/^https?:$/.test(location.protocol)) return;            /* fichier local : rien à faire */
-var CHECK_MS=5*60*1000, COUNTDOWN=20, LATER_MS=10*60*1000;
-var baseline=null, pending=false, timer=null, laterUntil=0, lastInput=Date.now(), swNew=false;
 
-function sig(r){ return [r.headers.get('etag'),r.headers.get('last-modified'),r.headers.get('content-length')].join('|'); }
-function head(){ return fetch(location.pathname,{method:'HEAD',cache:'no-store'}).then(function(r){ return r.ok?sig(r):null; }).catch(function(){ return null; }); }
-function check(){
-  if(!navigator.onLine||pending) return Promise.resolve();
-  return head().then(function(s){
-    if(!s||s==='||') return;
-    if(baseline===null){ baseline=s; return; }
-    if(s!==baseline) announce();
-  });
+var CHECK_MS=5*60*1000, MIN_GAP=60*1000, COUNTDOWN=20;
+var K_DISMISSED='pgnep_upd_dismissed', K_APPLIED='pgnep_upd_applied';
+var running='', pending=null, timer=null, lastInput=Date.now(), lastCheck=0, checking=false;
+
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+/* Compare deux numéros de version « AAAA.MM.JJ.NN » segment par segment : -1, 0 ou 1 */
+function cmp(a,b){
+  var x=String(a||'').split(/[.\-]/), y=String(b||'').split(/[.\-]/), n=Math.max(x.length,y.length);
+  for(var i=0;i<n;i++){
+    var p=parseInt(x[i]||'0',10), q=parseInt(y[i]||'0',10);
+    if(isNaN(p)||isNaN(q)){ var s=x[i]||'', t=y[i]||''; if(s!==t) return s<t?-1:1; continue; }
+    if(p!==q) return p<q?-1:1;
+  }
+  return 0;
 }
-window.pgnepCheckUpdate=check;
+function ownBuild(){ var m=document.querySelector('meta[name="pgnep-build"]'); return m?String(m.getAttribute('content')||'').trim():''; }
+var RE1=/<meta[^>]*name=["']pgnep-build["'][^>]*content=["']([^"']+)["']/i;
+var RE2=/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']pgnep-build["']/i;
+function findBuild(t){ var m=RE1.exec(t)||RE2.exec(t); return m?m[1].trim():null; }
 
-/* ── Service worker : vérifie sa propre mise à jour et recharge dès qu'une nouvelle version est active ── */
+/* Lit la version publiée : seul le début du fichier est téléchargé (l'en-tête suffit). */
+function remoteBuild(){
+  var url=location.pathname+'?pgv='+Date.now();                /* contourne les caches */
+  return fetch(url,{cache:'no-store',credentials:'same-origin'}).then(function(r){
+    if(!r||!r.ok) return null;
+    if(!r.body||!r.body.getReader) return r.text().then(function(t){ return findBuild(t.slice(0,200000)); });
+    var rd=r.body.getReader(), dec=new TextDecoder('utf-8'), buf='';
+    function stop(){ try{ rd.cancel().catch(function(){}); }catch(e){} }
+    return (function pump(){
+      return rd.read().then(function(x){
+        if(x.value) buf+=dec.decode(x.value,{stream:true});
+        var f=findBuild(buf); if(f){ stop(); return f; }
+        if(x.done||buf.length>200000){ stop(); return null; }
+        return pump();
+      });
+    })();
+  }).catch(function(){ return null; });
+}
+
+function mustAnnounce(rb){
+  if(!rb||!running) return false;
+  if(cmp(rb,running)<=0) return false;                         /* pas plus récent : rien */
+  if(lsGet(K_DISMISSED)===rb) return false;                    /* « Annuler » déjà choisi pour cette version */
+  if(lsGet(K_APPLIED)===rb) return false;                      /* mise à jour déjà lancée pour cette version */
+  return true;
+}
+function check(force){
+  if(checking||!navigator.onLine||!running) return Promise.resolve();
+  if(!force&&Date.now()-lastCheck<MIN_GAP) return Promise.resolve();
+  checking=true; lastCheck=Date.now();
+  return remoteBuild().then(function(rb){ checking=false; if(mustAnnounce(rb)) announce(rb); },function(){ checking=false; });
+}
+window.pgnepCheckUpdate=function(){ return check(true); };
+
+/* ── Service worker : un nouveau sw.js déclenche seulement une re-vérification de version ── */
 function watchSW(){
   if(!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.getRegistration().then(function(reg){
     if(!reg) return;
     var hadCtrl=!!navigator.serviceWorker.controller;
     var upd=function(){ try{ reg.update(); }catch(e){} };
-    reg.addEventListener('updatefound',function(){ var w=reg.installing; if(!w) return; w.addEventListener('statechange',function(){ if(w.state==='installed'&&navigator.serviceWorker.controller){ swNew=true; announce(); } }); });
-    navigator.serviceWorker.addEventListener('controllerchange',function(){ if(hadCtrl&&!window.__pgnepReloading){ announce(); } });
+    reg.addEventListener('updatefound',function(){ var w=reg.installing; if(!w) return; w.addEventListener('statechange',function(){ if(w.state==='installed'&&navigator.serviceWorker.controller) setTimeout(function(){ check(true); },1500); }); });
+    navigator.serviceWorker.addEventListener('controllerchange',function(){ if(hadCtrl&&!window.__pgnepReloading) setTimeout(function(){ check(true); },1500); });
     setInterval(upd,CHECK_MS); document.addEventListener('visibilitychange',function(){ if(!document.hidden) upd(); });
   }).catch(function(){});
 }
@@ -24556,41 +24688,52 @@ function css(){
   '#pgnep-upd .u-go{background:#F77F00;color:#fff;}#pgnep-upd .u-later{background:rgba(255,255,255,.18);color:#fff;}';
   document.head.appendChild(s);
 }
-function announce(){
-  if(pending) return; pending=true; css();
-  var b=document.createElement('div'); b.id='pgnep-upd'; b.setAttribute('role','status');
-  b.innerHTML='<div class="u-t">🔄 <b>Nouvelle version du Perroquet disponible.</b><br><span id="pgnep-upd-s">Mise à jour automatique…</span></div><button class="u-go" id="pgnep-upd-go">Mettre à jour</button><button class="u-later" id="pgnep-upd-later">Plus tard</button>';
+function hide(){ clearInterval(timer); timer=null; pending=null; var b=document.getElementById('pgnep-upd'); if(b&&b.parentNode) b.parentNode.removeChild(b); }
+function announce(rb){
+  if(pending&&cmp(pending,rb)>=0) return;                      /* déjà annoncée */
+  if(window.__pgnepReloading) return;
+  hide(); pending=rb; css();
+  var b=document.createElement('div'); b.id='pgnep-upd'; b.setAttribute('role','status'); b.setAttribute('data-version',rb);
+  b.innerHTML='<div class="u-t">🔄 <b>Nouvelle version du Perroquet disponible.</b><br><span id="pgnep-upd-s">Mise à jour dès que vous aurez terminé votre saisie.</span></div><button class="u-go" id="pgnep-upd-go">Mettre à jour</button><button class="u-later" id="pgnep-upd-later">Annuler</button>';
   document.body.appendChild(b);
-  document.getElementById('pgnep-upd-go').onclick=apply;
-  document.getElementById('pgnep-upd-later').onclick=function(){ laterUntil=Date.now()+LATER_MS; };
+  document.getElementById('pgnep-upd-go').onclick=function(){ apply(rb); };
+  /* « Annuler » : l'annonce disparaît et reste masquée pour CETTE version */
+  document.getElementById('pgnep-upd-later').onclick=function(){ lsSet(K_DISMISSED,rb); hide(); };
   var left=COUNTDOWN;
   timer=setInterval(function(){
     var s=document.getElementById('pgnep-upd-s'); if(!s) return;
-    if(Date.now()<laterUntil){ s.textContent='Rappel dans quelques minutes.'; left=COUNTDOWN; return; }
     if(!safe()){ s.textContent='Mise à jour dès que vous aurez terminé votre saisie.'; left=COUNTDOWN; return; }
     left--; s.textContent='Mise à jour automatique dans '+left+' s…';
-    if(left<=0) apply();
+    if(left<=0) apply(rb);
   },1000);
 }
-function apply(){
+function apply(rb){
   if(window.__pgnepReloading) return; window.__pgnepReloading=true; clearInterval(timer);
   var s=document.getElementById('pgnep-upd-s'); if(s) s.textContent='Mise à jour en cours…';
+  lsSet(K_APPLIED,rb);                                          /* ne plus annoncer cette version */
   /* Aucune écriture de données ici : la mise à jour ne remplace que le code (index.html).
      localStorage, IndexedDB et Supabase ne sont ni lus ni modifiés. */
   var go=function(){ location.reload(); };
-  try{ navigator.serviceWorker.getRegistration().then(function(reg){ if(reg&&reg.waiting) reg.waiting.postMessage('SKIP_WAITING'); setTimeout(go,300); }).catch(go); }catch(e){ go(); }
+  var refresh=function(){ return fetch(location.href.split('#')[0],{cache:'reload'}).catch(function(){}); };   /* rafraîchit la copie en cache */
+  try{ navigator.serviceWorker.getRegistration().then(function(reg){ if(reg&&reg.waiting) reg.waiting.postMessage('SKIP_WAITING'); return refresh(); }).then(function(){ setTimeout(go,200); }).catch(go); }catch(e){ refresh().then(go,go); }
 }
 
 /* ── Démarrage ── */
 function start(){
-  head().then(function(s){ if(s&&s!=='||') baseline=s; });
-  setInterval(check,CHECK_MS);
-  document.addEventListener('visibilitychange',function(){ if(!document.hidden) check(); });
-  window.addEventListener('online',check); window.addEventListener('focus',check);
+  running=ownBuild();
+  window.PGNEP_BUILD=running;
+  if(!running){ console.log('[mise à jour] aucun numéro de version dans cette page : annonces désactivées'); return; }
+  /* nettoyage : les mémos concernant une version déjà atteinte ne servent plus */
+  var d=lsGet(K_DISMISSED); if(d&&cmp(running,d)>=0) lsDel(K_DISMISSED);
+  var a=lsGet(K_APPLIED);   if(a&&cmp(running,a)>=0) lsDel(K_APPLIED);
+  setTimeout(function(){ check(true); },10000);
+  setInterval(function(){ check(false); },CHECK_MS);
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) check(false); });
+  window.addEventListener('online',function(){ check(false); }); window.addEventListener('focus',function(){ check(false); });
   watchSW();
 }
 if(document.readyState==='complete') start(); else window.addEventListener('load',start);
-console.log('✅ PGNEP : mises à jour automatiques activées');
+console.log('✅ PGNEP : annonce de mise à jour par numéro de version');
 })();
 
 </script>
@@ -26904,6 +27047,686 @@ window.PGTOT={backup:backup,restore:restore,build:build,inject:inject,_photosRes
 if(document.body)watch(); else document.addEventListener('DOMContentLoaded',watch);
 console.log('[sauvegarde] Sauvegarde TOTALE (données + barèmes + photos) — chargé');
 })();
+</script>
+
+<!-- ══ MODULE ADDITIF : CORBEILLE DU SUPER ADMINISTRATEUR (écoles, IEPP, DRENAET, comptes) — retirer ce bloc pour revenir à l'état précédent ══ -->
+<script id="pgnep-corbeille-sa">
+/* ================================================================
+   MODULE ADDITIF — CORBEILLE DU SUPER ADMINISTRATEUR
+   • Écoles, IEPP, DRENAET et comptes utilisateurs supprimés ne sont plus
+     détruits : ils sont COPIÉS INTÉGRALEMENT dans la corbeille
+     (collection « corbeille_admin », locale + cloud), puis retirés de leur liste.
+   • Anti-réapparition : chaque élément en corbeille (ou supprimé définitivement)
+     est « verrouillé » — il est retiré de la liste s'il revient après une
+     actualisation, une reconnexion ou une synchronisation (y compris depuis
+     un autre appareil), et son écriture dans le cloud est bloquée.
+   • Super administrateur : Restaurer à l'emplacement d'origine · Supprimer
+     définitivement · Vider entièrement la corbeille (élèves + éléments administratifs).
+   • La corbeille des élèves existante n'est PAS modifiée.
+   ================================================================ */
+(function () {
+  'use strict';
+  if (window.__pgCorbSA) return; window.__pgCorbSA = true;
+
+  var COL = 'corbeille_admin', LSK = 'pgnep_corbeille_admin';
+  var TTL_PURGED = 90 * 864e5, TTL_RESTORED = 30 * 864e5;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function notif(m, t) { try { showNotif(m, t || 'info'); } catch (e) { try { console.log(m); } catch (_) { } } }
+  function norm(s) { return String(s == null ? '' : s).trim().toUpperCase().replace(/\s+/g, ' '); }
+  function clone(o) { try { return JSON.parse(JSON.stringify(o)); } catch (e) { return o; } }
+  function cu() { try { return currentUser || null; } catch (e) { return null; } }
+  function isSuper() { var c = cu(); return !!(c && (c.role === 'admin' || c.login === 'diomande')); }
+  function frDate() { return new Date().toLocaleDateString('fr-FR'); }
+  function fbOK() { return !!(window._firebaseReady && window._fb); }
+  function setGlobal(name, fn) { window[name] = fn; try { (0, eval)(name + '=window["' + name + '"]'); } catch (e) { } }
+  function h36(s) { var h = 5381; s = String(s); for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); }
+
+  /* ── Types d'éléments administrés ── */
+  var TYPES = {
+    ecole: { col: 'ecoles', label: 'École', icon: '🏫', key: function (r) { return r.id; }, name: function (r) { return r.nom || r.id || ''; },
+      detail: function (r) { return [r.code ? 'Code ' + r.code : '', r.iepp, r.drena].filter(Boolean).join(' · '); } },
+    iepp: { col: 'iepps', label: 'IEPP', icon: '🏢', nameKey: true, key: function (r) { return r.id; }, name: function (r) { return r.nom || ''; },
+      detail: function (r) { return [r.code ? 'Code ' + r.code : '', r.drena].filter(Boolean).join(' · '); } },
+    drenaet: { col: 'drenaets', label: 'DRENAET', icon: '🏛️', nameKey: true, key: function (r) { return r.id; }, name: function (r) { return r.nom || ''; },
+      detail: function (r) { return r.code ? 'Code ' + r.code : ''; } },
+    user: { col: 'users', label: 'Compte utilisateur', icon: '👤', key: function (r) { return r.login || r.id; }, name: function (r) { return r.nom || r.login || ''; },
+      detail: function (r) { var rl = ''; try { rl = ROLE_LABELS[r.role] || r.role || ''; } catch (e) { rl = r.role || ''; } return [rl, r.login ? '@' + r.login : '', r.structure_val || ''].filter(Boolean).join(' · '); } }
+  };
+  var TYPE_BY_COL = {}; Object.keys(TYPES).forEach(function (t) { TYPE_BY_COL[TYPES[t].col] = t; });
+  function kn(tp, k) { return tp === 'user' ? String(k == null ? '' : k).toLowerCase() : String(k == null ? '' : k); }
+
+  /* ── Registre des éléments en corbeille ── */
+  var T = [];                         /* entrées : {id,type,ref,nom,detail,data,etat:'trash'|'purged'|'restored',supprime_le,supprime_par,maj} */
+  try { var raw = localStorage.getItem(LSK); var arr = raw ? JSON.parse(raw) : []; if (Array.isArray(arr)) T = arr.filter(function (e) { return e && e.id && TYPES[e.type]; }); } catch (e) { T = []; }
+  var TI = {};
+  function enforced(e) { return e.etat === 'trash' || (e.etat === 'purged' && (Date.now() - (e.maj || 0)) < TTL_PURGED); }
+  function rebuild() {
+    TI = {}; Object.keys(TYPES).forEach(function (t) { TI[t] = { key: {}, name: {} }; });
+    T.forEach(function (e) {
+      if (!enforced(e)) return;
+      TI[e.type].key[kn(e.type, e.ref)] = e;
+      if (TYPES[e.type].nameKey && e.nom) TI[e.type].name[norm(e.nom)] = e;
+    });
+  }
+  function lsSaveT() {
+    try {
+      var out = isSuper() ? T : T.map(function (e) { var c = Object.assign({}, e); c.data = null; return c; });
+      localStorage.setItem(LSK, JSON.stringify(out));
+    } catch (e) { try { console.warn('[corbeille-sa] stockage local', e); } catch (_) { } }
+  }
+  function fbSetEntry(e) { if (!fbOK() || !isSuper()) return; try { var p = window._fb.set(COL, e.id, e); if (p && p.catch) p.catch(function () { }); } catch (er) { } }
+  function fbDelEntry(id) { if (!fbOK()) return; try { var p = window._fb.del(COL, id); if (p && p.catch) p.catch(function () { }); } catch (er) { } }
+  function entryId(tp, ref) { return 'adm-' + tp + '-' + String(ref).replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 60) + '-' + h36(tp + '|' + ref); }
+  function findEntry(id) { for (var i = 0; i < T.length; i++) if (T[i].id === id) return T[i]; return null; }
+  function active() { return T.filter(function (e) { return e.etat === 'trash'; }); }
+  function putEntry(e) {
+    var i = -1; for (var k = 0; k < T.length; k++) if (T[k].id === e.id) { i = k; break; }
+    if (i >= 0) T[i] = e; else T.push(e);
+    rebuild(); lsSaveT(); fbSetEntry(e);
+  }
+  try { if (typeof DB !== 'undefined') DB.corbeille_admin = T; } catch (e) { }
+  rebuild();
+
+  /* ── Verrou anti-réapparition ── */
+  function match(tp, r) {
+    if (!r || !TI[tp]) return null;
+    var cfg = TYPES[tp], e = TI[tp].key[kn(tp, cfg.key(r))];
+    if (!e && tp === 'user' && r.id) e = TI[tp].key[kn(tp, r.id)];
+    if (!e && cfg.nameKey) e = TI[tp].name[norm(cfg.name(r))];
+    return e || null;
+  }
+  var delSent = {}, warned = {};
+  function fbDelOnce(col, id) {
+    if (id == null || id === '' || !fbOK()) return; var k = col + '/' + id; if (delSent[k]) return; delSent[k] = 1;
+    try { var p = window._fb.del(col, String(id)); if (p && p.catch) p.catch(function () { }); } catch (e) { }
+  }
+  function lsSaveCol(col) { try { if (Array.isArray(DB[col])) localStorage.setItem('pgnep_' + col, JSON.stringify(DB[col])); } catch (e) { } }
+  function stripInPlace(tp, arr) {
+    if (!Array.isArray(arr) || !arr.length) return 0;
+    var cfg = TYPES[tp], n = 0;
+    for (var i = arr.length - 1; i >= 0; i--) {
+      var e = match(tp, arr[i]); if (!e) continue;
+      var r = arr[i]; arr.splice(i, 1); n++;
+      if (e.etat === 'trash' || e.etat === 'purged') { fbDelOnce(cfg.col, r.id); if (tp === 'user') fbDelOnce(cfg.col, r.login); else if (r.id == null) fbDelOnce(cfg.col, cfg.key(r)); }
+      if (!warned[e.id] && !cfg.nameKey && (Date.now() - (e.maj || 0)) > 60000) { warned[e.id] = 1; if (isSuper()) notif((e.etat === 'trash' ? '🗑 « ' + (e.nom || e.ref) + ' » est dans la corbeille : restaurez-le depuis le menu Corbeille.' : '🗑 « ' + (e.nom || e.ref) + ' » a été supprimé définitivement.'), 'info'); }
+    }
+    return n;
+  }
+  function refreshUIs() {
+    try { if (typeof renderUsersList === 'function' && $('users-list')) renderUsersList(); } catch (e) { }
+    try { if (typeof renderEcoles === 'function' && $('page-ecoles') && $('page-ecoles').classList.contains('active')) renderEcoles(); } catch (e) { }
+    try { if (typeof updateStats === 'function') updateStats(); } catch (e) { }
+    renderAll();
+  }
+  function enforceCol(col) { var tp = TYPE_BY_COL[col]; if (!tp || typeof DB === 'undefined') return 0; var n = stripInPlace(tp, DB[col]); if (n) lsSaveCol(col); return n; }
+  function enforceAll() {
+    if (!T.length) return 0; var n = 0;
+    Object.keys(TYPE_BY_COL).forEach(function (c) { n += enforceCol(c); });
+    if (n) refreshUIs();
+    return n;
+  }
+
+  /* Toute affectation DB.users / DB.ecoles / DB.iepps / DB.drenaets (chargement local, cloud, écoute temps réel) passe par le verrou */
+  function guardDB() {
+    if (typeof DB === 'undefined') return;
+    Object.keys(TYPE_BY_COL).forEach(function (col) {
+      var d = Object.getOwnPropertyDescriptor(DB, col);
+      if (d && d.get && d.get.__pgcsa) return;
+      var tp = TYPE_BY_COL[col], cur = DB[col];
+      var getter = function () { return cur; }; getter.__pgcsa = 1;
+      try {
+        Object.defineProperty(DB, col, { configurable: true, enumerable: true, get: getter, set: function (v) { if (Array.isArray(v)) stripInPlace(tp, v); cur = v; } });
+        if (Array.isArray(cur)) stripInPlace(tp, cur);
+      } catch (e) { try { console.warn('[corbeille-sa] garde DB', col, e); } catch (_) { } }
+    });
+  }
+
+  /* Écritures cloud d'un élément verrouillé : bloquées */
+  function guardFb() {
+    var fb = window._fb; if (!fb || typeof fb.set !== 'function' || fb.set.__pgcsa) return;
+    var o = fb.set;
+    var w = function (col, id, data) {
+      try { var tp = TYPE_BY_COL[col]; if (tp && T.length) { var rec = Object.assign({}, data || {}); if (rec.id == null) rec.id = id; if (tp === 'user' && !rec.login) rec.login = id; if (match(tp, rec)) return Promise.resolve(false); } } catch (e) { }
+      return o.apply(this, arguments);
+    };
+    w.__pgcsa = 1; fb.set = w;
+  }
+  function guardSave() {
+    var s = window.save; if (typeof s !== 'function' || s.__pgcsa) return;
+    var w = function (key) { try { if (TYPE_BY_COL[key]) enforceCol(key); } catch (e) { } return s.apply(this, arguments); };
+    w.__pgcsa = 1; setGlobal('save', w);
+  }
+
+  /* ── Mise en corbeille ── */
+  function trashEntity(tp, rec) {
+    var cfg = TYPES[tp]; if (!cfg || !rec) return false;
+    var ref = String(cfg.key(rec)), c = cu();
+    var arr = DB[cfg.col] || [];
+    var same = arr.filter(function (x) { return kn(tp, cfg.key(x)) === kn(tp, ref) || x === rec; });
+    var base = rec; if (tp === 'user') { var withPass = same.filter(function (x) { return x && x.pass; })[0]; if (withPass) base = withPass; }
+    var ent = { id: entryId(tp, ref), type: tp, ref: ref, nom: cfg.name(base), detail: cfg.detail(base), data: clone(base), etat: 'trash',
+      supprime_le: frDate(), supprime_ts: Date.now(), supprime_par: (c && c.login) || '', maj: Date.now() };
+    putEntry(ent);                                   /* 1) la copie est enregistrée d'abord (jamais de perte) */
+    var cloudIds = {}; same.forEach(function (x) { if (x && x.id != null) cloudIds[x.id] = 1; if (tp === 'user' && x.login) cloudIds[x.login] = 1; });
+    if (!Object.keys(cloudIds).length) cloudIds[ref] = 1;
+    for (var i = arr.length - 1; i >= 0; i--) if (same.indexOf(arr[i]) !== -1) arr.splice(i, 1);   /* 2) puis retrait de la liste d'origine */
+    try { save(cfg.col); } catch (e) { lsSaveCol(cfg.col); }
+    Object.keys(cloudIds).forEach(function (id) { if (!fbOK()) return; try { var p = window._fb.del(cfg.col, id); if (p && p.catch) p.catch(function () { }); } catch (e) { } });
+    refreshBadge(); renderAll();
+    return true;
+  }
+
+  /* ── Restauration / suppression définitive / vidage ── */
+  function exists(tp, e) {
+    var cfg = TYPES[tp], arr = DB[cfg.col] || [], rec = e.data || {};
+    return arr.some(function (x) { return kn(tp, cfg.key(x)) === kn(tp, e.ref) || (cfg.nameKey && norm(cfg.name(x)) === norm(e.nom)); });
+  }
+  function restore(id) {
+    if (!isSuper()) { notif('🔒 Réservé au super-administrateur', 'error'); return; }
+    var e = findEntry(id); if (!e || e.etat !== 'trash') return;
+    var cfg = TYPES[e.type];
+    if (!e.data) { notif('Cet élément ne contient plus de données à restaurer.', 'error'); return; }
+    if (exists(e.type, e)) { notif('⚠️ Restauration impossible : un élément portant le même identifiant ou le même nom existe déjà (' + (e.nom || e.ref) + ').', 'error'); return; }
+    if (!confirm('Restaurer « ' + (e.nom || e.ref) + ' » (' + cfg.label + ') à son emplacement d\'origine ?')) return;
+    var rec = clone(e.data);
+    e.etat = 'restored'; e.restaure_le = frDate(); e.maj = Date.now(); putEntry(e);        /* lève le verrou avant la réinjection (les données restent dans l'entrée) */
+    if (!Array.isArray(DB[cfg.col])) DB[cfg.col] = [];
+    DB[cfg.col].push(rec);
+    try { save(cfg.col); } catch (er) { lsSaveCol(cfg.col); }
+    if (fbOK()) { try { var p = window._fb.set(cfg.col, String(cfg.key(rec)), rec); if (p && p.catch) p.catch(function () { }); } catch (er) { } }
+    if (e.type === 'user') {
+      try { var lg = String(rec.login || '').toLowerCase(), d = JSON.parse(localStorage.getItem('pgnep_deleted_users') || '[]'); var nd = d.filter(function (x) { return String(x).toLowerCase() !== lg; });
+        if (nd.length !== d.length) { localStorage.setItem('pgnep_deleted_users', JSON.stringify(nd)); if (fbOK()) { try { window._fb.del('deleted_users', rec.login).catch(function () { }); } catch (er) { } } } } catch (er) { }
+    }
+    delete warned[e.id];
+    refreshUIs(); refreshBadge();
+    notif('✅ « ' + (e.nom || e.ref) + ' » restauré', 'success');
+  }
+  function purge(id) {
+    if (!isSuper()) { notif('🔒 Réservé au super-administrateur', 'error'); return; }
+    var e = findEntry(id); if (!e || e.etat !== 'trash') return;
+    if (!confirm('⚠️ Supprimer DÉFINITIVEMENT « ' + (e.nom || e.ref) + ' » (' + TYPES[e.type].label + ') ?\nIrréversible.')) return;
+    e.etat = 'purged'; e.data = null; e.maj = Date.now(); putEntry(e);                      /* le verrou reste actif : l'élément ne peut plus revenir */
+    enforceAll(); refreshBadge(); renderAll();
+    notif('🗑 Supprimé définitivement', 'info');
+  }
+  function purgeAllSilently() {
+    var n = 0;
+    active().forEach(function (e) { e.etat = 'purged'; e.data = null; e.maj = Date.now(); n++; });
+    rebuild(); lsSaveT(); T.forEach(function (e) { if (e.etat === 'purged') fbSetEntry(e); });
+    enforceAll(); refreshBadge(); renderAll();
+    return n;
+  }
+  function cleanup() {
+    var now = Date.now(), drop = [];
+    T.forEach(function (e) { if ((e.etat === 'purged' && now - (e.maj || 0) > TTL_PURGED) || (e.etat === 'restored' && now - (e.maj || 0) > TTL_RESTORED)) drop.push(e); });
+    if (!drop.length) return;
+    drop.forEach(function (e) { T.splice(T.indexOf(e), 1); if (isSuper()) fbDelEntry(e.id); });
+    rebuild(); lsSaveT();
+  }
+
+  /* ── Synchronisation du registre avec le cloud ── */
+  function mergeIn(list) {
+    var changed = false;
+    (list || []).forEach(function (r) {
+      if (!r || !r.id || !TYPES[r.type]) return;
+      var cur = findEntry(r.id);
+      if (!cur) { T.push(r); changed = true; return; }
+      var a = r.maj || 0, b = cur.maj || 0;
+      if (a > b || (a === b && !cur.data && r.data)) { T[T.indexOf(cur)] = r; changed = true; }
+    });
+    if (changed) { rebuild(); lsSaveT(); }
+    return changed;
+  }
+  function pass() {
+    if (!fbOK()) return;
+    window._fb.getAll(COL).then(function (list) {
+      list = list || [];
+      mergeIn(list);
+      if (isSuper()) { var inCloud = {}; list.forEach(function (r) { inCloud[r.id] = r.maj || 0; }); T.forEach(function (e) { if (inCloud[e.id] == null || inCloud[e.id] < (e.maj || 0)) fbSetEntry(e); }); }
+      cleanup(); enforceAll(); refreshBadge(); renderAll();
+    }).catch(function () { });
+    try { if (unsub) { unsub(); unsub = null; } unsub = window._fb.listen(COL, function (list) { if (mergeIn(list || [])) { enforceAll(); refreshBadge(); renderAll(); } }); } catch (e) { }
+  }
+  var unsub = null, lastWho = null;
+  function watchLogin() {
+    var c = cu(), who = c ? c.login : '';
+    if (who && who !== lastWho) {
+      lastWho = who; lsSaveT();
+      [800, 6000, 20000, 60000].forEach(function (ms) { setTimeout(pass, ms); });
+    } else if (!who) lastWho = null;
+  }
+
+  /* ── Interface : carte « Éléments administratifs supprimés » dans la page Corbeille ── */
+  var filtre = '';
+  function ensureCard() {
+    var page = $('page-corbeille'); if (!page) return null;
+    var card = $('pgcsa-card');
+    if (!isSuper()) { if (card) card.style.display = 'none'; return null; }
+    if (!card) {
+      card = document.createElement('div'); card.className = 'card'; card.id = 'pgcsa-card'; card.style.marginBottom = '14px';
+      card.innerHTML =
+        '<div class="card-header"><h3>🗂 Éléments administratifs supprimés <span id="pgcsa-count" style="font-size:12px;font-weight:600;color:var(--text3);"></span></h3>' +
+        '<div class="card-actions"><select id="pgcsa-filter" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:12px;"><option value="">Tous les types</option>' +
+        Object.keys(TYPES).map(function (t) { return '<option value="' + t + '">' + TYPES[t].icon + ' ' + TYPES[t].label + '</option>'; }).join('') + '</select> ' +
+        '<button class="btn btn-secondary btn-sm" data-pgcsa="snap" title="Copie de sécurité des données de cet appareil, créée automatiquement au premier lancement de chaque version">📦 Sauvegarde de sécurité</button> ' +
+        '<button class="btn btn-secondary btn-sm" data-pgcsa="refresh">🔄 Actualiser</button> ' +
+        '<button class="btn btn-sm" data-pgcsa="empty" style="background:var(--danger);color:#fff;border:none;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;">💀 Vider ces éléments</button></div></div>' +
+        '<div style="padding:10px 16px;font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);">Écoles, IEPP, DRENAET et comptes supprimés : ↩️ restaurer à l\'emplacement d\'origine · 💀 supprimer définitivement. Ils ne réapparaissent plus dans leur liste d\'origine.</div>' +
+        '<div class="table-wrap"><table><thead><tr><th>Type</th><th>Désignation</th><th>Détails</th><th>Supprimé le</th><th>Par</th><th>Actions</th></tr></thead><tbody id="pgcsa-body"></tbody></table></div>';
+      page.insertBefore(card, page.firstChild);
+      card.addEventListener('click', function (ev) {
+        var b = ev.target.closest ? ev.target.closest('[data-pgcsa]') : null; if (!b) return;
+        var a = b.getAttribute('data-pgcsa'), id = b.getAttribute('data-id');
+        if (a === 'restore') restore(id); else if (a === 'purge') purge(id); else if (a === 'refresh') { pass(); renderAll(); } else if (a === 'snap') { if (window.PGSNAP) window.PGSNAP.download(); else notif('Sauvegarde de sécurité indisponible', 'error'); } else if (a === 'empty') emptyAdmin();
+      });
+      $('pgcsa-filter').onchange = function () { filtre = this.value; renderAll(); };
+    }
+    card.style.display = '';
+    return card;
+  }
+  function renderAll() {
+    var card = ensureCard(); if (!card) return;
+    var list = active().filter(function (e) { return !filtre || e.type === filtre; }).sort(function (a, b) { return (b.supprime_ts || 0) - (a.supprime_ts || 0); });
+    var cnt = $('pgcsa-count'); if (cnt) cnt.textContent = '· ' + active().length + ' élément(s)';
+    var tb = $('pgcsa-body'); if (!tb) return;
+    if (!list.length) { tb.innerHTML = '<tr><td colspan="6" class="empty-state"><p>Aucun élément administratif dans la corbeille</p></td></tr>'; return; }
+    tb.innerHTML = list.map(function (e) {
+      var cfg = TYPES[e.type];
+      return '<tr><td><span class="badge badge-vert">' + cfg.icon + ' ' + esc(cfg.label) + '</span></td><td><strong>' + esc(e.nom || e.ref) + '</strong></td>' +
+        '<td style="font-size:11px;">' + esc(e.detail || '') + '</td><td style="font-size:11px;">' + esc(e.supprime_le || '—') + '</td><td style="font-size:11px;">' + esc(e.supprime_par || '—') + '</td>' +
+        '<td><div class="actions-cell"><button class="icon-btn" data-pgcsa="restore" data-id="' + esc(e.id) + '" title="Restaurer" style="color:var(--ci-vert);">↩️</button>' +
+        '<button class="icon-btn" data-pgcsa="purge" data-id="' + esc(e.id) + '" title="Supprimer définitivement" style="color:var(--danger);">💀</button></div></td></tr>';
+    }).join('');
+  }
+  function emptyAdmin() {
+    if (!isSuper()) return; var n = active().length;
+    if (!n) { notif('Aucun élément administratif dans la corbeille', 'info'); return; }
+    if (!confirm('⚠️ Supprimer DÉFINITIVEMENT les ' + n + ' élément(s) administratif(s) de la corbeille ?\nIrréversible.')) return;
+    purgeAllSilently(); notif('🗑 Éléments administratifs supprimés définitivement', 'info');
+  }
+  function refreshBadge() {
+    var b = $('badge-corbeille'); if (!b || !b.parentNode) return;
+    var s = $('badge-corbeille-sa');
+    var n = isSuper() ? active().length : 0;
+    if (!s) { s = document.createElement('span'); s.id = 'badge-corbeille-sa'; s.title = 'Éléments administratifs en corbeille'; s.style.cssText = 'background:#B45309;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:800;margin-left:4px;display:none;'; b.parentNode.insertBefore(s, b.nextSibling); }
+    s.textContent = n; s.style.display = n > 0 ? 'inline-block' : 'none';
+  }
+
+  /* ── Branchement sur les actions existantes ── */
+  function wrapRender() {
+    var o = window.renderCorbeille; if (typeof o !== 'function' || o.__pgcsa) return;
+    var w = function () { var r = o.apply(this, arguments); try { renderAll(); refreshBadge(); } catch (e) { } return r; };
+    w.__pgcsa = 1; w.__pgcorb = 1; setGlobal('renderCorbeille', w);
+  }
+  function wrapVider() {
+    var o = window.viderCorbeille; if (typeof o !== 'function' || o.__pgcsa) return;
+    var w = function () {
+      if (!isSuper()) return o.apply(this, arguments);
+      var f = $('pgcorb-f'); if (f && f.value) return o.apply(this, arguments);          /* filtre d'école actif : vidage des élèves de cette école seulement */
+      var nEl = (DB.corbeille || []).length, nAd = active().length;
+      if (!nEl && !nAd) { notif('La corbeille est vide', 'info'); return; }
+      if (!confirm('⚠️ Vider ENTIÈREMENT la corbeille ?\n• ' + nEl + ' élève(s)\n• ' + nAd + ' élément(s) administratif(s) (écoles, IEPP, DRENAET, comptes)\nIrréversible.')) return;
+      (DB.corbeille || []).forEach(function (e) { var id = e.id || e.matricule; if (id && fbOK()) { try { window._fb.del('corbeille', id).catch(function () { }); } catch (er) { } } });
+      DB.corbeille = []; try { save('corbeille'); } catch (er) { }
+      purgeAllSilently();
+      try { renderCorbeille(); } catch (er) { }
+      notif('🗑 Corbeille vidée', 'info');
+    };
+    w.__pgcsa = 1; w.__pgcorb = 1; setGlobal('viderCorbeille', w);
+  }
+  function confirmThen(msg, cb) { if (typeof window.pgConfirm === 'function') window.pgConfirm(msg, cb); else if (confirm(msg)) cb(); }
+  function wrapDeleteEcole() {
+    var o = window.deleteEcole; if (typeof o !== 'function' || o.__pgcsa) return;
+    var w = function (i) {
+      if (!isSuper()) return o.apply(this, arguments);
+      var scope = (typeof getScopeEcoles === 'function') ? getScopeEcoles() : DB.ecoles;
+      var ec = (scope && scope[i]) || DB.ecoles[i];
+      if (!ec) { notif('École introuvable', 'error'); return; }
+      var nEl = (DB.eleves || []).filter(function (x) { return x.ecole_id === ec.id; }).length;
+      var nUs = (DB.users || []).filter(function (u) { return u.ecole_val === ec.id || u.structure_val === ec.id; }).length;
+      confirmThen('Envoyer l\'école « ' + (ec.nom || ec.id) + ' » à la corbeille ?\n' + nEl + ' élève(s) et ' + nUs + ' compte(s) y sont rattachés (ils ne sont pas supprimés).\nRécupérable depuis Menu → Corbeille.', function () {
+        trashEntity('ecole', ec);
+        try { if (typeof renderEcoles === 'function') renderEcoles(); } catch (e) { } try { if (typeof updateStats === 'function') updateStats(); } catch (e) { }
+        notif('🗑 École envoyée à la corbeille', 'info');
+      });
+    };
+    w.__pgcsa = 1; setGlobal('deleteEcole', w);
+  }
+  function wrapDeleteCompte() {
+    var o = window.deleteCompte; if (typeof o !== 'function' || o.__pgcsa) return;
+    var w = function (login) {
+      var t = (DB.users || []).filter(function (u) { return u.login === login; })[0];
+      var allowed = isSuper();
+      if (!allowed) { try { allowed = !!(t && window.PGDR && PGDR.isDR() && PGDR.canActOn(t)); } catch (e) { allowed = false; } }
+      if (!allowed || !t) return o.apply(this, arguments);
+      var c = cu();
+      if (c && login === c.login) { notif('Impossible de supprimer votre propre compte', 'error'); return; }
+      var admins = (DB.users || []).filter(function (u) { return u.role === 'admin'; });
+      if (admins.length === 1 && t.role === 'admin') { notif('Impossible de supprimer le dernier admin', 'error'); return; }
+      confirmThen('Envoyer le compte « ' + login + ' » à la corbeille ?\nIl ne pourra plus se connecter. Récupérable par le Super Administrateur depuis Menu → Corbeille.', function () {
+        trashEntity('user', t);
+        try { if (typeof renderUsersList === 'function') renderUsersList(); } catch (e) { }
+        notif('🗑 Compte envoyé à la corbeille', 'info');
+      });
+    };
+    w.__pgcsa = 1; setGlobal('deleteCompte', w);
+  }
+  function wrapRegDelete() {
+    var o = window.regDelete; if (typeof o !== 'function' || o.__pgcsa) return;
+    var w = function (id) {
+      if (!isSuper()) return o.apply(this, arguments);
+      var dr = (DB.drenaets || []).filter(function (x) { return x.id === id; })[0], ie = dr ? null : (DB.iepps || []).filter(function (x) { return x.id === id; })[0];
+      var rec = dr || ie; if (!rec) return o.apply(this, arguments);
+      var tp = dr ? 'drenaet' : 'iepp';
+      var nbEc = (DB.ecoles || []).filter(function (e) { return norm(dr ? e.drena : e.iepp) === norm(rec.nom); }).length;
+      var nbC = (DB.users || []).filter(function (u) { return u.structure_type === (dr ? 'drena' : 'iepp') && norm(u.structure_val) === norm(rec.nom); }).length;
+      var av = (nbEc || nbC) ? '\n\n' + nbEc + ' école(s) et ' + nbC + ' compte(s) y font référence (ils ne seront pas supprimés, seulement la fiche).' : '';
+      if (!confirm('Envoyer « ' + rec.nom + ' » à la corbeille ?' + av + '\nRécupérable depuis Menu → Corbeille.')) return;
+      window.__pgCorbSAKind = dr ? 'drena' : 'iepp';
+      trashEntity(tp, rec);
+      try { if (dr && window.openDrenaetAdmin) window.openDrenaetAdmin(); else if (window.openIeppAdmin) window.openIeppAdmin(); } catch (e) { }
+      notif('🗑 Fiche envoyée à la corbeille', 'info');
+    };
+    w.__pgcsa = 1; setGlobal('regDelete', w);
+  }
+  function install() {
+    try { guardDB(); } catch (e) { }
+    try { guardFb(); } catch (e) { }
+    try { guardSave(); } catch (e) { }
+    try { wrapRender(); wrapVider(); wrapDeleteEcole(); wrapDeleteCompte(); wrapRegDelete(); } catch (e) { }
+  }
+
+  install();
+  setInterval(function () { install(); watchLogin(); try { enforceAll(); } catch (e) { } try { refreshBadge(); } catch (e) { } }, 1500);
+  window.addEventListener('online', function () { setTimeout(pass, 1000); });
+  window.PGCSA = { trash: trashEntity, restore: restore, purge: purge, list: function () { return T.slice(); }, enforce: enforceAll, sync: pass, types: TYPES };
+  console.log('✅ PGNEP : corbeille du Super Administrateur (écoles, IEPP, DRENAET, comptes)');
+})();
+
+</script>
+
+<!-- ══ MODULE ADDITIF : CORRECTION DES COMPTES (Super Administrateur + Correspondant Fichier) — retirer ce bloc pour revenir à l'état précédent ══ -->
+<script id="pgnep-correction-comptes">
+/* ================================================================
+   MODULE ADDITIF — CORRECTION DES COMPTES UTILISATEURS
+   • Super administrateur : dans « Créer / programmer un compte », un sélecteur
+     « Corriger un compte existant » (et le bouton ✏️ des listes) ouvre le même
+     dialogue en MODE CORRECTION : tous les champs sont préremplis ; les mots de
+     passe laissés vides sont conservés ; l'identifiant reste verrouillé.
+   • Correspondant (Fichier IEPP) : le formulaire « Comptes » préremplit désormais
+     TOUS les champs (DRENAET, IEPP, école, classe) lors d'une correction, et refuse
+     d'enregistrer si le rattachement du compte était effacé par erreur.
+   • Aucun autre rôle ne reçoit de nouveau droit de correction.
+   • Les corrections sont enregistrées en local + cloud ; aucune autre donnée
+     du compte (uid, créateur, historique…) n'est modifiée.
+   ================================================================ */
+(function () {
+  'use strict';
+  if (window.__pgCorrComptes) return; window.__pgCorrComptes = true;
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+  function norm(s) { return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); }
+  function notif(m, t) { try { showNotif(m, t || 'info'); } catch (e) { } }
+  function cu() { try { return currentUser || null; } catch (e) { return null; } }
+  function isSA() { var c = cu(); return !!(c && (c.role === 'admin' || c.login === 'diomande')); }
+  function val(id) { var e = $(id); return e ? String(e.value || '').trim() : ''; }
+  function setVal(id, v) { var e = $(id); if (e) e.value = (v == null ? '' : v); }
+  function find(login) { var l = String(login || '').toLowerCase(); return (DB.users || []).filter(function (u) { return String(u.login || '').toLowerCase() === l; })[0] || null; }
+  function rid(v) { try { return typeof resolveEcoleId === 'function' ? resolveEcoleId(v) : v; } catch (e) { return v; } }
+  function setGlobal(name, fn) { window[name] = fn; try { (0, eval)(name + '=window["' + name + '"]'); } catch (e) { } }
+  function roleLabel(r) { try { return ROLE_LABELS[r] || r || ''; } catch (e) { return r || ''; } }
+  function fbSetUser(u) { try { if (window._firebaseReady && window._fb) { var p = window._fb.set('users', u.login, u); if (p && p.catch) p.catch(function () { }); } } catch (e) { } }
+  function ecoleById(id) { return (DB.ecoles || []).filter(function (e) { return e.id === id; })[0] || null; }
+
+  /* ═════════ A) Formulaire « Comptes » (page) : préremplissage complet + garde-fou ═════════ */
+  function fillStructure(u) {
+    var role = u.role;
+    try { if (typeof updateStructureFields === 'function') updateStructureFields(); } catch (e) { }
+    var set = function (id, v) {
+      var el = $(id); if (!el || v == null) return;
+      el.value = v;
+      if (el.tagName === 'SELECT' && v !== '' && el.value !== String(v)) { var o = document.createElement('option'); o.value = v; o.textContent = v; el.appendChild(o); el.value = v; }
+    };
+    var ecId = (role === 'directeur') ? rid(u.structure_val) : ((role === 'instituteur' || role === 'benevole') ? rid(u.ecole_val) : '');
+    var ec = ecId ? ecoleById(ecId) : null;
+    if (role === 'coordinateur') set('new-drena', u.structure_val || '');
+    else if (role === 'correspondant' || role === 'cppp') {
+      set('new-iepp', u.structure_val || '');
+      var s = (DB.ecoles || []).filter(function (e) { return e.iepp === u.structure_val; })[0];
+      set('new-drena', (s && s.drena) || u.drena || '');
+    } else if (role === 'directeur' || role === 'instituteur' || role === 'benevole') {
+      set('new-ecole-user', ecId);
+      if (role !== 'directeur') set('new-classe-user', u.structure_val || '');
+      if (ec) { set('new-drena', ec.drena || ''); set('new-iepp', ec.iepp || ''); }
+    }
+  }
+  function showBanner(login) {
+    var sec = $('compte-form-section'); if (!sec) return;
+    var b = $('pgcc-banner');
+    if (!b) {
+      b = document.createElement('div'); b.id = 'pgcc-banner';
+      b.style.cssText = 'margin:0 20px;padding:9px 12px;border-radius:8px;background:#FEF9C3;border:1px solid #FDE68A;color:#92400E;font-size:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;';
+      var hd = sec.querySelector('.card-header'); if (hd && hd.nextSibling) hd.parentNode.insertBefore(b, hd.nextSibling); else sec.insertBefore(b, sec.firstChild);
+    }
+    b.innerHTML = '<span>✏️ <b>Correction du compte @' + esc(login) + '</b> — laissez les mots de passe vides pour les conserver.</span><button type="button" class="btn btn-secondary btn-sm" onclick="resetCompteForm()">Annuler la correction</button>';
+    b.style.display = 'flex';
+  }
+  function hideBanner() { var b = $('pgcc-banner'); if (b) b.style.display = 'none'; }
+
+  function wrapEdit() {
+    var o = window.editCompte; if (typeof o !== 'function' || o.__pgcc) return;
+    var w = function (login) {
+      var u = find(login);
+      if (isSA() && u) { return openSaModal(login); }          /* Super administrateur : dialogue complet de correction */
+      var r = o.apply(this, arguments);
+      try {
+        var cur = null; try { cur = editingLoginOrig; } catch (e) { }
+        if (u && cur === login) {
+          fillStructure(u); showBanner(login);
+          var sec = $('compte-form-section'); if (sec && sec.scrollIntoView) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } catch (e) { try { console.warn('[correction] prérempli', e); } catch (_) { } }
+      return r;
+    };
+    w.__pgcc = 1; setGlobal('editCompte', w);
+  }
+  function wrapReset() {
+    var o = window.resetCompteForm; if (typeof o !== 'function' || o.__pgcc) return;
+    var w = function () { var r = o.apply(this, arguments); try { hideBanner(); } catch (e) { } return r; };
+    w.__pgcc = 1; setGlobal('resetCompteForm', w);
+  }
+  function wrapSaveCompte() {
+    var o = window.saveCompte; if (typeof o !== 'function' || o.__pgcc) return;
+    var w = function () {
+      var orig = null; try { orig = editingLoginOrig; } catch (e) { }
+      if (orig) {
+        var role = val('new-role'), miss = '';
+        if (role === 'coordinateur' && !val('new-drena')) miss = 'la DRENAET';
+        else if ((role === 'correspondant' || role === 'cppp') && !val('new-iepp')) miss = 'l’IEPP';
+        else if (role === 'directeur' && !val('new-ecole-user')) miss = 'l’école';
+        else if ((role === 'instituteur' || role === 'benevole') && (!val('new-ecole-user') || !val('new-classe-user'))) miss = 'l’école et la classe';
+        if (miss) {
+          var msg = 'Correction impossible : renseignez ' + miss + ' (le rattachement du compte ne doit pas être effacé).';
+          var er = $('compte-error'); if (er) { er.textContent = msg; er.style.display = 'block'; }
+          notif(msg, 'error'); return;
+        }
+      }
+      return o.apply(this, arguments);
+    };
+    w.__pgcc = 1; setGlobal('saveCompte', w);
+  }
+
+  /* ═════════ B) Super administrateur : dialogue « Créer / programmer un compte » en mode correction ═════════ */
+  var editLogin = null;
+  function modalEl() { return $('modal-sa-compte'); }
+  function ensurePicker() {
+    var m = modalEl(); if (!m) return false;
+    if (!$('pgcc-picker')) {
+      var body = m.querySelector('.modal-body'); if (!body) return false;
+      var d = document.createElement('div'); d.id = 'pgcc-picker-wrap'; d.style.cssText = 'margin-bottom:12px;padding-bottom:12px;border-bottom:1px dashed var(--border,#e5e7eb);';
+      d.innerHTML = '<label style="display:block;font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--text2,#556);margin-bottom:4px;">CORRIGER UN COMPTE EXISTANT <span style="font-weight:400;">(laisser « Nouveau compte » pour créer)</span></label>' +
+        '<select id="pgcc-picker" style="width:100%;padding:10px;border:1px solid var(--border,#e5e7eb);border-radius:8px;font-size:13px;"></select>';
+      body.insertBefore(d, body.firstChild);
+      $('pgcc-picker').onchange = function () { var v = this.value; if (!v) { openSaModal(); } else { loadForEdit(v); } };
+    }
+    return true;
+  }
+  function refreshPicker(sel) {
+    var p = $('pgcc-picker'); if (!p) return;
+    var list = (DB.users || []).slice().sort(function (a, b) { return norm(a.nom || a.login).localeCompare(norm(b.nom || b.login)); });
+    p.innerHTML = '<option value="">➕ Nouveau compte</option>' + list.map(function (u) {
+      return '<option value="' + esc(u.login) + '">' + esc((u.nom || u.login) + ' — @' + u.login + ' (' + roleLabel(u.role) + ')') + '</option>';
+    }).join('');
+    p.value = sel || '';
+  }
+  function setMode(login) {
+    editLogin = login || null; window.__saEditLogin = editLogin;
+    var m = modalEl(); if (!m) return;
+    var h = m.querySelector('.modal-header h3'); if (h) h.textContent = login ? '✏️ Corriger un compte — @' + login : '👑 Créer / programmer un compte';
+    var b = m.querySelector('.modal-footer .btn-primary'); if (b) b.textContent = login ? '💾 Enregistrer les corrections' : '💾 Créer le compte';
+    var li = $('sa-login'); if (li) { li.readOnly = !!login; li.style.opacity = login ? '.65' : ''; li.title = login ? 'L’identifiant ne peut pas être modifié (il sert de clé du compte).' : ''; }
+    var pw = $('sa-pass'); if (pw) pw.placeholder = login ? 'Laisser vide pour conserver' : '6 caractères min.';
+    var note = $('pgcc-note'); if (note) note.style.display = login ? '' : 'none';
+    if (login && !note) {
+      var host = $('sa-error'); if (host && host.parentNode) { var n = document.createElement('p'); n.id = 'pgcc-note'; n.style.cssText = 'font-size:11.5px;color:var(--text3,#889);margin-top:10px;'; n.textContent = 'Mode correction : seuls les champs modifiés changent ; mot de passe vide = inchangé ; l’identifiant est verrouillé.'; host.parentNode.insertBefore(n, host.nextSibling); }
+    }
+  }
+  function ensureTypeOption(role) {
+    var s = $('sa-type'); if (!s || !role) return;
+    for (var i = 0; i < s.options.length; i++) if (s.options[i].value === role) return;
+    var o = document.createElement('option'); o.value = role; o.textContent = roleLabel(role); s.appendChild(o);
+  }
+  function loadForEdit(login) {
+    var u = find(login); if (!u) { notif('Compte introuvable', 'error'); return; }
+    ensurePicker(); setMode(u.login); refreshPicker(u.login);
+    ['sa-nom', 'sa-login', 'sa-tel', 'sa-pass', 'sa-pass2', 'sa-drena', 'sa-iepp', 'sa-ecole', 'sa-ecole-code', 'sa-date-debut', 'sa-date-fin'].forEach(function (id) { setVal(id, ''); });
+    var er = $('sa-error'); if (er) er.style.display = 'none';
+    ensureTypeOption(u.role); setVal('sa-type', u.role);
+    try { if (typeof window.saTypeChange === 'function') window.saTypeChange(); } catch (e) { }
+    setVal('sa-nom', u.nom); setVal('sa-login', u.login); setVal('sa-tel', u.telephone || u.tel || '');
+    setVal('sa-date-debut', u.date_debut || ''); setVal('sa-date-fin', u.date_fin || '');
+    var ac = $('sa-actif'); if (ac) ac.checked = (u.actif !== false);
+    var role = u.role, show = function (id, on) { var e = $(id); if (e) e.style.display = on ? '' : 'none'; };
+    if (role === 'coordinateur') setVal('sa-drena', u.structure_val || '');
+    else if (role === 'correspondant' || role === 'cppp') { setVal('sa-iepp', u.structure_val || ''); show('sa-field-iepp', true); }
+    else if (role === 'directeur' || role === 'instituteur' || role === 'benevole') {
+      var ecId = role === 'directeur' ? rid(u.structure_val) : rid(u.ecole_val), ec = ecoleById(ecId);
+      var ei = $('sa-ecole');
+      if (ei) { if (ei.tagName === 'SELECT') { ei.value = ecId; if (ei.value !== String(ecId) && ecId) { var op = document.createElement('option'); op.value = ecId; op.textContent = ec ? ec.nom : ecId; ei.appendChild(op); ei.value = ecId; } } else ei.value = ec ? (ec.nom || ec.id) : (ecId || ''); }
+      setVal('sa-ecole-code', ec ? (ec.code || ec.id) : (ecId || ''));
+      if (ec) { setVal('sa-drena', ec.drena || ''); setVal('sa-iepp', ec.iepp || ''); }
+      if (role !== 'directeur') setVal('sa-classe', u.structure_val || '');
+    }
+    var m = modalEl(); if (m) m.classList.add('active');
+  }
+  function openSaModal(login) {
+    if (!isSA()) { notif('🔒 Réservé au super-administrateur', 'error'); return; }
+    var w = window.openSaCompteModal; if (typeof w !== 'function') return;
+    w(login);                                                /* le wrapper ci-dessous gère le mode correction */
+  }
+
+  var depthOpen = 0;
+  function wrapOpenSa() {
+    var o = window.openSaCompteModal; if (typeof o !== 'function' || o.__pgcc) return;
+    var w = function (login) {
+      var r;
+      if (typeof login === 'string' && login && !isSA()) { notif('🔒 Réservé au super-administrateur', 'error'); return; }   /* correction : SA uniquement */
+      depthOpen++;
+      try { r = o.apply(this, arguments); } finally { depthOpen--; }
+      if (depthOpen === 0) {                                 /* seul le wrapper le plus externe agit (après les autres correctifs) */
+        try { ensurePicker(); setMode(null); refreshPicker(''); if (typeof login === 'string' && login) loadForEdit(login); }
+        catch (e) { try { console.warn('[correction] ouverture', e); } catch (_) { } }
+      }
+      return r;
+    };
+    w.__pgcc = 1; setGlobal('openSaCompteModal', w);
+  }
+
+  function wrapSaveSa() {
+    var o = window.saveSaCompte; if (typeof o !== 'function' || o.__pgcc) return;
+    var w = function () { if (editLogin) return saveCorrection(); return o.apply(this, arguments); };
+    w.__pgcc = 1; setGlobal('saveSaCompte', w);
+  }
+
+  function resolveEcole(name, code) {
+    var all = DB.ecoles || [], c = String(code || '').trim(), n = String(name || '').trim();
+    if (c) { var byC = all.filter(function (e) { return norm(e.code) === norm(c) || e.id === c; })[0]; if (byC) return byC; }
+    if (n) { var id = rid(n); var byN = all.filter(function (e) { return e.id === id || norm(e.nom) === norm(n); })[0]; if (byN) return byN; }
+    return null;
+  }
+  function saveCorrection() {
+    var er = $('sa-error'), fail = function (m) { if (er) { er.textContent = m; er.style.display = 'block'; } else notif(m, 'error'); };
+    if (!isSA()) { fail('Réservé au super-administrateur.'); return; }
+    var u = find(editLogin); if (!u) { fail('Compte introuvable.'); return; }
+    var role = val('sa-type'), nom = val('sa-nom'), tel = val('sa-tel');
+    var pass = $('sa-pass') ? $('sa-pass').value : '', pass2 = $('sa-pass2') ? $('sa-pass2').value : '';
+    var dd = val('sa-date-debut'), df = val('sa-date-fin'), actif = !!($('sa-actif') && $('sa-actif').checked);
+    if (!nom) { fail('Le nom est obligatoire.'); return; }
+    if (pass && pass.length < 6) { fail('Mot de passe : 6 caractères minimum.'); return; }
+    if (pass && pass !== pass2) { fail('Les deux mots de passe diffèrent.'); return; }
+    if (dd && df && df < dd) { fail('La date de fin est antérieure à la date de début.'); return; }
+    var c = cu();
+    if (c && u.login === c.login) {
+      if (role !== u.role) { fail('Vous ne pouvez pas modifier le rôle de votre propre compte.'); return; }
+      if (!actif) { fail('Vous ne pouvez pas désactiver votre propre compte.'); return; }
+    }
+    if (u.role === 'admin' && role !== 'admin' && (DB.users || []).filter(function (x) { return x.role === 'admin'; }).length <= 1) { fail('Impossible : c’est le dernier administrateur.'); return; }
+
+    var st = u.structure_type, sv = u.structure_val, ev = u.ecole_val, ec = null, newEcole = null;
+    if (role === 'coordinateur') { st = 'drena'; sv = val('sa-drena'); ev = ''; if (!sv) { fail('Indiquez la DRENAET.'); return; } }
+    else if (role === 'correspondant' || role === 'cppp') { st = 'iepp'; sv = val('sa-iepp'); ev = ''; if (!sv) { fail('Indiquez l’IEPP.'); return; } }
+    else if (role === 'directeur' || role === 'instituteur' || role === 'benevole') {
+      var name = val('sa-ecole'), code = val('sa-ecole-code');
+      ec = resolveEcole(name, code);
+      if (!ec) {
+        if (!code) { fail('École introuvable : choisissez une école existante ou indiquez le code école (E…).'); return; }
+        newEcole = { id: code, code: code, nom: name || code, drena: val('sa-drena'), iepp: val('sa-iepp') };
+        ec = newEcole;
+      }
+      if (role === 'directeur') { st = 'ecole'; sv = ec.id; ev = ''; }
+      else { var cl = val('sa-classe'); if (!cl) { fail('Choisissez la classe.'); return; } st = 'classe'; sv = cl; ev = ec.id; }
+    } else if (role !== u.role) { st = 'national'; sv = ''; ev = ''; }     /* admin / cabinet / lecteur */
+
+    /* ── Application (la fiche existante est corrigée sur place) ── */
+    if (newEcole) {
+      DB.ecoles.push(newEcole);
+      try { if (window._firebaseReady && window._fb) window._fb.set('ecoles', newEcole.id, newEcole).catch(function () { }); } catch (e) { }
+      try { save('ecoles'); } catch (e) { }
+    }
+    u.nom = nom; u.role = role; u.structure_type = st; u.structure_val = sv; u.ecole_val = ev; u.telephone = tel; u.actif = actif;
+    if (dd) u.date_debut = dd; else delete u.date_debut;
+    if (df) u.date_fin = df; else delete u.date_fin;
+    if (pass) { try { u.pass = hashPass(pass); } catch (e) { fail('Impossible de chiffrer le mot de passe.'); return; } if ('passPlain' in u) u.passPlain = pass; }
+    if (ec && (role === 'directeur' || role === 'instituteur' || role === 'benevole')) { u.ecole_id = ec.id; u.ecole_nom = ec.nom; u.iepp = ec.iepp || u.iepp || ''; u.drena = ec.drena || u.drena || ''; }
+    else { delete u.ecole_id; delete u.ecole_nom; delete u.directeur_login; delete u.directeur_nom; }
+    if (role === 'instituteur' || role === 'benevole') {
+      var dir = (DB.users || []).filter(function (x) { return x.role === 'directeur' && ec && (rid(x.structure_val) === ec.id); })[0];
+      if (dir) { u.directeur_login = dir.login; u.directeur_nom = dir.nom; }
+    }
+    try { save('users'); } catch (e) { }
+    fbSetUser(u);
+    if (c && u.login === c.login) { c.nom = nom; try { if (typeof applyRoleUI === 'function') applyRoleUI(); } catch (e) { } }
+    try { if (window.CSA && CSA.audit) CSA.audit('correction', 'compte @' + u.login); } catch (e) { }
+    var login = u.login;
+    try { if (typeof saCloseModal === 'function') saCloseModal(); else { var m = modalEl(); if (m) m.classList.remove('active'); } } catch (e) { }
+    setMode(null);
+    try { if (typeof renderUsersList === 'function') renderUsersList(); } catch (e) { }
+    notif('✅ Compte « ' + login + ' » corrigé', 'success');
+  }
+
+  function install() {
+    try { wrapOpenSa(); wrapSaveSa(); wrapEdit(); wrapReset(); wrapSaveCompte(); } catch (e) { try { console.warn('[correction] install', e); } catch (_) { } }
+  }
+  install();
+  setInterval(install, 2000);
+  window.PGCORR = { edit: function (l) { return window.editCompte(l); }, saveCorrection: saveCorrection };
+  console.log('✅ PGNEP : correction des comptes (Super Administrateur + Correspondant)');
+})();
+
 </script>
 </body>
 </html>
