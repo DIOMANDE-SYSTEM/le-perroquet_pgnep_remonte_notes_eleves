@@ -30466,5 +30466,55 @@ console.log('✅ PGNEP : anti-doublons DRENAET / IEPP / écoles chargé');
 })();
 
 </script>
+<script id="pgnep-perimetre">
+/* PGNEP — Respect strict du périmètre (statistiques, résultats, rangs, listes) — module additif */
+(function(){
+ if(window.PGPERIM)return;
+ var W=window;
+ function ev(n){try{return (0,eval)(n);}catch(e){return undefined;}}
+ function cu(){try{return (typeof getCurrentUserData==='function')?getCurrentUserData():null;}catch(e){return null;}}
+ function global(){var u=cu();if(!u)return false;return ['admin','cabinet','lecteur'].indexOf(u.role)>=0||u.login==='diomande';}
+ function sEc(){try{return getScopeEcoles()||[];}catch(e){return [];}}
+ function sEl(){try{return getScopeEleves()||[];}catch(e){return [];}}
+ function sNt(){try{return getNotesFiltrees()||[];}catch(e){return [];}}
+ function norm(s){return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
+ function wrap(name,mk){var o=ev('typeof '+name+'==="function"?'+name+':null');if(!o||o.__pgscope)return;var w=mk(o);w.__pgscope=1;Object.keys(o).forEach(function(k){try{w[k]=o[k];}catch(e){}});W[name]=w;try{(0,eval)(name+'=window.'+name);}catch(e){}}
+
+ /* 1) Statistiques globales : vue de la base limitée au périmètre (élèves, écoles ET notes) */
+ wrap('renderGlobalStats',function(orig){return function(){
+   if(global())return orig.apply(this,arguments);
+   var real=ev('espDB'),base=real(),view={users:base.users,ecoles:sEc(),eleves:sEl(),notes:sNt()};
+   W.espDB=function(){return view;};try{(0,eval)('espDB=window.espDB');}catch(e){}
+   try{return orig.apply(this,arguments);}
+   finally{W.espDB=real;try{(0,eval)('espDB=window.espDB');}catch(e){}}
+ };});
+
+ /* 2) Rang : calculé uniquement parmi les élèves du périmètre de l'utilisateur */
+ wrap('getRang',function(orig){return function(eleveId,evalType,classe){
+   if(global())return orig.apply(this,arguments);
+   var ids={};sEl().forEach(function(e){ids[e.id]=1;});
+   var notes=ev('DB').notes,keep=notes;
+   try{ev('DB').notes=notes.filter(function(n){return ids[n.eleve_id];});return orig.apply(this,arguments);}
+   finally{ev('DB').notes=keep;}
+ };});
+
+ /* 3) Listes déroulantes : IEPP / DRENAET / écoles hors périmètre masquées */
+ function cut(id,mode){
+   var s=document.getElementById(id);if(!s||global())return;
+   var E=sEc(),ok={};
+   E.forEach(function(e){ok[mode==='id'?e.id:norm(mode==='iepp'?e.iepp:e.drena)]=1;});
+   var u=cu();if(u&&mode!=='id'&&u.structure_type===(mode==='iepp'?'iepp':'drena'))ok[norm(u.structure_val)]=1;
+   if(s.tagName!=='SELECT')return;
+   Array.prototype.slice.call(s.options).forEach(function(o){if(o.value===''||o.value==null)return;var k=mode==='id'?o.value:norm(o.value);if(!ok[k])o.parentNode.removeChild(o);});
+ }
+ function after(name,f){wrap(name,function(orig){return function(){var r=orig.apply(this,arguments);try{f();}catch(e){}return r;};});}
+ after('populateFiltresUsers',function(){cut('filt-user-iepp','iepp');cut('filt-user-drena','drena');});
+ after('populateDrenaIeppEleve',function(){cut('e-iepp','iepp');cut('e-drena','drena');});
+ after('updateStructureFields',function(){cut('new-iepp','iepp');cut('new-drena','drena');cut('new-ecole-user','id');cut('sa-ecole','id');});
+
+ W.PGPERIM={global:global,scope:function(){return {ecoles:sEc().length,eleves:sEl().length,notes:sNt().length};}};
+})();
+
+</script>
 </body>
 </html>
