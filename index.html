@@ -28701,7 +28701,7 @@ function fr(d){return d?String(d).split('-').reverse().join('/'):'';}
 function isSA(){var u=me();return !!u&&(u.role==='admin'||u.login==='diomande');}
 function isDir(){var u=me();return !!u&&u.role==='directeur';}
 function isCorr(){var u=me();return !!u&&u.role==='correspondant';}
-function isEC(){var u=me();return !!u&&u.role==='correspondant'&&u.ec_designe===true;}
+function isEC(){var u=me();return !!u&&u.role==='correspondant'&&(u.ec_designe===true||u.cf_fonction==='SECO');}
 function anneeCourante(){return (typeof ANNEE_SCOLAIRE!=='undefined'&&ANNEE_SCOLAIRE)?ANNEE_SCOLAIRE:(window.ANNEE_SCOLAIRE||'2026-2027');}
 function anneesListe(){var c=anneeCourante(),m=/^(\d{4})\s*-\s*(\d{4})$/.exec(c);if(!m)return [c];var a=+m[1],o=[];for(var i=-3;i<=1;i++)o.push((a+i)+'-'+(a+i+1));return o;}
 function persist(col,items){
@@ -29124,7 +29124,7 @@ var DIR_ITEMS=[['c1-releve','📝','Composition 1 · Relevé de notes'],['c1-bil
                ['eb1-releve','📝','Examen blanc 1 · Relevé de notes'],['eb1-bilan','📊','Examen blanc 1 · Bilan'],['eb2-releve','📝','Examen blanc 2 · Relevé de notes'],['eb2-bilan','📊','Examen blanc 2 · Bilan'],
                ['sign','✍️','PDF, signature et transmission'],['synth','↔️','Synthèse comparative'],['entree6','🎓','Entrée en 6ème · sortie du CM2'],['arch','🗄️','Archivage']];
 var EC_ITEMS=[['dash','📊','Tableau de bord'],['centre1','🏫','Création du centre 1'],['centre2','🏫','Création du centre 2'],['ecoles','🔗','Affectation libre des écoles'],['repart','🧒','Répartition des candidats'],
-              ['recep','📥','Réception des fiches'],['consol','🧮','Contrôle et consolidation'],['conv','📨','Convocations EB1 / EB2'],['ceap','🎓','CEAP / CAP'],['matrice','📋','Matrice d’activité'],['arch','🗄️','Archivage'],['desig','🔑','Désignation (Super Admin)']];
+              ['recep','📥','Réception des fiches'],['consol','🧮','Contrôle et consolidation'],['rapport','📝','Rapport (manuel ou IA)'],['conv','📨','Convocations EB1 / EB2'],['ceap','🎓','CEAP / CAP'],['matrice','📋','Matrice d’activité'],['arch','🗄️','Archivage'],['desig','🔑','Désignation (Super Admin)']];
 var CF_ITEMS=[['matrice-cf','🗓️','Matrice d’activités']];
 var MXCFG={
   ec:{titre:'Matrice d’activités — Correspondant Fichier SECO',cols:[{k:'phase',l:'Phase',opts:['Préparation','Déroulement','Après-examen']},{k:'periode',l:'Période'},{k:'activite',l:'Activité',wide:1},{k:'resp',l:'Responsable'},{k:'statut',l:'Statut',opts:['Programmée','En cours','Réalisée','Reportée']},{k:'obs',l:'Observation'}],
@@ -29155,7 +29155,8 @@ function ownerU(){
 function scopeOf(o){return o?D().ecoles.filter(function(e){return e.iepp===o.structure_val;}):[];}
 function canDir(){return isDir()||isSA()||isMaitre();}
 function canEC(){return isEC()||isSA();}
-function canCF(){return isCorr()||isSA();}
+function isSecoFn(u){return !!u&&u.role==='correspondant'&&(u.cf_fonction==='SECO'||(!u.cf_fonction&&u.ec_designe===true));}
+function canCF(){return isSA()||(isCorr()&&!isSecoFn(me()));}
 function Y(o,an){
   if(!o.ec2||typeof o.ec2!=='object')o.ec2={annees:{}};if(!o.ec2.annees)o.ec2.annees={};
   var y=o.ec2.annees[an]=o.ec2.annees[an]||{};
@@ -29348,11 +29349,14 @@ function autoCode(o,num){
 }
 function viewCentre(o,num){
   var y=YR(o,S.annee),list=y.centres.filter(function(c){return c.num===num;}),h='';
-  h+='<div class="og-hint">Les centres 1 et 2 sont des <b>structures d’organisation</b> : ils ne sont pas automatiquement liés aux compositions 1 et 2. Précisez la composition concernée pour chaque session.</div>';
+  h+='<div class="og-hint">Vous pouvez créer <b>autant de centres que nécessaire</b> (un par école d’accueil, avec « ⧉ » pour dupliquer ou « Créer plusieurs centres »). Les centres 1 et 2 sont des <b>structures d’organisation</b> : ils ne sont pas automatiquement liés aux compositions 1 et 2. Précisez la composition concernée pour chaque session.</div>';
   if(S.centreEdit)h+=card((S.centreEdit==='new'?'Nouveau':'Modifier le')+' centre '+num,centreForm(o,num));
-  else h+='<div class="og-actions">'+btn('newCentre','➕ Créer un centre '+num,{n:num},'btn-primary')+'</div>';
+  else h+='<div class="og-actions">'+btn('newCentre','➕ Créer un centre '+num,{n:num},'btn-primary')+btn('multiOpen','🏫 Créer plusieurs centres à la fois',{n:num})+'</div>';
+  if(S.centreMulti===num&&!S.centreEdit){var sc0=scopeOf(o),used={};y.centres.forEach(function(c){used[c.accueil+'|'+c.session]=1;});var ses0='EB'+num;
+    h+=card('Créer plusieurs centres — une école d’accueil par centre','<div class="og-hint">Cochez les écoles qui accueilleront un centre : un centre est créé pour chacune (nom, code et statut « Préparation » générés automatiquement, modifiables ensuite).</div><div class="og-top">'+fld('Session','<select id="cm-mses">'+opt('EB1','Examen blanc 1',ses0==='EB1')+opt('EB2','Examen blanc 2',ses0==='EB2')+'</select>')+fld('Composition concernée','<select id="cm-mcomp">'+opt('','— non précisée —',true)+opt('C1','Composition 1',false)+opt('C2','Composition 2',false)+'</select>')+'</div>'+
+      '<div class="og-scroll"><table class="og-t"><tbody>'+sc0.map(function(e){return '<tr><td style="width:30px"><input type="checkbox" class="cm-host" value="'+esc(e.id)+'"></td><td>'+esc(e.nom)+'</td></tr>';}).join('')+'</tbody></table></div><div class="og-actions">'+btn('multiCentre','✅ Créer les centres cochés',{n:num},'btn-primary')+btn('multiClose','Annuler')+'</div>');}
   h+=card('Centres n° '+num+' — '+esc(S.annee),tbl(['Centre','Code','Session','École d’accueil','Écoles','Gar.','Fil.','Total','Responsable','Statut',''],list.map(function(c){var s=centreStats(c);
-    return [esc(c.nom),esc(c.code),esc(sessLabel(c.session)),esc(ecoleNom(c.accueil)),(c.ecoles||[]).length,s.M,s.F,'<b>'+s.T+'</b>',esc(c.resp||''),esc(c.statut),btn('editCentre','✏️',{i:c.id})+' '+btn('delCentre','🗑️',{i:c.id},'btn-danger')];}),'Aucun centre '+num+' pour cette année.'));
+    return [esc(c.nom),esc(c.code),esc(sessLabel(c.session)),esc(ecoleNom(c.accueil)),(c.ecoles||[]).length,s.M,s.F,'<b>'+s.T+'</b>',esc(c.resp||''),esc(c.statut),btn('editCentre','✏️',{i:c.id})+' '+btn('dupCentre','⧉',{i:c.id,n:num})+' '+btn('delCentre','🗑️',{i:c.id},'btn-danger')];}),'Aucun centre '+num+' pour cette année.'));
   return h;
 }
 function centreSelect(o){
@@ -29406,6 +29410,7 @@ function viewConsol(o){
   h+='<div class="stats-grid og-stats">'+stat('Écoles consolidées',d.C.parEcole.length+' / '+scopeOf(o).length)+stat('Inscrits',T.insT,'bleu')+stat('Présents',T.presT,'orange')+stat('Absents',T.abs,'gold')+stat('Admis',T.admT)+stat('Taux de réussite',pct(T.taux),'bleu')+stat('Moyenne /20',T.moyClasse==null?'—':fx(T.moyClasse),'orange')+'</div>';
   h+='<div class="og-actions">'+btn('xlsConsol','⬇️ Export Excel',null,'btn-primary')+btn('prtConsol','🖨️ Export PDF / Imprimer')+btn('freeze','🗄️ Figer pour l’archivage')+'</div>';
   var head=['','Inscrits','Présents','Absents','Admis M / F','Admis','Taux','Moy /20'];
+  h+=viewAnalyse(o,d);
   h+=card('Circonscription — '+esc(o.structure_val||''),tbl(head,[bilanRow('<b>CIRCONSCRIPTION</b>',T)]));
   h+=card('Par école',tbl(['École'].concat(head.slice(1)),d.C.parEcole.map(function(B){return bilanRow(esc(B.ec.nom)+(B.transmis?'':' <small>(non transmise)</small>'),B);}),'Aucune fiche à consolider.'));
   h+=card('Par centre d’examen blanc',tbl(['Centre'].concat(head.slice(1)),d.centres.map(function(x){return bilanRow(esc(x.c.nom)+' <small>('+esc(sessLabel(x.c.session))+(x.c.comp?' · '+x.c.comp:'')+')</small>',x.B);}),'Aucun centre.'));
@@ -29491,6 +29496,159 @@ function viewMatrice(o,kind){
   return h;
 }
 function dlBlob(name,mime,data){var b=new Blob([data],{type:mime}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){try{document.body.removeChild(a);URL.revokeObjectURL(a.href);}catch(e){}},500);}
+/* ═══════════════ ANALYSES, GRAPHIQUES, IA INTERNE ET RAPPORT (SECO) ═══════════════ */
+var TH_BEST=14,TH_WEAK=10,AN_COL={v:'#009E60',o:'#F77F00',b:'#1A3D6E',r:'#DC2626',p:'#7C3AED',g:'#94A3B8'};
+function mean(a){var s=0;a.forEach(function(x){s+=x;});return a.length?s/a.length:null;}
+function analytics(o,d){
+  var an=S.annee,n=d.n,T=d.C.total,sc=scopeOf(o),pup=[];
+  d.C.parEcole.forEach(function(B){cm2Eleves(B.ec,an).forEach(function(e){var c=calcRow(rowOf(B.ec,an,n,e),n);if(c.moy!=null&&c.total>0)pup.push({nom:((e.nom||'')+' '+(e.prenoms||'')).trim(),ec:B.ec.nom||'',moy:c.moy,g:genre(e)});});});
+  pup.sort(function(a,b){return b.moy-a.moy;});
+  var tiers={best:0,mid:0,weak:0};pup.forEach(function(p){if(p.moy>=TH_BEST)tiers.best++;else if(p.moy>=TH_WEAK)tiers.mid++;else tiers.weak++;});
+  var ecs=d.C.parEcole.filter(function(B){return B.moyClasse!=null&&B.presT>0;}).map(function(B){return {nom:B.ec.nom||'',moy:B.moyClasse,taux:B.taux,pres:B.presT};}).sort(function(a,b){return b.moy-a.moy;});
+  var cts=d.centres.filter(function(x){return x.B.moyClasse!=null&&x.B.presT>0;}).map(function(x){return {nom:x.c.nom||'',moy:x.B.moyClasse,taux:x.B.taux,pres:x.B.presT};}).sort(function(a,b){return b.moy-a.moy;});
+  var mats=matOf(n).map(function(m){return {nom:m.n,taux:T.tauxDisc[m.k]};}).filter(function(x){return x.taux!=null;}).sort(function(a,b){return b.taux-a.taux;});
+  var evol=NKEYS.map(function(k){var C=consolidate(sc,an,k,S.consOnly).total;return {k:k,l:COMPS[k],taux:C.taux,moy:C.moyClasse,pres:C.presT};}).filter(function(x){return x.pres>0;});
+  var transm=sc.filter(function(e){return ficheR(e,an,n).transmis;}).length;
+  return {pup:pup,tiers:tiers,ecs:ecs,cts:cts,mats:mats,evol:evol,transm:transm,nbEc:sc.length,T:T,n:n};
+}
+/* ── éléments graphiques (SVG / HTML, sans bibliothèque) ── */
+function ring(p,color,label,sub){
+  var v=p==null||isNaN(p)?0:Math.max(0,Math.min(1,p)),R=34,C=2*Math.PI*R;
+  return '<div class="an-ring"><svg viewBox="0 0 90 90" width="96" height="96"><circle cx="45" cy="45" r="'+R+'" fill="none" stroke="#E5E7EB" stroke-width="10"/><circle cx="45" cy="45" r="'+R+'" fill="none" stroke="'+color+'" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+(v*C).toFixed(1)+' '+C.toFixed(1)+'" transform="rotate(-90 45 45)"/><text x="45" y="50" text-anchor="middle" font-size="15" font-weight="700" fill="#1E293B">'+(p==null?'—':Math.round(v*100)+'%')+'</text></svg><b>'+esc(label)+'</b><small>'+esc(sub||'')+'</small></div>';
+}
+function hbars(items,max,fmt){
+  if(!items.length)return '<div class="og-empty">Pas encore de données.</div>';
+  return '<div class="an-bars">'+items.map(function(it){var w=max>0?Math.max(2,Math.min(100,it.v/max*100)):0;
+    return '<div class="an-row"><span class="an-l" title="'+esc(it.l)+'">'+esc(it.l)+'</span><span class="an-t"><i style="width:'+w.toFixed(1)+'%;background:'+(it.c||AN_COL.b)+'"></i></span><span class="an-v">'+esc(fmt?fmt(it.v):fx(it.v))+(it.tag?' <em style="color:'+(it.c||'#555')+'">'+esc(it.tag)+'</em>':'')+'</span></div>';}).join('')+'</div>';
+}
+function tierCol(m){return m>=TH_BEST?AN_COL.v:m>=TH_WEAK?AN_COL.o:AN_COL.r;}
+function tauxCol(t){return t>=.6?AN_COL.v:t>=.4?AN_COL.o:AN_COL.r;}
+function tierBar(t,tot){
+  if(!tot)return '<div class="og-empty">Pas encore de données.</div>';
+  var seg=function(n,c,l){return n?'<span style="flex:'+n+';background:'+c+'" title="'+l+' : '+n+'">'+n+'</span>':'';};
+  return '<div class="an-tier">'+seg(t.best,AN_COL.v,'Meilleurs')+seg(t.mid,AN_COL.o,'Moyens')+seg(t.weak,AN_COL.r,'Faibles')+'</div><div class="an-leg"><span><i style="background:'+AN_COL.v+'"></i>Meilleurs (≥ '+TH_BEST+') : '+t.best+'</span><span><i style="background:'+AN_COL.o+'"></i>Moyens ('+TH_WEAK+' à '+TH_BEST+') : '+t.mid+'</span><span><i style="background:'+AN_COL.r+'"></i>Faibles (&lt; '+TH_WEAK+') : '+t.weak+'</span></div>';
+}
+/* ── IA interne : analyse rédigée à partir des chiffres (aucune donnée ne quitte l'application) ── */
+function ia(o,A){
+  var T=A.T,L=COMPS[A.n],R={},li=function(a){return a.filter(Boolean).map(function(x){return '• '+x;}).join('\n');};
+  var circ='la circonscription « IEPP '+String(o.structure_val||'').replace(/^IEPP\s*/i,'')+' »';
+  R.intro='Le présent rapport porte sur les résultats de la '+(A.n==='eb1'||A.n==='eb2'?'session d’':'')+L+' des élèves de CM2 de '+circ+', année scolaire '+S.annee+'. Il s’appuie sur les fiches reçues de '+A.transm+' école(s) sur '+A.nbEc+'.';
+  if(!T.presT){R.resultats='Aucun résultat n’est encore disponible pour cette évaluation : les fiches de notes n’ont pas été reçues ou saisies.';R.forts=R.faibles=R.analyse='';R.reco='• Relancer les directeurs et les maîtres de CM2 pour la transmission des fiches de notes.';R.conclusion='Le rapport sera complété dès réception des résultats.';return R;}
+  var tx=T.taux,niv=tx>=.7?'très satisfaisant':tx>=.5?'satisfaisant mais à consolider':'préoccupant';
+  R.resultats='Sur '+T.insT+' élèves inscrits, '+T.presT+' ont composé ('+T.abs+' absent(s), soit '+pct(ratio(T.abs,T.insT))+'). '+T.admT+' élève(s) ont obtenu la moyenne ('+T.adm.M+' garçon(s) et '+T.adm.F+' fille(s)), soit un taux de réussite de '+pct(tx)+', jugé '+niv+'. La moyenne générale de la circonscription est de '+fx(T.moyClasse)+'/20.';
+  var forts=[],faibles=[],an=[],reco=[];
+  var m0=A.mats[0],m1=A.mats[A.mats.length-1];
+  if(m0)forts.push('Meilleure discipline : '+m0.nom+' ('+pct(m0.taux)+' des présents ont la moyenne).');
+  if(A.ecs.length){forts.push('Meilleure école : '+A.ecs[0].nom+' (moyenne '+fx(A.ecs[0].moy)+'/20, réussite '+pct(A.ecs[0].taux)+').');}
+  if(A.cts.length){forts.push('Meilleur centre d’examen blanc : '+A.cts[0].nom+' (moyenne '+fx(A.cts[0].moy)+'/20).');}
+  if(A.tiers.best)forts.push(A.tiers.best+' élève(s) ont une moyenne supérieure ou égale à '+TH_BEST+'/20.');
+  if(m1&&m1!==m0)faibles.push('Discipline la plus faible : '+m1.nom+' (seulement '+pct(m1.taux)+' des présents ont la moyenne).');
+  A.mats.filter(function(m){return m.taux<.5&&m!==m1;}).forEach(function(m){faibles.push(m.nom+' reste sous la barre des 50 % ('+pct(m.taux)+').');});
+  if(A.ecs.length>1){var w=A.ecs[A.ecs.length-1];faibles.push('École la plus en difficulté : '+w.nom+' (moyenne '+fx(w.moy)+'/20, réussite '+pct(w.taux)+').');}
+  if(A.cts.length>1){var wc=A.cts[A.cts.length-1];if(wc!==A.cts[0])faibles.push('Centre le plus faible : '+wc.nom+' (moyenne '+fx(wc.moy)+'/20).');}
+  if(A.tiers.weak)faibles.push(A.tiers.weak+' élève(s) ('+pct(ratio(A.tiers.weak,A.pup.length))+' des présents) ont une moyenne inférieure à '+TH_WEAK+'/20.');
+  if(T.insT&&T.abs/T.insT>=.1)faibles.push('Le taux d’absentéisme ('+pct(ratio(T.abs,T.insT))+') est élevé et fausse les résultats.');
+  if(T.tauxM!=null&&T.tauxF!=null){var dd=(T.tauxF-T.tauxM)*100;an.push(Math.abs(dd)<3?'La réussite est équilibrée entre filles ('+pct(T.tauxF)+') et garçons ('+pct(T.tauxM)+').':(dd>0?'Les filles réussissent mieux que les garçons ('+pct(T.tauxF)+' contre '+pct(T.tauxM)+', écart de ':'Les garçons réussissent mieux que les filles ('+pct(T.tauxM)+' contre '+pct(T.tauxF)+', écart de ')+Math.abs(dd).toFixed(1).replace('.',',')+' points).');}
+  if(A.ecs.length>1){var ec=(A.ecs[0].moy-A.ecs[A.ecs.length-1].moy);an.push('L’écart de moyenne entre la meilleure et la plus faible école est de '+fx(ec)+' point(s)'+(ec>=4?' : les disparités sont importantes.':'.'));}
+  if(A.evol.length>1){var a=A.evol[A.evol.length-2],b=A.evol[A.evol.length-1],de=(b.taux-a.taux)*100;an.push('Entre '+a.l+' ('+pct(a.taux)+') et '+b.l+' ('+pct(b.taux)+'), le taux de réussite '+(Math.abs(de)<1?'est stable.':de>0?'progresse de '+de.toFixed(1).replace('.',',')+' points.':'recule de '+Math.abs(de).toFixed(1).replace('.',',')+' points.'));}
+  if(A.transm<A.nbEc)an.push(A.nbEc-A.transm+' école(s) n’ont pas encore transmis leur fiche : les résultats de la circonscription peuvent évoluer.');
+  if(m1&&m1.taux<.5)reco.push('Organiser des séances de remédiation en '+m1.nom+' dans les écoles les plus en difficulté.');
+  if(A.ecs.length>1)reco.push('Accompagner par des visites de classe et des cellules d’animation pédagogique l’école « '+A.ecs[A.ecs.length-1].nom+' » et les écoles du dernier tiers du classement.');
+  if(A.tiers.weak)reco.push('Mettre en place un suivi des élèves dont la moyenne est inférieure à '+TH_WEAK+'/20 (soutien, exercices ciblés).');
+  if(A.ecs.length>1)reco.push('Mutualiser les bonnes pratiques de « '+A.ecs[0].nom+' » lors des rencontres entre directeurs.');
+  if(T.insT&&T.abs/T.insT>=.1)reco.push('Sensibiliser les parents et les directeurs pour réduire les absences aux compositions.');
+  if(A.transm<A.nbEc)reco.push('Relancer les écoles qui n’ont pas transmis leurs fiches.');
+  reco.push('Poursuivre les examens blancs dans les centres pour préparer les élèves à l’examen officiel.');
+  R.forts=li(forts);R.faibles=li(faibles);R.analyse=li(an);R.reco=li(reco);
+  R.conclusion='Au total, les résultats de '+L+' sont '+niv+' (taux de réussite de '+pct(tx)+'). Les actions de remédiation proposées ci-dessus devraient permettre d’améliorer les résultats avant l’examen.';
+  return R;
+}
+/* ── bloc analytique ajouté au menu « Contrôle et consolidation » ── */
+function viewAnalyse(o,d){
+  var A=analytics(o,d),T=A.T,h='';
+  var rings=ring(T.taux,AN_COL.v,'Taux de réussite','admis / présents')+ring(ratio(T.presT,T.insT),AN_COL.b,'Présence','présents / inscrits')+ring(T.tauxF,AN_COL.p,'Réussite des filles',T.pres.F+' présentes')+ring(T.tauxM,AN_COL.o,'Réussite des garçons',T.pres.M+' présents')+ring(ratio(A.transm,A.nbEc),AN_COL.g,'Fiches transmises',A.transm+' / '+A.nbEc+' écoles');
+  h+=card('📈 Taux de réussite des élèves de CM2 — '+esc(COMPS[A.n]),'<div class="an-rings">'+rings+'</div>');
+  var ev=hbars(A.evol.map(function(x){return {l:x.l,v:(x.taux||0)*100,c:tauxCol(x.taux||0)};}),100,function(v){return v.toFixed(1).replace('.',',')+' %';});
+  h+='<div class="an-two">'+card('Évolution du taux de réussite par évaluation',ev)+card('Répartition des élèves : meilleurs, moyens, faibles',tierBar(A.tiers,A.pup.length))+'</div>';
+  var tops=A.pup.slice(0,5).map(function(p){return {l:p.nom+' — '+p.ec,v:p.moy,c:AN_COL.v};}),bots=A.pup.slice(-5).reverse().map(function(p){return {l:p.nom+' — '+p.ec,v:p.moy,c:AN_COL.r};});
+  h+='<div class="an-two">'+card('🏅 5 meilleurs élèves (moyenne /20)',hbars(tops,20))+card('⚠️ 5 élèves les plus faibles (moyenne /20)',hbars(bots,20))+'</div>';
+  var te=A.ecs.slice(0,5).map(function(x){return {l:x.nom,v:x.moy,c:tierCol(x.moy)};}),be=A.ecs.length>5?A.ecs.slice(-5).reverse().map(function(x){return {l:x.nom,v:x.moy,c:tierCol(x.moy)};}):[];
+  h+='<div class="an-two">'+card('🏫 Meilleures écoles (moyenne /20)',hbars(te,20))+card('🏫 Écoles à accompagner (moyenne /20)',be.length?hbars(be,20):'<div class="og-empty">Il faut au moins 6 écoles pour établir ce classement.</div>')+'</div>';
+  var ce=A.cts.map(function(x,i){return {l:x.nom,v:x.moy,c:tierCol(x.moy),tag:i===0&&A.cts.length>1?'meilleur':(i===A.cts.length-1&&A.cts.length>1?'plus faible':'')};});
+  var ma=A.mats.map(function(x,i){return {l:x.nom,v:x.taux*100,c:tauxCol(x.taux),tag:i===0?'meilleure':(i===A.mats.length-1&&A.mats.length>1?'plus faible':'')};});
+  h+='<div class="an-two">'+card('🎯 Centres d’examen blanc (moyenne /20)',hbars(ce,20))+card('📚 Réussite par matière (% des présents ayant la moyenne)',hbars(ma,100,function(v){return v.toFixed(1).replace('.',',')+' %';}))+'</div>';
+  var R=ia(o,A),blk=function(t,x){return x?'<div class="an-ia-b"><b>'+t+'</b><div>'+esc(x).replace(/\n/g,'<br>')+'</div></div>':'';};
+  h+=card('🤖 Analyse automatique (IA interne)','<div class="og-hint" style="margin-top:0">Analyse produite par l’application à partir des chiffres ci-dessus : aucune donnée n’est envoyée à l’extérieur. À relire avant tout usage officiel.</div>'+blk('Résultats',R.resultats)+blk('Points forts',R.forts)+blk('Points faibles',R.faibles)+blk('Analyse',R.analyse)+blk('Recommandations',R.reco)+
+    '<div class="og-actions">'+btn('toRap','📝 Utiliser dans le rapport',null,'btn-primary')+'</div>');
+  return h;
+}
+/* ── rapport (manuel ou assisté par l'IA, avec aide à la correction) ── */
+var RTYPES=[['c1','Rapport de la 1ère composition'],['c2','Rapport de la 2ème composition'],['eb1','Rapport de l’examen blanc 1'],['eb2','Rapport de l’examen blanc 2'],['t1','Rapport du 1er trimestre'],['t2','Rapport du 2ème trimestre'],['t3','Rapport du 3ème trimestre'],['an','Rapport annuel / bilan annuel']];
+var RLINK={t1:['c1'],t2:['c2','eb1'],t3:['eb2'],an:['c1','c2','eb1','eb2']};
+function rtLab(k){var x=RTYPES.find(function(t){return t[0]===k;});return x?x[1]:k;}
+function rtTitre(k){return rtLab(k)+' — CM2';}
+function iaFor(o,k){var old=S.consComp;S.consComp=k;try{var d=consolData(o),A=analytics(o,d);return {R:ia(o,A),A:A};}finally{S.consComp=old;}}
+/* rapport trimestriel / annuel : synthèse des évaluations rattachées (T1 = composition 1 ; T2 = composition 2 + examen blanc 1 ; T3 = examen blanc 2 ; annuel = les quatre) */
+function iaFull(o,k){
+  var keys=RLINK[k];if(!keys)return iaFor(o,k).R;
+  var parts=keys.map(function(x){return {k:x,r:iaFor(o,x)};}),avec=parts.filter(function(p){return p.r.A.T.presT>0;}),R={};
+  var circ='la circonscription « IEPP '+String(o.structure_val||'').replace(/^IEPP\s*/i,'')+' »';
+  R.intro='Le présent rapport '+(k==='an'?'dresse le bilan annuel':'présente le bilan du '+rtLab(k).replace('Rapport du ',''))+' des résultats des élèves de CM2 de '+circ+', année scolaire '+S.annee+'. Il rassemble les évaluations suivantes : '+keys.map(function(x){return COMPS[x];}).join(', ')+'.';
+  if(!avec.length){R.resultats='Aucun résultat n’est encore disponible pour cette période : les fiches de notes n’ont pas été reçues ou saisies.';R.forts=R.faibles=R.analyse='';R.reco='• Relancer les directeurs et les maîtres de CM2 pour la transmission des fiches de notes.';R.conclusion='Le rapport sera complété dès réception des résultats.';return R;}
+  R.resultats=avec.map(function(p){return '▸ '+COMPS[p.k]+' : '+p.r.R.resultats;}).join('\n\n');
+  var uni=function(f){var seen={},out=[];avec.forEach(function(p){String(p.r.R[f]||'').split('\n').forEach(function(l){var t=l.trim();if(t&&!seen[t]){seen[t]=1;out.push(avec.length>1?t+' ('+COMPS[p.k]+')':t);}});});return out.join('\n');};
+  R.forts=uni('forts');R.faibles=uni('faibles');R.analyse=uni('analyse');
+  var ev=avec[avec.length-1].r.A.evol;
+  if(ev.length>1){var f=ev[0],l=ev[ev.length-1],dd=(l.taux-f.taux)*100;R.analyse=(R.analyse?R.analyse+'\n':'')+'• Sur la période, le taux de réussite passe de '+pct(f.taux)+' ('+f.l+') à '+pct(l.taux)+' ('+l.l+') : '+(Math.abs(dd)<1?'stabilité.':dd>0?'progression de '+dd.toFixed(1).replace('.',',')+' points.':'recul de '+Math.abs(dd).toFixed(1).replace('.',',')+' points.');}
+  var seenR={},rec=[];avec.forEach(function(p){String(p.r.R.reco||'').split('\n').forEach(function(x){var t=x.trim();if(t&&!seenR[t]){seenR[t]=1;rec.push(t);}});});R.reco=rec.join('\n');
+  var last=avec[avec.length-1].r.A.T;
+  R.conclusion=(k==='an'?'Au terme de l’année scolaire':'Au terme de la période')+', le dernier taux de réussite observé est de '+pct(last.taux)+' (moyenne '+fx(last.moyClasse)+'/20). Les recommandations ci-dessus visent à consolider les acquis et à réduire les écarts entre écoles avant l’examen.';
+  return R;
+}
+var RSEC=[['intro','Introduction et contexte'],['resultats','Résultats'],['forts','Points forts'],['faibles','Points faibles et difficultés'],['analyse','Analyse'],['reco','Recommandations'],['conclusion','Conclusion']];
+function rapStore(o){if(!o.rap||typeof o.rap!=='object')o.rap={};if(!o.rap[S.annee])o.rap[S.annee]={};return o.rap[S.annee];}
+function rapLoad(o){
+  var key=S.annee+'|'+(S.rapType||'c1')+'|'+(o&&o.login);if(S.rapKey===key&&S.rap)return S.rap;
+  var st=o&&o.rap&&o.rap[S.annee]&&o.rap[S.annee][S.rapType||'c1'];S.rap=st?JSON.parse(JSON.stringify(st)):{titre:'',sec:{},auteur:'',lieu:''};S.rapKey=key;S.rapFix=null;return S.rap;
+}
+function rapRead(){var r=S.rap||(S.rap={titre:'',sec:{}});r.sec=r.sec||{};var t=$('rp-titre');if(t)r.titre=t.value;var a=$('rp-auteur');if(a)r.auteur=a.value;var l=$('rp-lieu');if(l)r.lieu=l.value;RSEC.forEach(function(s){var e=$('rp-'+s[0]);if(e)r.sec[s[0]]=e.value;});return r;}
+function viewRapport(o){
+  var r=rapLoad(o),sc=scopeOf(o)[0]||{};
+  var h='<div class="og-hint">Rédigez le rapport vous-même ou cliquez sur « ✨ Générer avec l’IA » pour pré-remplir les sections à partir des résultats consolidés, puis modifiez-les librement. « 🔍 Vérifier et corriger » propose des corrections d’orthographe, d’accents et de ponctuation.</div>';
+  h+='<div class="og-top">'+fld('Type de rapport',sel('cm-rc','rapt',RTYPES.map(function(t){return [t[0],t[1]];}),S.rapType||'c1'))+fld('Titre du rapport','<input id="rp-titre" data-c="rapf" value="'+esc(r.titre||rtTitre(S.rapType||'c1'))+'">',2)+'</div>'+(RLINK[S.rapType]?'<div class="og-sub">Données utilisées : '+RLINK[S.rapType].map(function(k){return COMPS[k];}).join(' + ')+'.</div>':'');
+  h+='<div class="og-actions">'+btn('rapGen','✨ Générer avec l’IA',null,'btn-primary')+btn('rapFix','🔍 Vérifier et corriger')+btn('rapSave','💾 Enregistrer')+btn('rapPrint','🖨️ Imprimer / PDF')+btn('rapWord','📝 Word')+btn('rapClear','🗑️ Vider')+'</div>';
+  if(S.rapFix){
+    h+=card('🔍 Corrections proposées ('+S.rapFix.length+')',S.rapFix.length?'<ul class="an-fix">'+S.rapFix.slice(0,40).map(function(f){return '<li><b>'+esc(f.sec)+'</b> : <del>'+esc(f.a)+'</del> → <ins>'+esc(f.b)+'</ins> <small>('+esc(f.why)+')</small></li>';}).join('')+(S.rapFix.length>40?'<li>… et '+(S.rapFix.length-40)+' autre(s)</li>':'')+'</ul><div class="og-actions">'+btn('rapApply','✅ Appliquer les corrections',null,'btn-primary')+btn('rapIgnore','Ignorer')+'</div>':'<div class="og-empty">✅ Aucune faute détectée.</div><div class="og-actions">'+btn('rapIgnore','Fermer')+'</div>');
+  }
+  h+='<div class="og-form">'+RSEC.map(function(s){return fld(s[1],'<textarea id="rp-'+s[0]+'" data-c="rapf" rows="'+(s[0]==='intro'||s[0]==='conclusion'?3:5)+'">'+esc((r.sec||{})[s[0]]||'')+'</textarea>');}).join('')+
+    '<div class="og-top">'+fld('Fait à','<input id="rp-lieu" data-c="rapf" value="'+esc(r.lieu||sc.iepp||'')+'">')+fld('Nom et fonction du signataire','<input id="rp-auteur" data-c="rapf" value="'+esc(r.auteur||'Le Correspondant Fichier SECO')+'">')+'</div></div>';
+  return h;
+}
+/* aide à la correction : accents, espaces, ponctuation française, majuscules */
+var FIXW={'quelque fois':'quelquefois','parceque':'parce que','malgrès':'malgré','aujourdhui':'aujourd’hui','evaluation':'évaluation','evaluations':'évaluations','resultat':'résultat','resultats':'résultats','ecole':'école','ecoles':'écoles','eleve':'élève','eleves':'élèves','difficulte':'difficulté','difficultes':'difficultés','matiere':'matière','matieres':'matières','presents':'présents','present':'présent','pedagogique':'pédagogique','pedagogiques':'pédagogiques','reussite':'réussite','etablissement':'établissement','derniere':'dernière','premiere':'première','deuxieme':'deuxième','troisieme':'troisième','systeme':'système','probleme':'problème','problemes':'problèmes','repartition':'répartition','organisation pedagogique':'organisation pédagogique','recommendation':'recommandation','recommendations':'recommandations','remediation':'remédiation','ameliorer':'améliorer','amelioration':'amélioration','circonscripton':'circonscription','a cause':'à cause','deja':'déjà','tres':'très','apres':'après','periode':'période','generale':'générale','general':'général','moyenne generale':'moyenne générale','progres':'progrès','regression':'régression','nombres d’eleves':'nombres d’élèves'};
+function capLike(src,t){return /^[A-ZÀ-Ý]/.test(src)?t.charAt(0).toUpperCase()+t.slice(1):t;}
+function fixText(t,sec,out){
+  var s=String(t||''),orig=s,ch=function(a,b,why){if(a!==b)out.push({sec:sec,a:a.trim().slice(0,60),b:b.trim().slice(0,60),why:why});};
+  var L='A-Za-zÀ-ÿ';
+  Object.keys(FIXW).forEach(function(w){var re=new RegExp('(^|[^'+L+'])('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')(?=[^'+L+']|$)','gi');
+    s=s.replace(re,function(m,p,x){var to=capLike(x,FIXW[w]);if(x!==to)out.push({sec:sec,a:x,b:to,why:'orthographe / accent'});return p+to;});});
+  var before;
+  before=s;s=s.replace(/[ \t]{2,}/g,' ');if(s!==before)out.push({sec:sec,a:'espaces multiples',b:'espace simple',why:'espaces'});
+  before=s;s=s.replace(/ +([,.])/g,'$1');if(s!==before)out.push({sec:sec,a:' ,',b:',',why:'espace avant , ou .'});
+  before=s;s=s.replace(/([^\s ])([;:!?])/g,function(m,a,b){return /\d/.test(a)&&b===':'?m:a+' '+b;});if(s!==before)out.push({sec:sec,a:'x:',b:'x :',why:'espace avant ; : ! ?'});
+  before=s;s=s.replace(/([,;:])(?=[^\s\d])/g,'$1 ');if(s!==before)out.push({sec:sec,a:',x',b:', x',why:'espace après la ponctuation'});
+  before=s;s=s.replace(/(\p{L})'(\p{L})/gu,'$1’$2');if(s!==before)out.push({sec:sec,a:'’',b:'’',why:'apostrophe typographique'});
+  before=s;s=s.replace(/(^|[.!?]\s+|\n\s*[•\-]?\s*)(\p{Ll})/gu,function(m,p,c){return p+c.toUpperCase();});if(s!==before)out.push({sec:sec,a:'minuscule initiale',b:'Majuscule',why:'majuscule en début de phrase'});
+  s=s.replace(/[ \t]+$/gm,'');
+  return s;
+}
+/* ── exports ── */
+function rapHTML(o,r){
+  var sc=scopeOf(o)[0]||{},sec=r.sec||{};
+  var body=RSEC.map(function(s){var x=(sec[s[0]]||'').trim();return x?'<h3 style="margin:12px 0 4px;font-size:13px">'+esc(s[1])+'</h3><div style="font-size:12px;line-height:1.5;white-space:pre-wrap">'+esc(x)+'</div>':'';}).join('');
+  return {sc:sc,body:body};
+}
+
 function viewArchEC(o){
   var ys=Object.keys((o.ec2&&o.ec2.annees)||{}).sort().reverse();
   var rows=[];ys.forEach(function(an){var y=o.ec2.annees[an];Object.keys(y.archives||{}).forEach(function(k){var a=y.archives[k];rows.push([esc(an),esc(a.comp),esc(fr(a.date)),a.ecoles,a.ins,a.pres,a.adm,pct(a.taux),a.moy==null?'—':fx(a.moy)]);});});
@@ -29500,7 +29658,7 @@ function viewArchEC(o){
 }
 function viewDesig(){
   if(!isSA())return '<div class="og-empty">Réservé au Super Administrateur.</div>';
-  return '<div class="og-hint">Seul le Super Administrateur désigne le « Correspondant fichier – Examens et concours ». Les autres Correspondants gardent leur espace actuel, sans changement. Aucun compte n’est créé, supprimé ni modifié en dehors de cette case.</div>'+
+  return '<div class="og-hint">Le Super Administrateur peut aussi faire passer un compte existant de « Correspondant Fichier DEPS » à « Correspondant Fichier SECO » (la fonction se choisit aussi à la création du compte). Les autres Correspondants gardent leur espace actuel, sans changement. Aucun compte n’est créé, supprimé ni modifié en dehors de cette case.</div>'+
     card('🔑 Correspondants',tbl(['Nom','Identifiant','IEPP','Examens et concours'],correspondants().map(function(u){return [esc(u.nom),esc(u.login),esc(u.structure_val||''),'<input type="checkbox" class="cm-desig" value="'+esc(u.login)+'"'+(u.ec_designe?' checked':'')+'>'];}),'Aucun compte Correspondant.')+
     '<div class="og-actions">'+btn('saveDesig','💾 Enregistrer la désignation',null,'btn-primary')+'</div>');
 }
@@ -29525,7 +29683,7 @@ function render(){
       top=ecTop(o);
       var sbt=$('cm2-sub-title');if(sbt)sbt.textContent='IEPP '+(o.structure_val||'')+' · '+S.annee;
       if(v==='dash')body=viewDashEC(o);else if(v==='centre1')body=viewCentre(o,1);else if(v==='centre2')body=viewCentre(o,2);else if(v==='ecoles')body=viewEcolesAff(o);else if(v==='repart')body=viewRepart(o);
-      else if(v==='recep')body=viewRecep(o);else if(v==='consol')body=viewConsol(o);else if(v==='conv')body=viewConv(o);else if(v==='ceap')body=viewCeap(o);else if(v==='matrice')body=viewMatrice(o,'ec');
+      else if(v==='recep')body=viewRecep(o);else if(v==='consol')body=viewConsol(o);else if(v==='rapport')body=viewRapport(o);else if(v==='conv')body=viewConv(o);else if(v==='ceap')body=viewCeap(o);else if(v==='matrice')body=viewMatrice(o,'ec');
       else if(v==='matrice-cf')body=viewMatrice(o,'cf');else if(v==='arch')body=viewArchEC(o);else if(v==='desig'){body=viewDesig();}
     }
   }catch(e){console.error('[PGEC]',e);body='<div class="og-warn">Erreur d’affichage : '+esc(e.message)+'</div>';}
@@ -29629,7 +29787,17 @@ var ACT={
     notif('🎓 '+done+' élève(s) archivé(s) — admis en 6ème.','success');render();
   },
   /* ── centres ── */
-  newCentre:function(d){S.centreEdit='new';render();},
+  newCentre:function(d){S.centreEdit='new';S.centreMulti=null;render();},
+  multiOpen:function(d){S.centreMulti=+d.n;render();},multiClose:function(){S.centreMulti=null;render();},
+  multiCentre:function(d){var o=ownerU();if(!o||!canEC())return;var y=Y(o,S.annee),num=+d.n,ses=val('cm-mses')||('EB'+num),comp=val('cm-mcomp'),n=0,sk=0;
+    Array.prototype.forEach.call(document.querySelectorAll('#cm2-root .cm-host:checked'),function(cb){var e=ecoleById(cb.value);if(!e)return;
+      if(y.centres.some(function(c){return c.accueil===e.id&&c.session===ses;})){sk++;return;}
+      y.centres.push({id:uid('ce'),num:num,nom:'Centre '+e.nom,code:autoCode(o,num),accueil:e.id,session:ses,comp:comp,resp:'',date:'',heure:'07:30',statut:'preparation',eleves:[],ecoles:[]});n++;});
+    if(!n&&!sk){notif('Cochez au moins une école d’accueil.','error');return;}
+    ownerSave(o);S.centreMulti=null;notif('✅ '+n+' centre(s) créé(s)'+(sk?' ('+sk+' école(s) avaient déjà un centre pour cette session)':'')+'.','success');render();},
+  dupCentre:function(d){var o=ownerU();if(!o||!canEC())return;var y=Y(o,S.annee),c=y.centres.find(function(x){return x.id===d.i;});if(!c)return;
+    var k={id:uid('ce'),num:c.num,nom:c.nom+' (copie)',code:autoCode(o,c.num),accueil:c.accueil,session:c.session,comp:c.comp,resp:c.resp,date:c.date,heure:c.heure,statut:'preparation',eleves:[],ecoles:[]};
+    y.centres.push(k);ownerSave(o);S.centreEdit=k.id;notif('⧉ Centre dupliqué : modifiez son nom et son école d’accueil.','success');render();},
   editCentre:function(d){S.centreEdit=d.i;render();},
   cancelCentre:function(){S.centreEdit=null;render();},
   saveCentre:function(d){
@@ -29715,6 +29883,19 @@ var ACT={
     printHTML('CEAP/CAP',enteteHTML({nom:'Circonscription '+(o.structure_val||''),drena:sc.drena,iepp:o.structure_val,code:''},S.annee,'CANDIDATS CEAP / CAP').replace(/École :.*?<\/div>/,'')+'<table class="t"><thead><tr><th>N°</th><th>Nom et prénoms</th><th>Sexe</th><th>Statut</th><th>Type</th><th>École de stage</th><th>Classe</th><th>Encadreur</th><th>Moy /20</th></tr></thead><tbody>'+y.ceap.map(function(c,i){var m=ceapMoy(c);return '<tr><td>'+(i+1)+'</td><td class="n">'+who(c)+'</td><td>'+esc(c.sexe)+'</td><td>'+esc(c.statut)+'</td><td>'+esc(c.type)+'</td><td>'+esc(c.ecole)+'</td><td>'+esc(c.classe)+'</td><td>'+esc(c.encadreur)+'</td><td>'+(m==null?'':fx(m))+'</td></tr>';}).join('')+'</tbody></table>');},
   xlsCeap:function(){var o=ownerU(),y=YR(o,S.annee);xlsAoa([CEAP_COLS].concat(y.ceap.map(function(c){var p=c.portfolio||[];return [c.nom,c.prenoms,c.sexe,c.ddn,c.lieu,c.statut,c.type,c.provenance,c.ecole,c.classe,c.encadreur,c.duree].concat([0,1,2,3].reduce(function(a,i){return a.concat([(p[i]||{}).matiere||'',(p[i]||{}).note==null?'':p[i].note,(p[i]||{}).total==null?'':p[i].total]);},[]));})),'CEAP-CAP','candidats_ceap_cap_'+S.annee+'.xlsx');},
   xlsCeapModele:function(){xlsAoa([CEAP_COLS,['KOUASSI','Jean','M','1990-05-12','Korhogo',CEAP_STATUTS[1],'CEAP','CAP de Korhogo','EPP Exemple 1','CE1','M. TRAORE','1 an','Lecture',40,50,'Maths',42,50,'Éveil',35,50,'EPS',15,20]],'Modèle','modele_candidats_ceap_cap.xlsx');},
+
+  rapGen:function(){var o=ownerU();if(!o)return;var r=rapRead(),has=RSEC.some(function(x){return (r.sec[x[0]]||'').trim();});if(has&&!confirm('Remplacer le texte actuel par le texte généré par l’IA ?'))return;
+    var R=iaFull(o,S.rapType||'c1');r.sec={};RSEC.forEach(function(x){r.sec[x[0]]=R[x[0]]||'';});if(!(r.titre||'').trim())r.titre=rtTitre(S.rapType||'c1');S.rapFix=null;render();notif('✨ Rapport pré-rempli : relisez et modifiez avant de l’utiliser.','success');},
+  toRap:function(){var o=ownerU();if(!o)return;S.rapType=S.consComp;S.rapKey=null;var r=rapLoad(o),R=ia(o,analytics(o,consolData(o)));r.sec={};RSEC.forEach(function(x){r.sec[x[0]]=R[x[0]]||'';});if(!(r.titre||'').trim())r.titre=rtTitre(S.rapType);go('ec','rapport');},
+  rapFix:function(){var r=rapRead(),out=[];RSEC.forEach(function(x){fixText(r.sec[x[0]],x[1],out);});S.rapFix=out;render();},
+  rapApply:function(){var r=rapRead();RSEC.forEach(function(x){r.sec[x[0]]=fixText(r.sec[x[0]],'',[]);});S.rapFix=null;render();notif('✅ Corrections appliquées.','success');},
+  rapIgnore:function(){rapRead();S.rapFix=null;render();},
+  rapSave:function(){var o=ownerU();if(!o)return;var r=rapRead();var c=JSON.parse(JSON.stringify(r));c.maj=new Date().toISOString();rapStore(o)[S.rapType||'c1']=c;ownerSave(o);notif('💾 Rapport enregistré.','success');},
+  rapClear:function(){if(!confirm('Vider tout le rapport affiché ?'))return;S.rap={titre:'',sec:{},auteur:'',lieu:''};S.rapFix=null;render();},
+  rapPrint:function(){var o=ownerU();if(!o)return;var r=rapRead(),x=rapHTML(o,r),d=new Date().toLocaleDateString('fr-FR');
+    printHTML(r.titre||'Rapport',hdrBlock(x.sc.drena,x.sc.iepp,S.annee)+'<div class="ttl">'+esc(r.titre||'Rapport')+'</div>'+x.body+'<div style="margin-top:26px;text-align:right;font-size:12px">'+esc(r.lieu||'')+', le '+d+'<br><br><b>'+esc(r.auteur||'')+'</b></div>');},
+  rapWord:function(){var o=ownerU();if(!o)return;var r=rapRead(),x=rapHTML(o,r);
+    dlBlob('rapport_'+(S.rapType||'c1')+'_'+S.annee+'.doc','application/msword','<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>'+esc(r.titre||'Rapport')+'</title></head><body style="font-family:Arial"><p style="text-align:center;font-size:11px">MINISTÈRE DE L’ÉDUCATION NATIONALE, DE L’ALPHABÉTISATION ET DE L’ENSEIGNEMENT TECHNIQUE<br>IEPP '+esc(String(o.structure_val||'').replace(/^IEPP\s*/i,''))+' · Année scolaire '+esc(S.annee)+'</p><h2 style="text-align:center">'+esc(r.titre||'Rapport')+'</h2>'+x.body+'<p style="text-align:right">'+esc(r.lieu||'')+', le '+new Date().toLocaleDateString('fr-FR')+'<br><br><b>'+esc(r.auteur||'')+'</b></p></body></html>');},
   /* ── matrices ── */
   newMx:function(){S.mxEdit='new';render();},editMx:function(d){S.mxEdit=d.i;render();},cancelMx:function(){S.mxEdit=null;render();},
   saveMx:function(d){var o=ownerU();if(!o||!(isCorr()||isSA()))return;var rows=MX(o,d.k,S.annee),r=mxRow(d.k);if(!r.activite){notif('L’activité est obligatoire.','error');return;}
@@ -29732,7 +29913,7 @@ var ACT={
   xlsMxModele:function(d){var cfg=MXCFG[d.k];xlsAoa([cfg.cols.map(function(c){return c.l;}),cfg.start[0]],'Modèle','modele_matrice_'+d.k+'.xlsx',[16,22,50,20,14,24]);},
   prtMx:function(d){var o=ownerU(),cfg=MXCFG[d.k],sc=scopeOf(o)[0]||{};
     printHTML(cfg.titre,enteteHTML({nom:'',code:'',drena:sc.drena,iepp:o&&o.structure_val},S.annee,cfg.titre.toUpperCase()).replace(/École :.*?<\/div>/,'')+'<table class="t"><thead><tr>'+cfg.cols.map(function(c){return '<th>'+c.l+'</th>';}).join('')+'</tr></thead><tbody>'+MXR(o,d.k,S.annee).map(function(r){return '<tr>'+cfg.cols.map(function(c){return '<td class="n">'+esc(r[c.k]||'')+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table>');},
-  saveDesig:function(){if(!isSA())return;var ch=[];document.querySelectorAll('#cm2-root .cm-desig').forEach(function(x){var u=D().users.find(function(z){return z.login===x.value;});if(u&&!!u.ec_designe!==x.checked){u.ec_designe=x.checked;ch.push(u);}});if(ch.length)persist('users',ch);notif('✅ Désignation enregistrée ('+ch.length+' compte(s) mis à jour).','success');applyRole();render();}
+  saveDesig:function(){if(!isSA())return;var ch=[];document.querySelectorAll('#cm2-root .cm-desig').forEach(function(x){var u=D().users.find(function(z){return z.login===x.value;});if(u&&!!u.ec_designe!==x.checked){u.ec_designe=x.checked;u.cf_fonction=x.checked?'SECO':'DEPS';ch.push(u);}});if(ch.length)persist('users',ch);notif('✅ Désignation enregistrée ('+ch.length+' compte(s) mis à jour).','success');applyRole();render();}
 };
 var CEAP_COLS=['NOM','PRENOMS','SEXE','DATE DE NAISSANCE','LIEU DE NAISSANCE','STATUT','TYPE','CAP DE PROVENANCE','ECOLE DE STAGE','CLASSE','ENCADREUR','DUREE','MATIERE 1','NOTE 1','TOTAL 1','MATIERE 2','NOTE 2','TOTAL 2','MATIERE 3','NOTE 3','TOTAL 3','MATIERE 4','NOTE 4','TOTAL 4'];
 var CH={
@@ -29742,10 +29923,12 @@ var CH={
   q:function(el){S.q=el.value;var p=el.selectionStart;render();var n=$('cm-q');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}},
   cepq:function(el){S.cepQ=el.value;var p=el.selectionStart;render();var n=$('cm-cq');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}},
   mxq:function(el){S.mxQ=el.value;var p=el.selectionStart;render();var n=$('cm-mq');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}},
+  rapf:function(){rapRead();},
   mxf:function(el){S.mxF=el.value;render();},
   mxsel:function(el){S.mxSel=S.mxSel||{};S.mxSel[el.getAttribute('data-i')]=el.checked;render();},
   mxall:function(el){var o=ownerU();S.mxSel=S.mxSel||{};mxList(o,S.zone==='cf'?'cf':'ec').forEach(function(r){S.mxSel[r.id]=el.checked;});render();},
-  cons:function(el){S.consComp=el.value;render();},consonly:function(el){S.consOnly=el.value==='1';render();},
+  cons:function(el){S.consComp=el.value;render();},
+  rapt:function(el){var o=ownerU();if(o&&S.rap){var c=JSON.parse(JSON.stringify(rapRead()));c.maj=new Date().toISOString();rapStore(o)[S.rapType||'c1']=c;ownerSave(o);}S.rapType=el.value;render();},consonly:function(el){S.consOnly=el.value==='1';render();},
   cpPick:function(el){var u=D().users.find(function(x){return x.login===el.value;});if(!u)return;var m=/^(\S+)\s+(.*)$/.exec(String(u.nom||'').trim());var set=function(i,v){var e=$(i);if(e)e.value=v||'';};
     set('cp-nom',m?m[1]:u.nom);set('cp-pre',m?m[2]:'');set('cp-cl',u.structure_val);var ec=D().ecoles.find(function(e){return e.id===u.ecole_val;});if(ec)set('cp-ec',ec.nom);},
   impfile:function(el){var f=el.files&&el.files[0];if(!f)return;var n=el.getAttribute('data-n'),ec=curEc();if(!needX())return;
@@ -29776,6 +29959,10 @@ function installCSS(){
   '#cm2-root .mx-ban{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(135deg,#1A3D6E,#7C3AED);color:#fff;border-radius:12px;padding:14px 18px;margin-bottom:12px}#cm2-root .mx-ban-t{display:flex;gap:12px;align-items:center}#cm2-root .mx-ban-t>span{font-size:28px}#cm2-root .mx-ban h3{margin:0;font-size:17px;color:#fff}#cm2-root .mx-ban p{margin:2px 0 0;font-size:12.5px;opacity:.9}#cm2-root .mx-ban-n{background:rgba(255,255,255,.2);border-radius:20px;padding:5px 14px;font-weight:700;font-size:13px}'+
   '#cm2-root .mx-bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}#cm2-root .mx-q{flex:1 1 220px;min-width:0;padding:9px 12px;border:1px solid var(--border,#ddd);border-radius:10px;font:inherit;font-size:13px}#cm2-root .mx-f{flex:0 1 220px;min-width:0;padding:9px 10px;border:1px solid var(--border,#ddd);border-radius:10px;font:inherit;font-size:13px;background:#fff}'+
   '#cm2-root .mx-pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11.5px;font-weight:700;white-space:nowrap}#cm2-root .mx-t thead th{background:#F1F5F9}#cm2-root .mx-t td.n{vertical-align:top}'+
+  '#cm2-root .an-rings{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-around}#cm2-root .an-ring{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:120px;gap:2px}#cm2-root .an-ring b{font-size:12.5px;color:#1E293B}#cm2-root .an-ring small{font-size:11px;color:#64748B}'+
+  '#cm2-root .an-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}#cm2-root .an-bars{display:flex;flex-direction:column;gap:7px}#cm2-root .an-row{display:grid;grid-template-columns:minmax(90px,38%) 1fr auto;gap:8px;align-items:center;font-size:12px}#cm2-root .an-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#cm2-root .an-t{background:#EEF2F7;border-radius:6px;height:14px;overflow:hidden;display:block}#cm2-root .an-t i{display:block;height:100%;border-radius:6px}#cm2-root .an-v{font-weight:700;white-space:nowrap}#cm2-root .an-v em{font-style:normal;font-size:10.5px;margin-left:4px}'+
+  '#cm2-root .an-tier{display:flex;height:30px;border-radius:8px;overflow:hidden;margin:6px 0}#cm2-root .an-tier span{color:#fff;font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center;min-width:22px}#cm2-root .an-leg{display:flex;flex-wrap:wrap;gap:10px;font-size:12px}#cm2-root .an-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}'+
+  '#cm2-root .an-ia-b{border-left:3px solid #7C3AED;background:#FAF5FF;border-radius:6px;padding:8px 12px;margin:8px 0;font-size:12.5px;line-height:1.55}#cm2-root .an-fix{margin:0;padding-left:18px;font-size:12.5px;line-height:1.7}#cm2-root .an-fix del{color:#B91C1C}#cm2-root .an-fix ins{color:#047857;text-decoration:none;font-weight:700}'+
   '@media(max-width:900px){#cm2-root .cm-h{display:none}#cm2-root .og-t th,#cm2-root .og-t td{font-size:11px;padding:4px 2px}#cm2-root .cm-bil th,#cm2-root .cm-bil td{font-size:9.5px;padding:2px}}@media(max-width:700px){#cm2-root .og-f{flex:1 1 100%}}';
   document.head.appendChild(st);
 }
@@ -29785,9 +29972,9 @@ function mkGrp(id,label,headId,headTxt,icon,zone,items,afterId){
   if($(id))return true;var anchor=$(afterId)||$('grp-orgp')||$('grp-espaces');if(!anchor||!anchor.parentNode)return false;
   var g=document.createElement('div');g.className='nav-group';g.id=id;g.style.display='none';
   g.innerHTML='<div class="nav-group-label">'+label+'</div><div class="nav-item nav-esp-head" id="'+headId+'" style="display:flex"><span class="nav-icon">'+icon+'</span> '+headTxt+' <span class="esp-chevron">▸</span></div>'+
-    '<div class="nav-sub" id="'+headId+'-sub">'+items.map(function(i){return '<div class="nav-item nav-subitem" data-z="'+zone+'" data-v="'+i[0]+'"><span class="nav-icon">'+i[1]+'</span> '+i[2]+'</div>';}).join('')+'</div>';
+    '<div class="nav-sub" id="'+headId+'-sub">'+items.filter(function(i){return !(zone==='ec'&&i[0]==='dash');}).map(function(i){return '<div class="nav-item nav-subitem" data-z="'+zone+'" data-v="'+i[0]+'"><span class="nav-icon">'+i[1]+'</span> '+i[2]+'</div>';}).join('')+'</div>';
   anchor.parentNode.insertBefore(g,anchor.nextSibling);
-  $(headId).addEventListener('click',function(){var s=$(headId+'-sub'),h=$(headId),o=!s.classList.contains('open');if(o)closeHeads(headId);s.classList.toggle('open',o);h.classList.toggle('open',o);if(o)sbScroll(h);});
+  $(headId).addEventListener('click',function(){var s=$(headId+'-sub'),h=$(headId),o=!s.classList.contains('open');if(o)closeHeads(headId);s.classList.toggle('open',o);h.classList.toggle('open',o);if(o)sbScroll(h);if(o&&zone==='ec'&&canEC())go('ec','dash');});
   $(headId+'-sub').addEventListener('click',function(ev){var it=ev.target.closest('.nav-subitem');if(it)go(it.getAttribute('data-z'),it.getAttribute('data-v'));});
   return true;
 }
@@ -29796,6 +29983,15 @@ function installCF(){
   var h=$('esp-head-cf'),sub=$('esp-sub-cf');if(!h||!sub)return false;
   if(!h.getAttribute('data-cm2')){var tn=null;for(var i=0;i<h.childNodes.length;i++){var n=h.childNodes[i];if(n.nodeType===3&&/Correspondant/.test(n.nodeValue)){tn=n;break;}}if(tn)tn.nodeValue=' Correspondant Fichier DEPS ';h.setAttribute('data-cm2','1');}
   if(!sub.querySelector('[data-cm2-mx]')){var d=document.createElement('div');d.className='nav-item nav-subitem';d.setAttribute('data-cm2-mx','1');d.innerHTML='<span class="nav-icon">🗓️</span> Matrice d’activités';d.addEventListener('click',function(ev){ev.stopPropagation();go('cf','matrice-cf');});sub.appendChild(d);}
+  return true;
+}
+/* « Validation des comptes » et « Supervision (tous comptes) » deviennent des sous-menus de l'espace Super Administrateur */
+function installSAVal(){
+  var sub=$('esp-sub-sa');if(!sub)return false;
+  var old=sub.querySelector('[data-cm2-val]');if(old&&old.parentNode)old.parentNode.removeChild(old);
+  ['pgval-nav','pgsv-nav'].forEach(function(id){var n=$(id);if(!n)return;
+    if(n.parentNode!==sub){n.classList.add('nav-subitem');sub.appendChild(n);}
+  });
   return true;
 }
 /* Ordre du menu : Guide d’utilisation, Tableau de bord, puis les espaces */
@@ -29819,11 +30015,18 @@ function applyRole(){
   var a=$('grp-cm2dir'),b=$('grp-cm2ec');
   if(a)a.style.display=canDir()?'':'none';if(b)b.style.display=canEC()?'':'none';
   var d=document.querySelector('#grp-cm2ec [data-v="desig"]');if(d)d.style.display=isSA()?'':'none';
+  try{var u0=me(),hideCf=!!u0&&!isSA()&&isSecoFn(u0),hc=$('esp-head-cf'),sc2=$('esp-sub-cf');
+    if(hc){if(hideCf){hc.style.setProperty('display','none','important');if(sc2)sc2.classList.remove('open');}else if(hc.style.getPropertyValue('display')==='none'&&hc.style.getPropertyPriority('display')==='important')hc.style.removeProperty('display');}
+    var ge=$('grp-espaces');if(ge&&hideCf){var any=Array.prototype.some.call(ge.querySelectorAll('.nav-esp-head'),function(h){return h.style.display!=='none'&&h.id!=='esp-head-cf';});if(!any)ge.style.setProperty('display','none','important');}
+    else if(ge&&ge.style.getPropertyPriority('display')==='important'&&!hideCf)ge.style.removeProperty('display');}catch(e){}
+  try{installSAVal();}catch(e){}
+  try{var pg=document.querySelector('.sidebar .nav-group:not([id]) .nav-group-label');}catch(e){}
+  document.querySelectorAll('.sidebar .nav-group').forEach(function(g){if(g.id==='grp-cm2top')return;var lb=g.querySelector(':scope>.nav-group-label');if(lb&&!g.querySelector('.nav-item'))lb.style.display='none';});
   var m=document.querySelector('#esp-sub-cf [data-cm2-mx]');if(m)m.style.display=canCF()?'':'none';
 }
 function go(zone,view){
   var ok=zone==='dir'?canDir():zone==='ec'?canEC():canCF();if(!ok)return;
-  S.zone=zone;S.view=view;S.mxSel={};S.mxF='';S.centreEdit=null;S.mxEdit=null;S.cepEdit=null;S.imp=null;S.recEc='';S.q='';
+  S.zone=zone;S.view=view;S.mxSel={};S.mxF='';S.centreEdit=null;S.centreMulti=null;S.mxEdit=null;S.cepEdit=null;S.imp=null;S.recEc='';S.q='';
   if(zone==='dir'&&(view==='sign')&&!S.comp)S.comp='c1';
   if(typeof showPage==='function')showPage('cm2ec');
   var hid={dir:'cm2-head-d',ec:'cm2-head-e',cf:'esp-head-cf'}[zone],hsub=zone==='cf'?'esp-sub-cf':hid+'-sub';closeHeads(hid);var sub=$(hsub),hd=$(hid);if(sub)sub.classList.add('open');if(hd)hd.classList.add('open');sbScroll(hd);
@@ -29852,7 +30055,7 @@ function boot(){
   if(!install()){setTimeout(boot,500);return;}
   wrapApp();
   var last='';
-  setInterval(function(){var u=me(),k=u?u.login+'|'+u.role+'|'+(u.ec_designe?1:0):'';if(k!==last){last=k;applyRole();}},1200);
+  setInterval(function(){var u=me(),k=u?u.login+'|'+u.role+'|'+(u.ec_designe?1:0)+'|'+(u.cf_fonction||''):'';if(k!==last){last=k;applyRole();}},1200);
   try{if(typeof applyEspacesRoleUI==='function'&&!applyEspacesRoleUI.__cm2){var o=applyEspacesRoleUI,w=function(){var x=o.apply(this,arguments);try{applyRole();}catch(e){}return x;};w.__cm2=true;window.applyEspacesRoleUI=w;}}catch(e){}
 }
 function storeSign(n,w,url){var ec=curEc();if(!ec||!CFGN[n]||!canSignW(w)||!url)return;var f=fiche(ec,S.annee,n);if(f.transmis&&!isSA())return;f.sign[w]=url;persist('ecoles',[ec]);notif('✅ Signature enregistrée.','success');render();}
@@ -29951,5 +30154,317 @@ console.log('✅ PGNEP : module « Gestion CM2 · compositions et examens blancs
 
 </script>
 
+<script id="pgnep-cffonction">
+/* PGNEP — Emplois « Correspondant Fichier DEPS en IEPP » et « Correspondant Fichier SECO en IEPP » (ajout additif).
+   Ce sont deux emplois proposés à la création / correction d'un compte par le Super Administrateur. Le rôle technique reste « correspondant »
+   (mêmes périmètres et droits) ; la fonction est mémorisée dans cf_fonction (+ ec_designe pour SECO). Activer / désactiver / corriger / supprimer
+   utilisent les actions habituelles de la liste des comptes. */
+(function(){
+'use strict';
+if(window.PGCFF)return;
+var LAB={DEPS:'Correspondant Fichier DEPS en IEPP',SECO:'Correspondant Fichier SECO en IEPP'};
+var VAL={cf_deps:'DEPS',cf_seco:'SECO'};
+function $(i){return document.getElementById(i);}
+function users(){try{return DB.users;}catch(e){return [];}}
+function isSA(){try{return !!(currentUser&&(currentUser.role==='admin'||currentUser.login==='diomande'));}catch(e){return false;}}
+function fonctionOf(u){if(!u||u.role!=='correspondant')return '';return u.cf_fonction==='SECO'||(!u.cf_fonction&&u.ec_designe===true)?'SECO':'DEPS';}
+function persist(u){try{if(typeof save==='function')save('users');}catch(e){}try{if(window._firebaseReady&&window._fb)window._fb.set('users',u.login,u).catch(function(){});}catch(e){}}
+function apply(login,f){var u=users().find(function(x){return x.login===login;});if(!u||u.role!=='correspondant'||!f)return;
+  if(u.cf_fonction===f&&!!u.ec_designe===(f==='SECO'))return;u.cf_fonction=f;u.ec_designe=(f==='SECO');persist(u);}
+
+/* ── listes déroulantes : le Super Administrateur voit les deux emplois à la place de « Correspondant IEPP » ── */
+function convert(sel,withFilter){
+  if(!sel||sel.getAttribute('data-cff'))return;var g=null;
+  for(var i=0;i<sel.options.length;i++)if(sel.options[i].value==='correspondant'){g=sel.options[i];break;}
+  if(!g)return;
+  var mk=function(v,t){var o=document.createElement('option');o.value=v;o.textContent='🟢 '+t;return o;};
+  var a=mk('cf_deps',LAB.DEPS),b=mk('cf_seco',LAB.SECO);
+  g.parentNode.insertBefore(a,g.nextSibling);g.parentNode.insertBefore(b,a.nextSibling);
+  if(withFilter){g.textContent='🟢 Tous les correspondants IEPP';}else{g.hidden=true;g.disabled=false;}
+  sel.setAttribute('data-cff','1');
+}
+function sel2(id){return $(id);}
+/* exécute fn avec la valeur « correspondant » (le reste de l'application ne connaît pas cf_deps / cf_seco) */
+function swap(sel,fn,self,args){
+  var v=sel&&sel.value,f=VAL[v];if(!f)return {r:fn.apply(self,args),f:''};
+  sel.value='correspondant';var r;try{r=fn.apply(self,args);}finally{sel.value=v;}return {r:r,f:f};
+}
+function inject(){
+  if(!isSA())return;
+  convert($('new-role'),false);convert($('sa-type'),false);convert($('filt-user-role'),true);
+  var w=$('cff-wrap');if(w)w.style.display='none';
+}
+/* ── pastille dans la liste + filtre par emploi ── */
+function decorer(){
+  var fl=$('filt-user-role'),fv=fl&&VAL[fl.value];
+  document.querySelectorAll('tr').forEach(function(tr){
+    var d=tr.querySelector('td div'),t0=d&&d.firstChild&&d.firstChild.nodeType===3?d.firstChild.nodeValue:'';if(!/^@/.test(t0))return;
+    var u=users().find(function(x){return x.login===t0.slice(1).trim();});if(!u)return;
+    var f=fonctionOf(u);
+    if(f){var td=tr.querySelectorAll('td')[1],sp=td&&td.querySelector('span');if(sp&&sp.getAttribute('data-cff')!==f){sp.textContent=LAB[f];sp.setAttribute('data-cff',f);}}
+    if(fv)tr.style.display=(f===fv)?'':'none';
+  });
+}
+var FNS={};
+/* l'enveloppe est maintenue AU-DESSUS des autres : si un autre module enveloppe la fonction après nous, on se replace en tête (les marqueurs des autres modules sont recopiés pour éviter tout ré-enveloppement en boucle) */
+function wrap(name,fn){FNS[name]=fn;top(name);}
+function top(name){
+  var o=window[name];if(typeof o!=='function'||o.__cff===true)return;
+  var w=FNS[name](o);try{Object.keys(o).forEach(function(k){w[k]=o[k];});}catch(e){}w.__cff=true;window[name]=w;
+  try{(0,eval)(name+'=window.'+name);}catch(e){}
+}
+function keepTop(){Object.keys(FNS).forEach(top);}
+function install(){
+  wrap('saveCompte',function(o){return function(){
+    var role=$('new-role'),login=(($('new-login')||{}).value||'').trim().toLowerCase();
+    var x=swap(role,o,this,arguments),r=x.r,f=x.f;
+    var fin=function(){if(f)apply(login,f);try{decorer();}catch(e){}};
+    if(r&&typeof r.then==='function')return r.then(function(v){fin();return v;});fin();return r;};});
+  wrap('saveSaCompte',function(o){return function(){
+    var t=$('sa-type'),login=(($('sa-login')||{}).value||'').trim().toLowerCase();
+    var x=swap(t,o,this,arguments);if(x.f)apply(login,x.f);try{decorer();}catch(e){}return x.r;};});
+  wrap('saTypeChange',function(o){return function(){var x=swap($('sa-type'),o,this,arguments);return x.r;};});
+  wrap('updateStructureFields',function(o){return function(){var x=swap($('new-role'),o,this,arguments);return x.r;};});
+  wrap('editCompte',function(o){return function(login){
+    var r=o.apply(this,arguments);
+    try{inject();var u=users().find(function(x){return x.login===login;}),s=$('new-role');
+      if(isSA()&&s&&u&&u.role==='correspondant'&&s.getAttribute('data-cff')){s.value=fonctionOf(u)==='SECO'?'cf_seco':'cf_deps';var x=swap(s,window.updateStructureFields||function(){},this,[]);}}catch(e){}
+    return r;};});
+  wrap('resetCompteForm',function(o){return function(){
+    var r=o.apply(this,arguments);
+    try{inject();var s=$('new-role');if(isSA()&&s&&s.getAttribute('data-cff')){s.value='cf_deps';if(typeof window.updateStructureFields==='function')window.updateStructureFields();}}catch(e){}
+    return r;};});
+  wrap('openSaCompteModal',function(o){return function(){var r=o.apply(this,arguments);try{inject();}catch(e){}return r;};});
+  wrap('renderUsersList',function(o){return function(){
+    var fl=$('filt-user-role'),v=fl&&fl.value,f=VAL[v],r;
+    if(f){fl.value='';try{r=o.apply(this,arguments);}finally{fl.value=v;}}else r=o.apply(this,arguments);   /* liste complète, puis filtrage par emploi */
+    try{decorer();}catch(e){}return r;};});
+  inject();try{decorer();}catch(e){}
+}
+/* le formulaire de correction du Super Administrateur renseigne sa-type = « correspondant » : on le remplace par l'emploi réel du compte */
+function fixSA(){
+  var t=$('sa-type');if(!t||!isSA()||!t.getAttribute('data-cff')||t.value!=='correspondant')return;
+  var l=(($('sa-login')||{}).value||'').trim().toLowerCase(),u=users().find(function(x){return String(x.login).toLowerCase()===l;});
+  t.value=fonctionOf(u)==='SECO'?'cf_seco':'cf_deps';try{if(typeof window.saTypeChange==='function')window.saTypeChange();}catch(e){}
+}
+function fixNew(){var r=$('new-role');if(r&&isSA()&&r.getAttribute('data-cff')&&r.value==='correspondant'){r.value='cf_deps';try{window.updateStructureFields();}catch(e){}}}
+function boot(){
+  install();new MutationObserver(function(){inject();}).observe(document.body,{childList:true,subtree:true});
+  setTimeout(install,2000);setTimeout(install,6000);setInterval(function(){try{keepTop();inject();fixSA();fixNew();}catch(e){}},400);
+}
+window.PGCFF={fonctionOf:fonctionOf,apply:apply,LAB:LAB,version:'2.0'};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+console.log('✅ PGNEP : emplois Correspondant Fichier DEPS / SECO en IEPP chargés');
+})();
+
+</script>
+<script id="pgnep-valid2">
+/* PGNEP — Validation des comptes créés par les directeurs ET les correspondants fichiers (ajout additif).
+   Les comptes créés par un directeur/correspondant naissent « en attente » et INACTIFS ; le Super Administrateur les active, les refuse ou les révoque. */
+(function(){
+'use strict';
+if(window.PGVAL2)return;
+function $(i){return document.getElementById(i);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function users(){return (window.DB&&Array.isArray(DB.users))?DB.users:[];}
+function cu(){try{return currentUser||null;}catch(e){return null;}}
+function admin(u){return !!u&&(u.role==='admin'||u.role==='superadmin'||u.login==='diomande');}
+function find(l){l=String(l||'').toLowerCase();return users().find(function(u){return String(u.login||'').toLowerCase()===l;});}
+function note(m,t){try{showNotif(m,t||'info');}catch(e){}}
+function today(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function yEnd(){var d=new Date(),y=d.getFullYear();return (d.getMonth()>=8?y+1:y)+'-07-31';}
+function fr(d){return d?String(d).split('-').reverse().join('/'):'—';}
+function rl(r){return (window.ROLE_LABELS&&ROLE_LABELS[r])||r||'—';}
+function persist(u){try{if(typeof save==='function')save('users');}catch(e){}try{if(window._firebaseReady&&window._fb&&window._fb.set)window._fb.set('users',u.login,u).catch(function(){});}catch(e){}}
+function ecoleNom(id){try{var e=DB.ecoles.find(function(x){return x.id===id;});return e?(e.nom||e.id):(id||'');}catch(x){return id||'';}}
+function creator(u){var p=find(u.demande_par);return u.demande_par_role||(p&&p.role)||'';}
+function creatorLab(u){var r=creator(u);return (u.demande_par_nom||u.demande_par||'—')+(r?' ('+(r==='directeur'?'Directeur':r==='correspondant'?'Correspondant':rl(r))+')':'');}
+function concerned(u){return !!u&&(u.statut_validation==='en_attente'||u.statut_validation==='valide'||u.statut_validation==='refuse'||!!u.demande_par);}
+function stat(u){return u.statut_validation||'valide';}
+
+/* ── 1) les comptes créés par un correspondant fichier attendent la validation (comme ceux des directeurs) ── */
+var DONE={};
+function wrapSave(){
+  var o=window.saveCompte;if(DONE.sc||typeof o!=='function')return;
+  var w=function(){
+    var me=cu(),avant={};users().forEach(function(u){avant[String(u.login).toLowerCase()]=1;});
+    var soumis=!!me&&!admin(me)&&(me.role==='correspondant'||me.role==='directeur');
+    var fin=function(){
+      if(!soumis)return;var n=0;
+      users().forEach(function(u){
+        if(avant[String(u.login).toLowerCase()]||admin(u)||u.role==='admin')return;
+        if(!u.statut_validation){u.actif=false;u.statut_validation='en_attente';u.demande_le=new Date().toISOString();u.demande_par=me.login;u.demande_par_nom=me.nom||me.login;n++;}
+        if(u.demande_par===me.login&&!u.demande_par_role){u.demande_par_role=me.role;persist(u);}
+        else if(u.statut_validation==='en_attente'&&u.demande_par===me.login){persist(u);}
+      });
+      if(n){try{if(typeof renderUsersList==='function')renderUsersList();}catch(e){}note('⏳ Compte créé : il restera INACTIF jusqu’à validation par le super administrateur.','info');}
+    };
+    var r=o.apply(this,arguments);
+    if(r&&typeof r.then==='function')return r.then(function(v){fin();return v;});fin();return r;
+  };
+  try{Object.keys(o).forEach(function(k){w[k]=o[k];});}catch(e){}
+  w.__val2=true;DONE.sc=true;window.saveCompte=w;try{saveCompte=w;}catch(e){}
+}
+
+/* ── 2) page « Validation des comptes » (Super Administrateur) ── */
+var V={tab:'en_attente',by:'',q:''};
+function counts(){var c={en_attente:0,valide:0,refuse:0};users().forEach(function(u){if(concerned(u)&&c[stat(u)]!=null)c[stat(u)]++;});return c;}
+function list(){
+  var q=String(V.q||'').toLowerCase();
+  return users().filter(function(u){
+    if(!concerned(u)||stat(u)!==V.tab)return false;
+    if(V.by&&creator(u)!==V.by)return false;
+    return !q||[u.nom,u.login,u.structure_val,ecoleNom(u.ecole_val),u.demande_par_nom,u.demande_par].join(' ').toLowerCase().indexOf(q)>=0;
+  }).sort(function(a,b){return String(b.demande_le||b.decision_le||'').localeCompare(String(a.demande_le||a.decision_le||''));});
+}
+function pill(s){var m={en_attente:['⏳ En attente','#B45309','#FEF3C7'],valide:['✅ Validé','#047857','#D1FAE5'],refuse:['⛔ Refusé','#B91C1C','#FEE2E2']}[s]||[s,'#475569','#F1F5F9'];return '<span class="pv2-pill" style="color:'+m[1]+';background:'+m[2]+'">'+m[0]+'</span>';}
+function row(u){
+  var s=stat(u),act='';
+  var info='<b>'+esc(u.nom||u.login)+'</b><div class="pv2-s">@'+esc(u.login)+(u.telephone?' · 📞 '+esc(u.telephone):'')+'</div>';
+  var pos=esc(rl(u.role))+'<div class="pv2-s">'+esc([u.structure_type==='classe'?u.structure_val:'',ecoleNom(u.ecole_val),u.structure_type==='iepp'||u.structure_type==='ecole'?u.structure_val:''].filter(Boolean).join(' · ')||'—')+'</div>';
+  var par=esc(creatorLab(u))+'<div class="pv2-s">'+(u.demande_le?esc(new Date(u.demande_le).toLocaleString('fr-FR')):'—')+'</div>';
+  var per=s==='valide'?'du '+fr(u.date_debut)+' au '+fr(u.date_fin)+(u.valide_par?'<div class="pv2-s">par '+esc(u.valide_par)+'</div>':''):s==='refuse'?esc(u.motif_refus||'—'):'—';
+  if(s==='en_attente')act='<div class="pv2-f"><label>Du<input type="date" class="vd" value="'+today()+'"></label><label>Jusqu’au<input type="date" class="ve" value="'+yEnd()+'"></label><label>Motif (refus)<input type="text" class="vm" placeholder="facultatif"></label></div><button class="pv2-ok" data-a="ok">✅ Activer</button> <button class="pv2-no" data-a="no">Refuser</button>';
+  else if(s==='valide')act='<div class="pv2-f"><label>Du<input type="date" class="vd" value="'+esc(u.date_debut||today())+'"></label><label>Jusqu’au<input type="date" class="ve" value="'+esc(u.date_fin||yEnd())+'"></label></div><button class="pv2-ok" data-a="per">💾 Modifier la période</button> <button class="pv2-no" data-a="rev">Révoquer</button>';
+  else act='<button class="pv2-ok" data-a="re">↩️ Remettre en attente</button>';
+  return '<tr data-l="'+esc(u.login)+'"><td>'+info+'</td><td>'+pos+'</td><td>'+par+'</td><td>'+pill(s)+'<div class="pv2-s">'+per+'</div></td><td class="pv2-act">'+act+'</td></tr>';
+}
+function render(){
+  var host=$('pv2-root');if(!host)return;
+  if(!admin(cu())){host.innerHTML='<div class="pv2-empty">🔒 Réservé au super administrateur.</div>';return;}
+  var c=counts(),l=list();
+  var tabs=[['en_attente','⏳ En attente'],['valide','✅ Validés'],['refuse','⛔ Refusés']].map(function(t){return '<button class="pv2-tab'+(V.tab===t[0]?' on':'')+'" data-a="tab" data-t="'+t[0]+'">'+t[1]+' <b>'+c[t[0]]+'</b></button>';}).join('');
+  host.innerHTML='<div class="pv2-ban"><div><h3>✅ Validation des comptes</h3><p>Comptes créés par les Directeurs et les Correspondants Fichiers : ils ne fonctionnent qu’après approbation du Super Administrateur.</p></div><div class="pv2-n">'+c.en_attente+' en attente</div></div>'+
+   '<div class="pv2-bar"><div class="pv2-tabs">'+tabs+'</div><select id="pv2-by"><option value="">Tous les créateurs</option><option value="directeur"'+(V.by==='directeur'?' selected':'')+'>Créés par des Directeurs</option><option value="correspondant"'+(V.by==='correspondant'?' selected':'')+'>Créés par des Correspondants Fichiers</option></select><input id="pv2-q" type="text" placeholder="🔍 Rechercher…" value="'+esc(V.q)+'"></div>'+
+   '<div class="card pv2-card"><div class="pv2-scroll"><table class="pv2-t"><thead><tr><th>Compte</th><th>Rôle · rattachement</th><th>Créé par</th><th>Statut · période</th><th>Actions</th></tr></thead><tbody>'+(l.map(row).join('')||'<tr><td colspan="5" class="pv2-empty">Aucun compte dans cette catégorie.</td></tr>')+'</tbody></table></div></div>';
+}
+function act(tr,a,btn){
+  if(!admin(cu())){note('🔒 Réservé au super administrateur.','error');return;}
+  var u=find(tr.getAttribute('data-l'));if(!u)return;var d1=(tr.querySelector('.vd')||{}).value||today(),d2=(tr.querySelector('.ve')||{}).value;
+  if(a==='ok'||a==='per'){
+    if(!d2){note('Indiquez la date jusqu’à laquelle le compte fonctionne.','error');return;}
+    if(d2<d1){note('La date de fin est antérieure à la date de début.','error');return;}
+    if(d2<today()){note('La date de fin est déjà dépassée.','error');return;}
+    u.actif=true;u.statut_validation='valide';u.date_debut=d1;u.date_fin=d2;u.valide_par=cu().login;u.decision_le=new Date().toISOString();delete u.motif_refus;
+    note('✅ Compte « '+u.login+' » '+(a==='ok'?'activé':'mis à jour')+' du '+fr(d1)+' au '+fr(d2),'success');
+  }else if(a==='no'||a==='rev'){
+    u.actif=false;u.statut_validation='refuse';u.motif_refus=((tr.querySelector('.vm')||{}).value||'').trim();u.valide_par=cu().login;u.decision_le=new Date().toISOString();
+    note('⛔ Compte « '+u.login+' » '+(a==='no'?'refusé':'révoqué')+'.','info');
+  }else if(a==='re'){u.actif=false;u.statut_validation='en_attente';delete u.motif_refus;note('↩️ Compte remis en attente.','info');}
+  persist(u);try{if(typeof renderUsersList==='function')renderUsersList();}catch(e){}render();
+}
+function css(){
+  if($('pv2-css'))return;var s=document.createElement('style');s.id='pv2-css';
+  s.textContent='#page-cm2val{max-width:100%;overflow-x:hidden}.pv2-ban{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(135deg,#F77F00,#009E60);color:#fff;border-radius:12px;padding:14px 18px;margin-bottom:12px}.pv2-ban h3{margin:0;font-size:18px;color:#fff}.pv2-ban p{margin:3px 0 0;font-size:12.5px;opacity:.95}.pv2-n{background:rgba(255,255,255,.25);border-radius:20px;padding:5px 14px;font-weight:700;font-size:13px}'+
+  '.pv2-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}.pv2-tabs{display:flex;flex-wrap:wrap;gap:6px}.pv2-tab{border:1px solid var(--border,#ddd);background:#fff;color:#334155;border-radius:20px;padding:7px 13px;font-weight:700;font-size:12.5px;cursor:pointer}.pv2-tab b{background:#E2E8F0;border-radius:10px;padding:1px 7px;margin-left:4px}.pv2-tab.on{background:#1A3D6E;color:#fff;border-color:#1A3D6E}.pv2-tab.on b{background:rgba(255,255,255,.25)}'+
+  '#pv2-by,#pv2-q{padding:8px 10px;border:1px solid var(--border,#ddd);border-radius:10px;font:inherit;font-size:13px;min-width:0;background:#fff}#pv2-q{flex:1 1 180px}'+
+  '.pv2-scroll{max-width:100%;overflow-x:auto}.pv2-t{width:100%;border-collapse:collapse}.pv2-t th{background:#F1F5F9;text-align:left;font-size:12px;padding:8px}.pv2-t td{padding:8px;font-size:12.5px;border-bottom:1px solid var(--border,#eee);vertical-align:top}.pv2-s{font-size:11px;color:#64748B;margin-top:2px}'+
+  '.pv2-pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11.5px;font-weight:700;white-space:nowrap}.pv2-f{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}.pv2-f label{display:flex;flex-direction:column;font-size:10.5px;font-weight:700;color:#475569;gap:2px}.pv2-f input{padding:5px 6px;border:1px solid #CBD5E1;border-radius:6px;font-size:12px;max-width:140px}'+
+  '.pv2-ok{background:#009E60;color:#fff;border:0;border-radius:8px;padding:7px 11px;font-weight:700;cursor:pointer;font-size:12px}.pv2-no{background:#fff;color:#B91C1C;border:1px solid #B91C1C;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer;font-size:12px}.pv2-empty{padding:20px;text-align:center;color:#64748B}.pv2-act{min-width:220px}';
+  document.head.appendChild(s);
+}
+function installPage(){
+  if($('page-cm2val'))return true;var host=$('page-orgp')||$('page-espace-directeur')||document.querySelector('.content .page');if(!host||!host.parentNode)return false;
+  var p=document.createElement('div');p.id='page-cm2val';p.className='page';p.innerHTML='<div id="pv2-root"></div>';host.parentNode.insertBefore(p,host.nextSibling);
+  p.addEventListener('click',function(ev){var b=ev.target.closest('[data-a]');if(!b)return;var a=b.getAttribute('data-a');if(a==='tab'){V.tab=b.getAttribute('data-t');render();return;}var tr=b.closest('tr');if(tr)act(tr,a,b);});
+  p.addEventListener('change',function(ev){if(ev.target.id==='pv2-by'){V.by=ev.target.value;render();}});
+  p.addEventListener('input',function(ev){if(ev.target.id==='pv2-q'){V.q=ev.target.value;var pos=ev.target.selectionStart;render();var q=$('pv2-q');if(q){q.focus();try{q.setSelectionRange(pos,pos);}catch(e){}}}});
+  try{if(typeof PAGE_LABELS!=='undefined')PAGE_LABELS.cm2val='Validation des comptes';}catch(e){}
+  return true;
+}
+function open(){if(!admin(cu()))return;installPage();V.tab='en_attente';if(typeof showPage==='function')showPage('cm2val');render();}
+function boot(){
+  css();if(!installPage()){setTimeout(boot,500);return;}
+  wrapSave();setInterval(wrapSave,2000);
+  window.pgnepValidationOpen=open; /* l'entrée de menu et les liens ouvrent désormais cette page */
+  var nav=$('pgval-nav');if(nav)nav.setAttribute('onclick','pgnepValidationOpen()');
+  var bell=$('pgval-bell');if(bell)bell.onclick=open;
+}
+window.PGVAL2={open:open,render:render,V:V,creator:creator,version:'1.0'};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+console.log('✅ PGNEP : validation des comptes (directeurs et correspondants) chargée');
+})();
+
+</script>
+<script id="pgnep-dedup">
+/* PGNEP — Suppression des doublons DRENAET / IEPP / écoles (ajout additif, Super Administrateur uniquement).
+   Les doublons sont fusionnés : les élèves, comptes et notes rattachés à un doublon sont rattachés à la fiche conservée.
+   Une copie de sécurité des fiches supprimées est gardée dans le navigateur (pgnep_dedup_backup). */
+(function(){
+'use strict';
+if(window.PGDEDUP)return;
+function nk(s){return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[’'`]/g,"'").replace(/\s+/g,' ').trim();}
+function isSA(){try{return !!(currentUser&&(currentUser.role==='admin'||currentUser.login==='diomande'));}catch(e){return false;}}
+function db(){return window.DB||null;}
+function sv(c){try{if(typeof save==='function')save(c);}catch(e){}}
+function cloudDel(c,id){try{if(window._firebaseReady&&window._fb&&window._fb.del)window._fb.del(c,id).catch(function(){});}catch(e){}}
+function cloudSet(c,r){try{if(window._firebaseReady&&window._fb&&window._fb.set)window._fb.set(c,r.id,r).catch(function(){});}catch(e){}}
+function backup(kind,rows){if(!rows.length)return;try{var k='pgnep_dedup_backup',a=JSON.parse(localStorage.getItem(k)||'[]');a.push({le:new Date().toISOString(),type:kind,fiches:rows});if(a.length>20)a=a.slice(-20);localStorage.setItem(k,JSON.stringify(a));}catch(e){}}
+function fill(w,l){Object.keys(l).forEach(function(k){if(k==='id')return;var v=w[k];if((v===undefined||v===null||v==='')&&l[k]!==undefined&&l[k]!==null&&l[k]!=='')w[k]=l[k];});}
+function score(r){var n=0;Object.keys(r).forEach(function(k){var v=r[k];if(v!==undefined&&v!==null&&v!==''&&!(typeof v==='object'&&!Object.keys(v).length))n++;});return n;}
+
+/* registres DRENAET / IEPP : clé = nom sans accents/casse/espaces */
+function dedupReg(col){
+  var D=db();if(!D||!Array.isArray(D[col])||D[col].length<2)return 0;
+  var map={},keep=[],gone=[];
+  D[col].forEach(function(r){
+    var k=nk(r&&r.nom);if(!k){keep.push(r);return;}
+    var w=map[k];
+    if(!w){map[k]=r;keep.push(r);return;}
+    if(score(r)>score(w)){fill(r,w);var i=keep.indexOf(w);keep[i]=r;map[k]=r;gone.push(w);}else{fill(w,r);gone.push(r);}
+  });
+  if(!gone.length)return 0;
+  backup(col,gone);D[col]=keep;sv(col);gone.forEach(function(g){cloudDel(col,g.id);});keep.forEach(function(r){if(gone.length)cloudSet(col,r);});
+  return gone.length;
+}
+
+/* écoles : même nom + même IEPP (+ même DRENAET) et codes compatibles */
+function dedupEcoles(){
+  var D=db();if(!D||!Array.isArray(D.ecoles)||D.ecoles.length<2)return 0;
+  var groups={},keep=[],gone=[],remap={};
+  D.ecoles.forEach(function(e){
+    var k=nk(e&&e.nom)+'|'+nk(e&&e.iepp)+'|'+nk(e&&e.drena);if(!nk(e&&e.nom)){keep.push(e);return;}
+    var g=groups[k]||(groups[k]=[]),w=null,c=nk(e.code);
+    for(var i=0;i<g.length;i++){var c2=nk(g[i].code);if(!c||!c2||c===c2){w=g[i];break;}}
+    if(!w){g.push(e);keep.push(e);return;}
+    /* garder la fiche la plus renseignée ; la plus ancienne en cas d'égalité */
+    if(score(e)>score(w)){fill(e,w);keep[keep.indexOf(w)]=e;g[g.indexOf(w)]=e;remap[w.id]=e.id;gone.push(w);}else{fill(w,e);remap[e.id]=w.id;gone.push(e);}
+  });
+  if(!gone.length)return 0;
+  backup('ecoles',gone);
+  var ch={eleves:0,users:0,corbeille:0};
+  (D.eleves||[]).forEach(function(x){if(remap[x.ecole_id]){x.ecole_id=remap[x.ecole_id];ch.eleves=1;}});
+  (D.corbeille||[]).forEach(function(x){if(remap[x.ecole_id]){x.ecole_id=remap[x.ecole_id];ch.corbeille=1;}});
+  (D.users||[]).forEach(function(u){var c=0;if(remap[u.ecole_val]){u.ecole_val=remap[u.ecole_val];c=1;}if(u.structure_type==='ecole'&&remap[u.structure_val]){u.structure_val=remap[u.structure_val];c=1;}if(c){ch.users=1;cloudSet('users',u);}});
+  D.ecoles=keep;
+  sv('ecoles');if(ch.eleves)sv('eleves');if(ch.users)sv('users');if(ch.corbeille)sv('corbeille');
+  gone.forEach(function(g){cloudDel('ecoles',g.id);});keep.forEach(function(e){cloudSet('ecoles',e);});
+  return gone.length;
+}
+
+var busy=false,last='';
+function run(silent){
+  if(busy||!isSA()||!db())return null;busy=true;var r={drenaets:0,iepps:0,ecoles:0};
+  try{r.ecoles=dedupEcoles();r.iepps=dedupReg('iepps');r.drenaets=dedupReg('drenaets');}catch(e){console.warn('[PGDEDUP]',e);}
+  busy=false;
+  var t=r.ecoles+r.iepps+r.drenaets;
+  if(t){try{['renderEcoles','renderDashboard','renderEleves','updateStats'].forEach(function(f){if(typeof window[f]==='function')try{window[f]();}catch(e){}});}catch(e){}
+    if(!silent&&typeof showNotif==='function'){try{showNotif('🧹 Doublons supprimés : '+r.iepps+' IEPP, '+r.drenaets+' DRENAET, '+r.ecoles+' école(s).','success');}catch(e){}}}
+  return r;
+}
+function wrap(name){var o=window[name];if(typeof o!=='function'||o.__dd)return;var w=function(){run(true);var x=o.apply(this,arguments);var r=run(true);if(r&&(r.iepps||r.drenaets)&&(name!=='renderEcoles'))o.apply(this,arguments);return x;};try{Object.keys(o).forEach(function(k){w[k]=o[k];});}catch(e){}w.__dd=true;window[name]=w;}
+function install(){['openIeppAdmin','openDrenaetAdmin','saShowIepp','saShowDrenaet','renderEcoles'].forEach(wrap);}
+function boot(){
+  install();setTimeout(install,2500);
+  setTimeout(function(){run(false);},4000);
+  setInterval(function(){install();run(true);},20000);
+  window.addEventListener('focus',function(){run(true);});
+}
+window.PGDEDUP={run:run,nk:nk,dedupReg:dedupReg,dedupEcoles:dedupEcoles,version:'1.0'};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+console.log('✅ PGNEP : anti-doublons DRENAET / IEPP / écoles chargé');
+})();
+
+</script>
 </body>
 </html>
