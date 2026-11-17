@@ -28871,6 +28871,7 @@ function sumB(list){
 
 /* ───────── en-tête dynamique (selon l'école et son rattachement) ───────── */
 function hdrBlock(drena,iepp,an){
+  if(window.PGHDR)return window.PGHDR.block(drena,iepp,an);
   var arm=armoiries();
   return '<table class="hd"><tr><td class="l">MINISTÈRE DE L’ÉDUCATION NATIONALE, DE L’ALPHABÉTISATION ET DE L’ENSEIGNEMENT TECHNIQUE<br>DIRECTION RÉGIONALE : <b>'+esc(drena||'……………')+'</b><br>INSPECTION DE L’ENSEIGNEMENT PRÉSCOLAIRE ET PRIMAIRE : <b>'+esc(iepp||'……………')+'</b></td>'+
     '<td class="r"><div class="ar">'+(arm?'<img src="'+arm+'" style="height:64px">':'')+'<br>Année scolaire : <b>'+esc(an)+'</b></div></td></tr></table>';
@@ -28898,7 +28899,7 @@ function printHTML(title,html,css){
     'document.querySelectorAll("canvas.sgc").forEach(ini);'+
     'window.sgClr=function(){document.querySelectorAll("canvas.sgc").forEach(function(c){c.getContext("2d").clearRect(0,0,c.width,c.height);c.dataset.has="";});};'+
     'window.sgSave=function(){var n=0;document.querySelectorAll("canvas.sgc").forEach(function(c){if(c.dataset.has==="1"&&window.opener&&window.opener.PGEC){window.opener.PGEC.storeSign(c.getAttribute("data-n"),c.getAttribute("data-w"),c.toDataURL("image/png"));n++;}});alert(n?"Signature enregistrée dans l’application.":"Rien à enregistrer.");};})();<\/script>':'';
-  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+esc(title)+'</title><style>'+PRINT_CSS+(css||'')+'</style></head><body>'+bar+html+js+'</body></html>');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+esc(title)+'</title><style>'+PRINT_CSS+(window.PGHDR?window.PGHDR.css:'')+(css||'')+'</style></head><body>'+bar+html+js+'</body></html>');
   w.document.close();
   if(!inter)setTimeout(function(){try{w.focus();w.print();}catch(e){}},400);
 }
@@ -29429,7 +29430,7 @@ function viewConv(o){
   var list=L.list.filter(function(e){return (!S.filEc||e.ecole_id===S.filEc)&&(!q||norm(e.nom+' '+e.prenoms+' '+(e.matricule||'')).indexOf(q)>=0);});
   var h='<div class="og-top">'+cs+fld('École',sel('cm-fe','filec',[['','Toutes les écoles']].concat(sc.map(function(e){return [e.id,e.nom];})),S.filEc))+fld('Recherche','<input id="cm-q" data-c="q" value="'+esc(S.q)+'" placeholder="Nom, matricule">')+'</div>';
   h+='<div class="og-hint">Convocation à l’<b>'+sessLabel(c.session)+'</b> — centre « '+esc(c.nom)+' » ('+esc(ecoleNom(c.accueil))+'), le '+esc(c.date?fr(c.date):'(date à renseigner dans le centre)')+' à '+esc(c.heure||'')+'. Le numéro de table suit l’ordre alphabétique du centre.</div>';
-  h+='<div class="og-actions">'+btn('prtConv','🖨️ Imprimer les convocations ('+list.length+')',{all:'1'},'btn-primary')+btn('prtConv','🖨️ Imprimer la sélection',{all:'0'})+btn('xlsConv','⬇️ Liste (Excel)')+btn('selAllC','☑️ Tout sélectionner')+'</div>';
+  h+='<div class="og-actions">'+fld('Convocations par feuille A4','<select id="cm-cvp" data-c="cvper">'+opt('3','3 par feuille',(S.convPer||3)===3)+opt('2','2 par feuille',S.convPer===2)+opt('1','1 par feuille',S.convPer===1)+'</select>')+btn('prtConv','🖨️ Imprimer les convocations ('+list.length+')',{all:'1'},'btn-primary')+btn('prtConv','🖨️ Imprimer la sélection',{all:'0'})+btn('xlsConv','⬇️ Liste (Excel)')+btn('selAllC','☑️ Tout sélectionner')+'</div>';
   h+=card('Candidats convoqués',tbl(['','N° table','Nom et prénoms','Matricule','École d’origine'],list.map(function(e){return ['<input type="checkbox" class="cm-sel" value="'+esc(e.id)+'">',e._tbl,who(e),esc(e.matricule||''),esc(ecoleNom(e.ecole_id))];}),'Aucun candidat affecté à ce centre.'));
   return h;
 }
@@ -29858,15 +29859,15 @@ var ACT={
     var o=ownerU(),L=convList(o),c=L.c;if(!c)return;var sc=scopeOf(o)[0]||{},ids=d.all==='1'?null:selected();
     var list=L.list.filter(function(e){return (!S.filEc||e.ecole_id===S.filEc)&&(!ids||ids.indexOf(e.id)>=0);});
     if(!list.length){notif('Aucun candidat à convoquer.','error');return;}
-    var arm=armoiries(),h='';
+    var arm=armoiries(),h='',per=S.convPer||3;
     list.forEach(function(e,i){
-      h+='<div class="cv">'+hdrBlock(sc.drena,o.structure_val,S.annee)+
+      h+='<div class="cv cv'+per+'">'+hdrBlock(sc.drena,o.structure_val,S.annee)+
         '<h2>CONVOCATION À L’'+esc(sessLabel(c.session).toUpperCase())+' — CM2</h2>'+
         '<table><tr><td width="28%">Candidat(e)</td><td><b>'+who(e)+'</b></td></tr><tr><td>Matricule</td><td>'+esc(e.matricule||'')+'</td></tr><tr><td>Né(e) le · à</td><td>'+esc(fr(e.ddn))+' · '+esc(e.lieu||'')+'</td></tr><tr><td>École d’origine</td><td>'+esc(ecoleNom(e.ecole_id))+'</td></tr>'+
         '<tr><td>Centre d’examen</td><td><b>'+esc(c.nom)+'</b> ('+esc(c.code)+') — École d’accueil : '+esc(ecoleNom(c.accueil))+'</td></tr><tr><td>Date et heure</td><td><b>'+esc(c.date?fr(c.date):'………')+'</b> à <b>'+esc(c.heure||'……')+'</b></td></tr><tr><td>N° de table</td><td><b>'+e._tbl+'</b></td></tr></table>'+
         '<p style="font-size:10.5px;margin:6px 0 0">Le (la) candidat(e) doit se présenter muni(e) de sa convocation et de son matériel (stylos, règle, équerre, compas). Toute absence ou retard doit être justifié.</p>'+
-        '<p style="text-align:right;margin:8px 0 0">Le Responsable du centre : '+esc(c.resp||'……………………')+' &nbsp;&nbsp;&nbsp; L’Inspecteur</p></div>'+((i%2===1)?'<div class="brk"></div>':'');});
-    printHTML('Convocations',h,'@page{size:A4 portrait;margin:10mm}');},
+        '<p style="text-align:right;margin:8px 0 0">Le Responsable du centre : '+esc(c.resp||'……………………')+' &nbsp;&nbsp;&nbsp; L’Inspecteur</p></div>'+((i%per===per-1&&i<list.length-1)?'<div class="brk"></div>':'');});
+    printHTML('Convocations',h,'@page{size:A4 portrait;margin:8mm}.cv1{margin-bottom:0}.cv2{height:132mm;box-sizing:border-box;margin-bottom:3mm;overflow:hidden}.cv3{height:88mm;box-sizing:border-box;margin-bottom:3mm;padding:5px 12px;font-size:11.5px;overflow:hidden}.cv3 h2{font-size:14px;margin:5px 0}.cv3 .pgh{margin-bottom:2px}.cv3 .pgh td{font-size:7.6px}.cv3 .pgl{width:54px}.cv3 .pgl img,.cv3 .pgr img{height:38px;max-height:38px}.cv3 .pgr{width:100px;font-size:8px}.cv3 td{padding:2.5px 0}.cv3 p{font-size:9.5px!important;margin:5px 0 0!important}.cv3 .pgh td{font-size:8.4px}.cv3 .pgl img,.cv3 .pgr img{height:44px;max-height:44px}.brk{page-break-before:always;height:0;margin:0}');},
   xlsConv:function(){var o=ownerU(),L=convList(o);if(!L.c)return;xlsAoa([['N° table','Matricule','Nom','Prénoms','École d’origine','Centre','Session','Date','Heure']].concat(L.list.map(function(e){return [e._tbl,e.matricule||'',e.nom||'',e.prenoms||'',ecoleNom(e.ecole_id),L.c.nom,sessLabel(L.c.session),L.c.date||'',L.c.heure||''];})),'Convocations','convocations_'+L.c.code+'.xlsx',[9,14,24,28,28,26,16,12,8]);},
   /* ── CEAP / CAP ── */
   newCeap:function(){S.cepEdit='new';render();},editCeap:function(d){S.cepEdit=d.i;render();},cancelCeap:function(){S.cepEdit=null;render();},
@@ -29928,6 +29929,7 @@ var CH={
   mxsel:function(el){S.mxSel=S.mxSel||{};S.mxSel[el.getAttribute('data-i')]=el.checked;render();},
   mxall:function(el){var o=ownerU();S.mxSel=S.mxSel||{};mxList(o,S.zone==='cf'?'cf':'ec').forEach(function(r){S.mxSel[r.id]=el.checked;});render();},
   cons:function(el){S.consComp=el.value;render();},
+  cvper:function(el){S.convPer=+el.value||3;render();},
   rapt:function(el){var o=ownerU();if(o&&S.rap){var c=JSON.parse(JSON.stringify(rapRead()));c.maj=new Date().toISOString();rapStore(o)[S.rapType||'c1']=c;ownerSave(o);}S.rapType=el.value;render();},consonly:function(el){S.consOnly=el.value==='1';render();},
   cpPick:function(el){var u=D().users.find(function(x){return x.login===el.value;});if(!u)return;var m=/^(\S+)\s+(.*)$/.exec(String(u.nom||'').trim());var set=function(i,v){var e=$(i);if(e)e.value=v||'';};
     set('cp-nom',m?m[1]:u.nom);set('cp-pre',m?m[2]:'');set('cp-cl',u.structure_val);var ec=D().ecoles.find(function(e){return e.id===u.ecole_val;});if(ec)set('cp-ec',ec.nom);},
@@ -30513,6 +30515,95 @@ console.log('✅ PGNEP : anti-doublons DRENAET / IEPP / écoles chargé');
  after('updateStructureFields',function(){cut('new-iepp','iepp');cut('new-drena','drena');cut('new-ecole-user','id');cut('sa-ecole','id');});
 
  W.PGPERIM={global:global,scope:function(){return {ecoles:sEc().length,eleves:sEl().length,notes:sNt().length};}};
+})();
+
+</script>
+<script id="pgnep-entete">
+/* PGNEP — En-tête commun des documents imprimés : logo (gauche) · DRENAET / IEPP (centre) · armoiries + année scolaire (droite) — module additif */
+(function(){
+ if(window.PGHDR)return;
+ var W=window;
+ function ev(n){try{return (0,eval)(n);}catch(e){return undefined;}}
+ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+ function norm(s){return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();}
+ function DBo(){return ev('typeof DB!=="undefined"?DB:null')||{users:[],ecoles:[],eleves:[],notes:[]};}
+ function me(){try{var c=ev('typeof currentUser!=="undefined"?currentUser:null');if(!c)return null;return DBo().users.filter(function(u){return u.login===c.login;})[0]||c;}catch(e){return null;}}
+ function ecoleOf(u){
+  var E=DBo().ecoles||[];if(!u)return null;var v=(u.role==='directeur')?u.structure_val:(u.role==='instituteur'||u.role==='benevole')?u.ecole_val:null;if(!v)return null;
+  try{if(typeof resolveEcoleId==='function')v=resolveEcoleId(v);}catch(e){}
+  return E.filter(function(e){return e.id===v;})[0]||E.filter(function(e){return norm(e.nom)===norm(v);})[0]||null;
+ }
+ function ctx(){
+  var u=me(),E=DBo().ecoles||[],r={drena:'',iepp:'',ecole:'',ecoleId:'',u:u},ec=ecoleOf(u);
+  if(ec){r.ecole=ec.nom;r.ecoleId=ec.id;r.iepp=ec.iepp||'';r.drena=ec.drena||'';}
+  else if(u){
+   if(u.structure_type==='iepp'||u.role==='correspondant'||u.role==='cppp'){r.iepp=u.structure_val||'';var s=E.filter(function(e){return norm(e.iepp)===norm(r.iepp);})[0];if(s)r.drena=s.drena||'';}
+   else if(u.structure_type==='drena'||u.role==='coordinateur'){r.drena=u.structure_val||'';}
+  }
+  return r;
+ }
+ function armo(){
+  try{var i=document.querySelector('img[src^="data:image/jpeg;base64,/9j/4AAQ"]');if(i)return i.getAttribute('src');}catch(e){}
+  return ev('typeof ARMOIRIE!=="undefined"?ARMOIRIE:""')||ev('typeof ARMO!=="undefined"?ARMO:""')||'';
+ }
+ function an(){return ev('typeof ANNEE_SCOLAIRE!=="undefined"?ANNEE_SCOLAIRE:""')||'2026-2027';}
+ /* logo : le sien → celui du directeur de l'école → celui d'un correspondant de l'IEPP → logo des cartes scolaires */
+ function logo(c){
+  c=c||ctx();var U=DBo().users||[],u=c.u;
+  if(u&&u.logo_doc)return u.logo_doc;
+  var res=null;
+  function pick(f){var l=U.filter(function(x){return x.logo_doc&&f(x);})[0];return l?l.logo_doc:null;}
+  if(c.ecoleId){res=pick(function(x){var e=ecoleOf(x);return x.role==='directeur'&&e&&e.id===c.ecoleId;});if(res)return res;}
+  if(c.iepp){res=pick(function(x){return (x.role==='correspondant'||x.role==='cppp')&&norm(x.structure_val)===norm(c.iepp);});if(res)return res;}
+  try{var cfg=JSON.parse(localStorage.getItem('pgnep_cartes_cfg')||'{}'),ids=[];
+   if(c.ecoleId)ids.push(c.ecoleId);(DBo().ecoles||[]).forEach(function(e){if(c.iepp&&norm(e.iepp)===norm(c.iepp)&&ids.indexOf(e.id)<0)ids.push(e.id);});
+   for(var i=0;i<ids.length;i++){if(cfg[ids[i]]&&cfg[ids[i]].logo)return cfg[ids[i]].logo;}}catch(e){}
+  return '';
+ }
+ var CSS='.pgh{width:100%;border-collapse:collapse;margin:0 0 6px}.pgh td{vertical-align:top;font-size:10px;line-height:1.3}.pgh .pgl{width:74px;text-align:left;cursor:pointer}.pgh .pgl img{max-height:62px;max-width:70px}.pgh .pgc{padding:0 8px}.pgh .pgr{width:128px;text-align:center;font-size:10px}.pgh .pgr img{height:62px}'+
+  '.pgph{display:inline-block;width:62px;height:50px;border:1px dashed #94A3B8;color:#64748B;font-size:9px;text-align:center;line-height:1.1;padding-top:12px;box-sizing:border-box}@media print{.pgph{display:none!important}}';
+ function block(drena,iepp,anS,opt){
+  opt=opt||{};var c=ctx(),lg=opt.logo!=null?opt.logo:logo(c),ar=armo();
+  var left=lg?'<img class="pgimg" src="'+esc(lg)+'" alt="">':'<span class="pgph" title="Cliquer pour ajouter le logo de l’inspection ou de l’école">🖼️<br>Logo</span>';
+  var txt='MINISTÈRE DE L’ÉDUCATION NATIONALE, DE L’ALPHABÉTISATION ET DE L’ENSEIGNEMENT TECHNIQUE<br>DIRECTION RÉGIONALE : <b>'+esc(drena||c.drena||'……………')+'</b><br>INSPECTION DE L’ENSEIGNEMENT PRÉSCOLAIRE ET PRIMAIRE : <b>'+esc(iepp||c.iepp||'……………')+'</b>'+(opt.ecole?'<br>ÉCOLE : <b>'+esc(opt.ecole)+'</b>':'');
+  return (opt.css?'<style>'+CSS+'</style>':'')+'<table class="pgh" data-pgh="1"><tr><td class="pgl">'+left+'</td><td class="pgc">'+txt+'</td><td class="pgr">'+(ar?'<img src="'+esc(ar)+'" alt="">':'')+'<br>Année scolaire : <b>'+esc(anS||an())+'</b></td></tr></table>';
+ }
+ /* bandeau léger pour les documents qui ont déjà leur propre entête officiel (logo + DRENAET/IEPP + année) */
+ function band(){
+  var c=ctx(),lg=logo(c);
+  return '<style>'+CSS+'</style><table class="pgh" data-pgh="1"><tr><td class="pgl">'+(lg?'<img class="pgimg" src="'+esc(lg)+'" alt="">':'<span class="pgph" title="Cliquer pour ajouter le logo">🖼️<br>Logo</span>')+'</td><td class="pgc" style="text-align:center;font-weight:bold">'+(c.drena?'DRENAET : '+esc(c.drena):'')+(c.drena&&c.iepp?' &nbsp;·&nbsp; ':'')+(c.iepp?'IEPP : '+esc(c.iepp):'')+(c.ecole?'<br><span style="font-weight:normal">'+esc(c.ecole)+'</span>':'')+'</td><td class="pgr" style="text-align:right">Année scolaire : <b>'+esc(an())+'</b></td></tr></table>';
+ }
+ /* script exécuté dans la fenêtre d'impression : clic sur le logo → choisir une image */
+ var JS='<script id="pgh-js">(function(){function sm(d,cb){var i=new Image();i.onload=function(){var m=360,r=Math.min(1,m/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=Math.round(i.width*r);c.height=Math.round(i.height*r);c.getContext("2d").drawImage(i,0,0,c.width,c.height);cb(c.toDataURL("image/png"));};i.src=d;}'+
+  'document.addEventListener("click",function(e){var p=e.target.closest&&e.target.closest(".pgl");if(!p)return;var f=document.createElement("input");f.type="file";f.accept="image/*";f.onchange=function(){var fl=f.files[0];if(!fl)return;var r=new FileReader();r.onload=function(){sm(r.result,function(u){try{window.opener.PGHDR.setLogo(u);}catch(z){}document.querySelectorAll(".pgl").forEach(function(c){c.innerHTML="<img class=pgimg src=\\""+u+"\\" alt=\\"\\">";});});};r.readAsDataURL(fl);};f.click();});})();<\/script>';
+ function setLogo(d){
+  var u=me();if(!u)return false;u.logo_doc=d;
+  try{if(typeof save==='function')ev('save')('users');}catch(e){}
+  try{if(W._firebaseReady&&W._fb&&W._fb.set)W._fb.set('users',u.login||u.id,u).catch(function(){});}catch(e){}
+  return true;
+ }
+ var SKIP=/Cartes? d.identit|Pr[ée]paration de l.impression|Guide Le Perroquet|Calendrier/i;
+ function process(h){
+  if(typeof h!=='string'||h.length<120)return h;
+  if(SKIP.test(h.slice(0,3000)))return h;
+  var has=h.indexOf('data-pgh')>=0;
+  if(h.indexOf('id="pgh-js"')>=0)return h;
+  var body=/<body[^>]*>/i.exec(h);
+  var withHdr=/MINIST[ÈE]RE DE L|R[ÉE]PUBLIQUE DE C[ÔO]TE|DIRECTION R[ÉE]GIONALE/i.test(h);
+  var ins=has?'':(withHdr?band():block(null,null,null,{css:1}));
+  var tail=JS;
+  if(!body)return ins+h+tail;
+  var k=body.index+body[0].length,out=h.slice(0,k)+ins+h.slice(k);
+  var e=out.lastIndexOf('</body>');out=e>=0?out.slice(0,e)+tail+out.slice(e):out+tail;
+  return out;
+ }
+ var prev=W.open;
+ W.open=function(){
+  var w=prev.apply(this,arguments);
+  try{if(w&&w.document&&!w.document.__pgh){var d=w.document,dw=d.write;d.__pgh=1;d.write=function(h){var a=Array.prototype.slice.call(arguments);if(a.length===1)a[0]=process(a[0]);return dw.apply(d,a);};}}catch(e){}
+  return w;
+ };
+ W.PGHDR={block:block,band:band,css:CSS,ctx:ctx,logo:logo,setLogo:setLogo,process:process,js:JS};
 })();
 
 </script>
