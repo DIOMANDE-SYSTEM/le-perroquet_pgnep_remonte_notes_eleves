@@ -27728,5 +27728,2101 @@ console.log('[sauvegarde] Sauvegarde TOTALE (données + barèmes + photos) — c
 })();
 
 </script>
+
+<!-- MODULE ADDITIF : ORGANISATION PEDAGOGIQUE DES CLASSES (simple, jumelee, double flux, double vacation) - retirer ce bloc pour revenir a l'etat precedent -->
+<script id="pgnep-orgp">
+(function(){
+'use strict';
+if(window.ORGP) return;
+
+/* ═════════════════════════════════════════════════════════════════════
+   ORGANISATION PÉDAGOGIQUE DES CLASSES  (complément au cahier des charges)
+   Bloc 100 % ADDITIF : aucune fonction, ligne ou donnée existante n'est
+   modifiée ou supprimée. Retirer ce bloc suffit pour revenir à
+   l'état précédent.
+   ─ Données (réversibles, synchronisées avec les collections existantes) :
+       école  → ecole.orgp.annees[AAAA-AAAA] = {classes,sections,vacations,salles}
+       élève  → eleve.orgp (affectation de l'année) + eleve.orgp_hist (historique)
+     Aucune nouvelle table : tout voyage dans « ecoles » et « eleves ».
+   ─ Le niveau réel de l'élève (eleve.classe) n'est JAMAIS modifié : les notes,
+     moyennes et bulletins restent calculés par niveau (pas de moyenne commune
+     dans une classe jumelée).
+   ─ Compatibilité : les champs du module « Organisation des classes » des
+     comptes maîtres (org_type, classes_val, nom_classe, salle, groupe_val) et
+     le champ élève « groupe » sont renseignés en parallèle.
+   ═════════════════════════════════════════════════════════════════════ */
+
+var NIV=['CP1','CP2','CE1','CE2','CM1','CM2'];
+var MODES={simple:'Classe simple',jumelee:'Classe jumelée',double_flux:'Classe à double flux',double_vacation:'Classe à double vacation'};
+var PL={simple:'Classes simples',jumelee:'Classes jumelées',double_flux:'Classes à double flux',double_vacation:'Classes à double vacation'};
+var MODE_ICON={simple:'📘',jumelee:'📚',double_flux:'🔀',double_vacation:'🕐'};
+var JOURS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+var MATIERES=['Lecture','Écriture','Dictée','Mathématiques','Expression orale','Graphisme','EDHC','Éveil','EPS','Poésie','Dessin','Récréation','Chant'];
+var VIEWS=[
+  ['dashboard','📊','Tableau de bord'],
+  ['simple','📘','Classes simples'],
+  ['jumelee','📚','Classes jumelées'],
+  ['double_flux','🔀','Classes à double flux'],
+  ['double_vacation','🕐','Classes à double vacation'],
+  ['sections','🔤','Gestion des sections'],
+  ['flux','↔️','Gestion des flux'],
+  ['vacations','⏰','Gestion des vacations'],
+  ['ens','👨‍🏫','Affectation des enseignants'],
+  ['eleves','🧒','Affectation des élèves'],
+  ['edt','🗓️','Emplois du temps']
+];
+var S={view:'dashboard',eid:null,annee:null,scope:'ecole',edit:null,eltCls:'',eltSlot:'',eltQ:'',eltShow:'non',eltHist:null,edtCls:'',edtSlot:''};
+
+/* ───────────────── utilitaires ───────────────── */
+function $(i){return document.getElementById(i);}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function uid(p){return p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function D(){return (typeof DB!=='undefined')?DB:{users:[],ecoles:[],eleves:[],notes:[]};}
+function me(){try{return (typeof getCurrentUserData==='function')?getCurrentUserData():null;}catch(e){return null;}}
+function rid(v){try{return (typeof resolveEcoleId==='function')?resolveEcoleId(v):v;}catch(e){return v;}}
+function notif(m,t){try{if(typeof showNotif==='function')showNotif(m,t||'info');else console.log(m);}catch(e){}}
+function canEdit(){var u=me();return !!u&&(u.role==='admin'||u.role==='directeur'||u.role==='correspondant'||u.login==='diomande');}
+function isSA(){var u=me();return !!u&&(u.role==='admin'||u.login==='diomande');}
+function canSee(){var u=me();return !!u&&(['admin','directeur','correspondant','cppp','coordinateur','cabinet','lecteur'].indexOf(u.role)>=0||u.login==='diomande');}
+function today(){return new Date().toISOString().slice(0,10);}
+function anneeCourante(){return (typeof ANNEE_SCOLAIRE!=='undefined'&&ANNEE_SCOLAIRE)?ANNEE_SCOLAIRE:(window.ANNEE_SCOLAIRE||'2026-2027');}
+function anneesListe(){
+  var c=anneeCourante(),m=/^(\d{4})\s*-\s*(\d{4})$/.exec(c);if(!m)return [c];
+  var a=+m[1],out=[];for(var i=-3;i<=1;i++)out.push((a+i)+'-'+(a+i+1));return out;
+}
+function tm(s){var m=/^(\d{1,2}):(\d{2})$/.exec(s||'');return m?(+m[1])*60+(+m[2]):null;}
+function ecoles(){try{return (typeof getScopeEcoles==='function'?getScopeEcoles():D().ecoles)||[];}catch(e){return [];}}
+function curEcole(){var l=ecoles();for(var i=0;i<l.length;i++)if(l[i].id===S.eid)return l[i];return l[0]||null;}
+function persist(col,items){
+  var d=D();
+  try{localStorage.setItem('pgnep_'+col,JSON.stringify(d[col]));}catch(e){console.warn('[ORGP] stockage local',e);}
+  try{
+    if(window._firebaseReady&&window._fb&&items){
+      items.forEach(function(it){var id=it&&(it.id||it.login);if(id)window._fb.set(col,id,it).catch(function(e){console.warn('[ORGP] cloud',e);});});
+    }
+  }catch(e){console.warn(e);}
+}
+
+/* ───────────────── accès aux données ───────────────── */
+function ydR(ec,an){ /* lecture seule : ne modifie rien */
+  var y=ec&&ec.orgp&&ec.orgp.annees&&ec.orgp.annees[an||S.annee];
+  return y||{classes:[],sections:[],vacations:[],salles:[]};
+}
+function yd(ec,an){ /* lecture/écriture : crée la structure de l'année si absente */
+  an=an||S.annee;
+  if(!ec.orgp||typeof ec.orgp!=='object')ec.orgp={v:1,annees:{}};
+  if(!ec.orgp.annees)ec.orgp.annees={};
+  var y=ec.orgp.annees[an];
+  if(!y)y=ec.orgp.annees[an]={classes:[],sections:[],vacations:[],salles:[]};
+  ['classes','sections','vacations','salles'].forEach(function(k){if(!Array.isArray(y[k]))y[k]=[];});
+  return y;
+}
+function saveEcole(ec){persist('ecoles',[ec]);}
+function elevesDe(ec){return D().eleves.filter(function(e){return e&&e.ecole_id===ec.id;});}
+function profs(ec){
+  return D().users.filter(function(u){return u&&(u.role==='instituteur'||u.role==='benevole')&&u.actif!==false&&u.statut_validation!=='en_attente'&&u.statut_validation!=='refuse'&&(rid(u.ecole_val)===ec.id||u.ecole_val===ec.id);});
+}
+function userBy(login){return D().users.find(function(u){return u.login===login;})||null;}
+function affOf(e,an){
+  if(e.orgp&&e.orgp.annee===an)return e.orgp;
+  var h=(e.orgp_hist||[]).filter(function(x){return x.annee===an;});
+  return h.length?h[h.length-1].vers:null;
+}
+function clsById(y,id){return y.classes.find(function(c){return c.id===id;})||null;}
+function slotsOf(c){return c.mode==='double_flux'?(c.slots||[]):[];}
+function vacById(y,id){return y.vacations.find(function(v){return v.id===id;})||null;}
+function niveauxTxt(c){return (c.niveaux||[]).join('–');}
+function classLabel(c){return c.nom||(niveauxTxt(c)+(c.section?' '+c.section:''));}
+function intervalsOf(y,c){ /* plages horaires occupées par une classe (minutes) */
+  if(c.mode==='double_flux'){return (c.slots||[]).map(function(s){return {a:tm(s.debut),b:tm(s.fin),t:s.nom,salle:s.salle||c.salle||''};});}
+  if(c.mode==='double_vacation'){var v=vacById(y,c.vac_id);return [{a:v?tm(v.debut):0,b:v?tm(v.fin):1440,t:v?v.nom:'',salle:c.salle||''}];}
+  return [{a:0,b:1440,t:'',salle:c.salle||''}];
+}
+function salleConflict(y,c){
+  var mine=intervalsOf(y,c);
+  for(var i=0;i<y.classes.length;i++){
+    var o=y.classes[i];if(o.id===c.id)continue;
+    var oi=intervalsOf(y,o);
+    for(var a=0;a<mine.length;a++){if(!mine[a].salle)continue;
+      for(var b=0;b<oi.length;b++){
+        if(oi[b].salle!==mine[a].salle)continue;
+        var x1=mine[a].a,x2=mine[a].b,y1=oi[b].a,y2=oi[b].b;
+        if(x1==null||x2==null||y1==null||y2==null)continue;
+        if(x1<y2&&y1<x2)return 'La salle « '+mine[a].salle+' » est déjà occupée par '+classLabel(o)+(oi[b].t?' ('+oi[b].t+')':'')+' sur la même plage horaire.';
+      }}
+  }
+  return '';
+}
+
+/* ───────────────── affectation élève (avec historique) ───────────────── */
+function archive(e){
+  if(e.orgp&&e.orgp.annee){
+    if(!Array.isArray(e.orgp_hist))e.orgp_hist=[];
+    if(!e.orgp_hist.some(function(h){return h.annee===e.orgp.annee;}))
+      e.orgp_hist.push({date:e.orgp.date||today(),annee:e.orgp.annee,de:null,vers:e.orgp,par:'archive'});
+  }
+}
+function par(){var u=me();return u?(u.login||u.nom||''):'';}
+function assignEleve(e,c,slot,an){
+  archive(e);
+  var old=(e.orgp&&e.orgp.annee===an)?e.orgp:null;
+  var vac=null;
+  var nv={annee:an,classe_id:c.id,classe_nom:classLabel(c),mode:c.mode,niveau:e.classe,section:c.section||'',
+          slot_id:slot?slot.id:'',slot_nom:slot?slot.nom:'',vac_id:c.mode==='double_vacation'?(c.vac_id||''):'',date:today()};
+  if(c.mode==='double_vacation'){var y=null;var ec=D().ecoles.find(function(x){return x.id===e.ecole_id;});if(ec){y=ydR(ec,an);vac=vacById(y,c.vac_id);} nv.slot_nom=vac?vac.nom:'';}
+  if(old&&old.classe_id===nv.classe_id&&old.slot_id===nv.slot_id&&old.vac_id===nv.vac_id)return false;
+  if(!Array.isArray(e.orgp_hist))e.orgp_hist=[];
+  e.orgp_hist.push({date:today(),annee:an,de:old,vers:nv,par:par()});
+  e.orgp=nv;
+  if(nv.slot_nom)e.groupe=nv.slot_nom;
+  else if(old&&old.slot_nom&&e.groupe===old.slot_nom)delete e.groupe;
+  return true;
+}
+function unassignEleve(e,an){
+  if(!e.orgp||e.orgp.annee!==an)return false;
+  var old=e.orgp;
+  if(!Array.isArray(e.orgp_hist))e.orgp_hist=[];
+  e.orgp_hist.push({date:today(),annee:an,de:old,vers:null,par:par()});
+  e.orgp=null;
+  if(old.slot_nom&&e.groupe===old.slot_nom)delete e.groupe;
+  return true;
+}
+
+/* ───────────────── synchronisation avec les comptes maîtres (module existant) ───────────────── */
+function syncProf(login,c,y){
+  if(!isSA())return; /* les comptes sont validés et gérés par le Super Administrateur */
+  var u=userBy(login);if(!u)return;
+  if(!u.orgp_prev)u.orgp_prev={org_type:u.org_type||'',classes_val:u.classes_val||null,nom_classe:u.nom_classe||'',salle:u.salle||'',groupe_val:u.groupe_val||'',structure_val:u.structure_val||''};
+  u.org_type=c.mode;
+  u.classes_val=c.mode==='jumelee'?(c.niveaux||[]).slice():null;
+  u.nom_classe=classLabel(c);
+  u.salle=c.salle||'';
+  var sl=[],aff=c.aff||{};
+  Object.keys(aff).forEach(function(k){if((aff[k]||[]).indexOf(login)>=0)sl.push(k);});
+  var g='';
+  if(c.mode==='double_vacation'){var v=vacById(y,c.vac_id);g=v?v.nom:'';}
+  else if(c.mode==='double_flux'&&sl.length===1){var s=(c.slots||[]).find(function(z){return z.id===sl[0];});g=s?s.nom:'';}
+  u.groupe_val=g;
+  if(c.niveaux&&c.niveaux.length&&c.niveaux.indexOf(u.structure_val)<0)u.structure_val=c.niveaux[0];
+  persist('users',[u]);
+}
+function unsyncProf(login){
+  if(!isSA())return;
+  var u=userBy(login);if(!u||!u.orgp_prev)return;
+  var p=u.orgp_prev;
+  u.org_type=p.org_type;u.classes_val=p.classes_val;u.nom_classe=p.nom_classe;u.salle=p.salle;u.groupe_val=p.groupe_val;
+  if(p.structure_val)u.structure_val=p.structure_val;
+  delete u.orgp_prev;
+  persist('users',[u]);
+}
+
+/* ───────────────── statistiques ───────────────── */
+function listeEcolesStats(){
+  var all=ecoles(),ec=curEcole();
+  if(S.scope==='ecole'||!ec)return ec?[ec]:[];
+  if(S.scope==='groupe'){
+    var g=(ec.orgp&&ec.orgp.groupe_scolaire)||'';
+    if(!g)return [ec];
+    return all.filter(function(x){return x.orgp&&x.orgp.groupe_scolaire===g;});
+  }
+  return all;
+}
+function inc(o,k,n){o[k]=(o[k]||0)+(n||1);}
+function stats(list,an){
+  var R={nbClasses:{simple:0,jumelee:0,double_flux:0,double_vacation:0},nbEleves:{simple:0,jumelee:0,double_flux:0,double_vacation:0},
+         niv:{},sec:{},flux:{},vac:{},ens:{},salles:{},nonAff:0,totEleves:0,res:{},parEcole:[]};
+  var notes=D().notes||[],eleveGrp={};
+  list.forEach(function(ec){
+    var y=ydR(ec,an),els=elevesDe(ec),prefix=list.length>1?ec.nom+' · ':'';
+    var pe={nom:ec.nom,classes:y.classes.length,eleves:els.length,aff:0};
+    y.classes.forEach(function(c){
+      R.nbClasses[c.mode]=(R.nbClasses[c.mode]||0)+1;
+      Object.keys(c.aff||{}).forEach(function(k){(c.aff[k]||[]).forEach(function(l){R.ens[ec.id+'|'+l]=1;});});
+      intervalsOf(y,c).forEach(function(iv){
+        if(!iv.salle)return;
+        var key=prefix+iv.salle;(R.salles[key]=R.salles[key]||[]).push(classLabel(c)+(iv.t?' ('+iv.t+')':''));
+      });
+    });
+    els.forEach(function(e){
+      R.totEleves++;
+      var a=affOf(e,an);
+      if(!a){R.nonAff++;return;}
+      var c=clsById(y,a.classe_id);if(!c){R.nonAff++;return;}
+      pe.aff++;
+      R.nbEleves[c.mode]=(R.nbEleves[c.mode]||0)+1;
+      var nv=a.niveau||e.classe;inc(R.niv,nv);
+      inc(R.sec,(c.section||'(sans section)'));
+      if(c.mode==='double_flux'&&a.slot_nom)inc(R.flux,a.slot_nom);
+      if(c.mode==='double_vacation'&&a.slot_nom)inc(R.vac,a.slot_nom);
+      eleveGrp[e.id]={niv:nv,cls:prefix+classLabel(c),slot:(a.slot_nom&&c.mode!=='simple'&&c.mode!=='jumelee')?a.slot_nom:''};
+    });
+    R.parEcole.push(pe);
+  });
+  /* moyennes : JAMAIS mélangées entre niveaux (clé = niveau réel × classe × flux/vacation) */
+  notes.forEach(function(n){
+    var g=eleveGrp[n.eleve_id];if(!g)return;
+    var r;try{r=calcNote(n);}catch(e){return;}
+    if(!r||!(r.maxMoy>0)||typeof r.moy!=='number'||isNaN(r.moy))return;
+    var k=g.niv+'||'+g.cls+'||'+g.slot;
+    var o=R.res[k]||(R.res[k]={niv:g.niv,cls:g.cls,slot:g.slot,s:0,n:0});
+    o.s+=r.moy/r.maxMoy*20;o.n++;
+  });
+  R.nbEns=Object.keys(R.ens).length;
+  return R;
+}
+function sortedKeys(o){return Object.keys(o).sort(function(a,b){var ia=NIV.indexOf(a),ib=NIV.indexOf(b);if(ia>=0&&ib>=0)return ia-ib;return a<b?-1:a>b?1:0;});}
+
+/* ───────────────── rendu : briques ───────────────── */
+function card(title,body,extra){return '<div class="card og-card"><div class="card-header"><h3>'+title+'</h3>'+(extra||'')+'</div><div class="og-body">'+body+'</div></div>';}
+function stat(l,v,c){return '<div class="stat-card '+(c||'vert')+'"><div class="stat-value">'+v+'</div><div class="stat-label">'+l+'</div></div>';}
+function tbl(head,rows,empty){
+  if(!rows.length)return '<div class="og-empty">'+(empty||'Aucune donnée.')+'</div>';
+  return '<table class="og-t"><thead><tr>'+head.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>'+
+    rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table>';
+}
+function btn(a,label,d,cls){
+  var at='';if(d)Object.keys(d).forEach(function(k){at+=' data-'+k+'="'+esc(d[k])+'"';});
+  return '<button type="button" class="btn '+(cls||'btn-secondary')+' og-b" data-a="'+a+'"'+at+'>'+label+'</button>';
+}
+function opt(v,l,sel){return '<option value="'+esc(v)+'"'+(sel?' selected':'')+'>'+esc(l)+'</option>';}
+function fld(label,html){return '<label class="og-f"><span>'+label+'</span>'+html+'</label>';}
+function roTag(){return canEdit()?'':'<div class="og-ro">👁️ Consultation seule : la modification est réservée au Directeur, au Correspondant DESPS et à l’Administrateur.</div>';}
+
+/* ───────────────── en-tête : école / année ───────────────── */
+function headerHTML(){
+  var l=ecoles(),ec=curEcole();
+  var h='<div class="og-top">';
+  if(l.length>1)h+=fld('École','<select id="og-ecole" data-c="ecole">'+l.map(function(e){return opt(e.id,e.nom,ec&&e.id===ec.id);}).join('')+'</select>');
+  else if(ec)h+='<div class="og-school">🏫 <strong>'+esc(ec.nom)+'</strong></div>';
+  h+=fld('Année scolaire','<select id="og-annee" data-c="annee">'+anneesListe().map(function(a){return opt(a,a,a===S.annee);}).join('')+'</select>');
+  h+='</div>';
+  return h;
+}
+
+/* ───────────────── vue : tableau de bord ───────────────── */
+function viewDashboard(ec){
+  var list=listeEcolesStats(),R=stats(list,S.annee);
+  var h='<div class="og-top">'+fld('Périmètre des statistiques','<select data-c="scope">'+
+    opt('ecole','École sélectionnée',S.scope==='ecole')+opt('groupe','Groupe scolaire de l’école',S.scope==='groupe')+opt('tout','Tout mon périmètre (IEPP / DRENAET / DEPS selon autorisations)',S.scope==='tout')+'</select>');
+  if(canEdit()&&ec)h+=fld('Groupe scolaire de cette école','<input type="text" id="og-grp" list="og-grp-l" value="'+esc((ec.orgp&&ec.orgp.groupe_scolaire)||'')+'" placeholder="Ex : EPP Centre A-B">'+
+    '<datalist id="og-grp-l">'+Array.from(new Set(ecoles().map(function(e){return e.orgp&&e.orgp.groupe_scolaire;}).filter(Boolean))).map(function(g){return '<option value="'+esc(g)+'">';}).join('')+'</datalist>')+
+    '<div class="og-f"><span>&nbsp;</span>'+btn('saveGrp','Enregistrer le groupe')+'</div>';
+  h+='<div class="og-f"><span>&nbsp;</span>'+btn('xlsDash','⬇️ Exporter en Excel')+'</div></div>';
+  h+='<div class="stats-grid og-stats">'+
+    stat('Classes simples',R.nbClasses.simple,'vert')+stat('Classes jumelées',R.nbClasses.jumelee,'orange')+
+    stat('Classes à double flux',R.nbClasses.double_flux,'bleu')+stat('Classes à double vacation',R.nbClasses.double_vacation,'gold')+
+    stat('Élèves au total',R.totEleves,'vert')+stat('Élèves non affectés',R.nonAff,'orange')+stat('Enseignants affectés',R.nbEns,'bleu')+'</div>';
+  var g='<div class="og-cols">';
+  g+=card('Élèves par mode d’organisation',tbl(['Mode','Classes','Élèves'],Object.keys(MODES).map(function(m){return [MODE_ICON[m]+' '+MODES[m],R.nbClasses[m],R.nbEleves[m]];})));
+  g+=card('Effectifs par niveau',tbl(['Niveau','Élèves'],sortedKeys(R.niv).map(function(k){return [esc(k),R.niv[k]];}),'Aucun élève affecté.'));
+  g+=card('Effectifs par section',tbl(['Section','Élèves'],sortedKeys(R.sec).map(function(k){return [esc(k),R.sec[k]];}),'Aucun élève affecté.'));
+  g+=card('Effectifs par flux',tbl(['Flux','Élèves'],sortedKeys(R.flux).map(function(k){return [esc(k),R.flux[k]];}),'Aucun flux utilisé.'));
+  g+=card('Effectifs par vacation',tbl(['Vacation','Élèves'],sortedKeys(R.vac).map(function(k){return [esc(k),R.vac[k]];}),'Aucune vacation utilisée.'));
+  g+=card('Occupation des salles',tbl(['Salle','Occupée par'],Object.keys(R.salles).sort().map(function(k){return [esc(k),esc(R.salles[k].join(' · '))];}),'Aucune salle renseignée.'));
+  g+='</div>';
+  var rr=Object.keys(R.res).map(function(k){return R.res[k];}).sort(function(a,b){return NIV.indexOf(a.niv)-NIV.indexOf(b.niv)||(a.cls<b.cls?-1:1);});
+  g+=card('Moyennes par niveau (jamais de moyenne commune entre deux niveaux)',tbl(['Niveau','Classe','Flux / vacation','Moyenne /20','Évaluations'],
+    rr.map(function(o){return [esc(o.niv),esc(o.cls),esc(o.slot||'—'),(o.s/o.n).toFixed(2),o.n];}),'Aucune note saisie pour les élèves affectés.'));
+  if(R.parEcole.length>1)g+=card('Détail par école',tbl(['École','Classes organisées','Élèves','Affectés'],R.parEcole.map(function(p){return [esc(p.nom),p.classes,p.eleves,p.aff];})));
+  return h+g;
+}
+
+/* ───────────────── vues : classes (4 modes) ───────────────── */
+function classRows(y,mode,els,an){
+  return y.classes.filter(function(c){return c.mode===mode;}).map(function(c){
+    var n=els.filter(function(e){var a=affOf(e,an);return a&&a.classe_id===c.id;}).length;
+    var det='';
+    if(mode==='double_flux')det=(c.slots||[]).map(function(s){return esc(s.nom)+' '+esc(s.debut)+'–'+esc(s.fin);}).join('<br>');
+    if(mode==='double_vacation'){var v=vacById(y,c.vac_id);det=v?esc(v.nom)+' '+esc(v.debut)+'–'+esc(v.fin):'<span class="og-warn">non définie</span>';}
+    var ens=[];Object.keys(c.aff||{}).forEach(function(k){(c.aff[k]||[]).forEach(function(l){var u=userBy(l);var t=u?u.nom:l;if(ens.indexOf(t)<0)ens.push(t);});});
+    var r=[esc(classLabel(c)),esc(niveauxTxt(c)),esc(c.section||'—'),esc(c.salle||'—')];
+    if(mode==='double_flux'||mode==='double_vacation')r.push(det);
+    r.push(esc(ens.join(', ')||'—'),'<strong>'+n+'</strong>',
+      canEdit()?btn('editCls',"✏️",{i:c.id})+' '+btn('delCls','🗑️',{i:c.id},'btn-danger'):'');
+    return r;
+  });
+}
+function classForm(ec,y,mode){
+  var id=S.edit&&S.edit.id,c=id&&id!=='new'?clsById(y,id):null;
+  var niv=c?c.niveaux:[],s1=niv[0]||'',s2=niv[1]||'';
+  var slots=c&&c.slots?c.slots:[{nom:'Flux 1',debut:'07:30',fin:'12:30',salle:''},{nom:'Flux 2',debut:'13:30',fin:'17:30',salle:''}];
+  var h='<div class="og-form"><div class="og-grid">';
+  h+=fld('Nom de la classe (facultatif)','<input id="og-f-nom" type="text" value="'+esc(c?c.nom:'')+'" placeholder="Ex : CP1 A">');
+  h+=fld(mode==='jumelee'?'Premier niveau':'Niveau','<select id="og-f-n1">'+NIV.map(function(n){return opt(n,n,n===s1);}).join('')+'</select>');
+  if(mode==='jumelee')h+=fld('Second niveau','<select id="og-f-n2">'+NIV.map(function(n){return opt(n,n,n===s2||(!s2&&n==='CP2'));}).join('')+'</select>');
+  h+=fld('Section','<select id="og-f-sec"><option value="">— aucune —</option>'+y.sections.map(function(s){return opt(s.nom,s.nom,c&&c.section===s.nom);}).join('')+'</select>');
+  h+=fld('Salle','<input id="og-f-salle" type="text" list="og-salles" value="'+esc(c?c.salle:'')+'" placeholder="Ex : Salle 3">'+
+    '<datalist id="og-salles">'+y.salles.map(function(s){return '<option value="'+esc(s.nom)+'">';}).join('')+'</datalist>');
+  if(mode==='double_vacation'){
+    h+=fld('Vacation','<select id="og-f-vac"><option value="">— choisir —</option>'+y.vacations.map(function(v){return opt(v.id,v.nom+' ('+v.debut+'–'+v.fin+')',c&&c.vac_id===v.id);}).join('')+'</select>');
+  }
+  h+='</div>';
+  if(mode==='double_flux'){
+    h+='<div class="og-sub">Les deux flux utilisent la même salle à des moments différents de la journée.</div><div class="og-grid">';
+    [0,1].forEach(function(i){var s=slots[i]||{};
+      h+=fld('Flux '+(i+1)+' — nom','<input id="og-f-s'+i+'n" value="'+esc(s.nom||'Flux '+(i+1))+'">')+
+         fld('Début','<input id="og-f-s'+i+'d" type="time" value="'+esc(s.debut||'')+'">')+
+         fld('Fin','<input id="og-f-s'+i+'f" type="time" value="'+esc(s.fin||'')+'">');
+    });
+    h+='</div>';
+  }
+  if(mode==='double_vacation'&&!y.vacations.length)h+='<div class="og-warn">Aucune vacation définie : créez-les d’abord dans « Gestion des vacations » (bouton « Créer Matin / Après-midi »).</div>';
+  h+='<div class="og-actions">'+btn('saveCls','💾 Enregistrer',{m:mode,i:id||'new'},'btn-primary')+btn('cancelEdit','Annuler')+'</div></div>';
+  return h;
+}
+function viewClasses(ec,mode){
+  var y=ydR(ec,S.annee),els=elevesDe(ec);
+  var head=['Classe','Niveau','Section','Salle'];
+  if(mode==='double_flux')head.push('Flux');if(mode==='double_vacation')head.push('Vacation');
+  head.push('Enseignants','Élèves','');
+  var h=roTag();
+  var hint={simple:'Un niveau pédagogique unique, un enseignant titulaire.',
+    jumelee:'Deux niveaux dans la même classe sous un même enseignant. Chaque élève garde son niveau réel : notes, moyennes et bulletins restent séparés par niveau.',
+    double_flux:'Un même niveau, deux groupes d’élèves qui utilisent la même salle à des horaires différents. Chaque élève est rattaché à un seul flux.',
+    double_vacation:'Classes rattachées à une vacation (matin / après-midi). La même salle peut servir à deux classes si leurs vacations ne se chevauchent pas.'}[mode];
+  h+='<div class="og-hint">'+hint+'</div>';
+  if(canEdit()){
+    if(S.edit&&S.edit.mode===mode)h+=card((S.edit.id==='new'?'Nouvelle ':'Modifier la ')+MODES[mode].toLowerCase(),classForm(ec,y,mode));
+    else h+='<div class="og-actions">'+btn('newCls','➕ Créer une '+MODES[mode].toLowerCase(),{m:mode},'btn-primary')+
+      (mode==='simple'?btn('importLegacy','↻ Importer l’organisation existante (comptes maîtres)'):'')+'</div>';
+  }
+  h+=card(MODE_ICON[mode]+' '+PL[mode]+' — '+esc(S.annee),tbl(head,classRows(y,mode,els,S.annee),'Aucune '+MODES[mode].toLowerCase()+' pour cette année.'));
+  if(canEdit()&&y.classes.length===0&&S.annee!==anneesListe()[0]){
+    var prev=anneesListe();var pi=prev.indexOf(S.annee)-1;
+    if(pi>=0&&ydR(ec,prev[pi]).classes.length)h+='<div class="og-actions">'+btn('copyYear','📋 Copier l’organisation de '+prev[pi],{from:prev[pi]})+'</div>';
+  }
+  return h;
+}
+
+/* ───────────────── vue : sections & salles ───────────────── */
+function viewSections(ec){
+  var y=ydR(ec,S.annee),h=roTag();
+  if(canEdit())h+='<div class="og-form"><div class="og-grid">'+fld('Nouvelle section','<input id="og-sec" placeholder="Ex : A">')+
+    '<div class="og-f"><span>&nbsp;</span>'+btn('addSec','➕ Ajouter la section',null,'btn-primary')+'</div></div></div>';
+  h+=card('Sections — '+esc(S.annee),tbl(['Section','Classes','Élèves',''],y.sections.map(function(s){
+    var cl=y.classes.filter(function(c){return c.section===s.nom;});
+    var ids=cl.map(function(c){return c.id;});
+    var n=elevesDe(ec).filter(function(e){var a=affOf(e,S.annee);return a&&ids.indexOf(a.classe_id)>=0;}).length;
+    return [esc(s.nom),esc(cl.map(classLabel).join(', ')||'—'),n,canEdit()?btn('delSec','🗑️',{n:s.nom},'btn-danger'):''];
+  }),'Aucune section définie.'));
+  if(canEdit())h+='<div class="og-form"><div class="og-grid">'+fld('Nouvelle salle','<input id="og-salle" placeholder="Ex : Salle 3">')+
+    '<div class="og-f"><span>&nbsp;</span>'+btn('addSalle','➕ Ajouter la salle',null,'btn-primary')+'</div></div></div>';
+  h+=card('Salles — '+esc(S.annee),tbl(['Salle','Occupée par',''],y.salles.map(function(s){
+    var oc=[];y.classes.forEach(function(c){intervalsOf(y,c).forEach(function(iv){if(iv.salle===s.nom)oc.push(classLabel(c)+(iv.t?' ('+iv.t+')':''));});});
+    return [esc(s.nom),esc(oc.join(' · ')||'libre'),canEdit()?btn('delSalle','🗑️',{n:s.nom},'btn-danger'):''];
+  }),'Aucune salle définie (vous pouvez aussi saisir une salle librement dans chaque classe).'));
+  return h;
+}
+
+/* ───────────────── vue : flux ───────────────── */
+function viewFlux(ec){
+  var y=ydR(ec,S.annee),els=elevesDe(ec),rows=[];
+  y.classes.filter(function(c){return c.mode==='double_flux';}).forEach(function(c){
+    (c.slots||[]).forEach(function(s,i){
+      var n=els.filter(function(e){var a=affOf(e,S.annee);return a&&a.classe_id===c.id&&a.slot_id===s.id;}).length;
+      var ens=((c.aff||{})[s.id]||[]).map(function(l){var u=userBy(l);return u?u.nom:l;}).join(', ')||'—';
+      if(canEdit())rows.push([esc(classLabel(c)),
+        '<input class="og-in" id="fx-n-'+s.id+'" value="'+esc(s.nom)+'">',
+        '<input class="og-in" type="time" id="fx-d-'+s.id+'" value="'+esc(s.debut)+'">',
+        '<input class="og-in" type="time" id="fx-f-'+s.id+'" value="'+esc(s.fin)+'">',
+        '<input class="og-in" id="fx-s-'+s.id+'" list="og-salles" value="'+esc(s.salle||c.salle||'')+'">',
+        esc(ens),n,btn('saveFlux','💾',{c:c.id,s:s.id},'btn-primary')]);
+      else rows.push([esc(classLabel(c)),esc(s.nom),esc(s.debut),esc(s.fin),esc(s.salle||c.salle||'—'),esc(ens),n,'']);
+    });
+  });
+  return roTag()+'<datalist id="og-salles">'+y.salles.map(function(s){return '<option value="'+esc(s.nom)+'">';}).join('')+'</datalist>'+
+    card('↔️ Flux — '+esc(S.annee),tbl(['Classe','Flux','Début','Fin','Salle','Enseignants','Élèves',''],rows,'Aucune classe à double flux. Créez-en une dans « Classes à double flux ».'));
+}
+
+/* ───────────────── vue : vacations ───────────────── */
+function viewVacations(ec){
+  var y=ydR(ec,S.annee),els=elevesDe(ec),h=roTag();
+  if(canEdit()){
+    h+='<div class="og-form"><div class="og-grid">'+fld('Nom de la vacation','<input id="og-v-n" placeholder="Ex : Vacation 1 (Matin)">')+
+      fld('Début','<input id="og-v-d" type="time" value="07:30">')+fld('Fin','<input id="og-v-f" type="time" value="12:30">')+
+      '<div class="og-f"><span>&nbsp;</span>'+btn('addVac','➕ Ajouter',null,'btn-primary')+'</div></div>'+
+      '<div class="og-actions">'+btn('defVac','⚡ Créer Matin / Après-midi')+'</div></div>';
+  }
+  h+=card('⏰ Vacations — '+esc(S.annee),tbl(['Vacation','Horaires','Classes associées','Élèves',''],y.vacations.map(function(v){
+    var cl=y.classes.filter(function(c){return c.mode==='double_vacation'&&c.vac_id===v.id;});
+    var ids=cl.map(function(c){return c.id;});
+    var n=els.filter(function(e){var a=affOf(e,S.annee);return a&&ids.indexOf(a.classe_id)>=0;}).length;
+    return [canEdit()?'<input class="og-in" id="vc-n-'+v.id+'" value="'+esc(v.nom)+'">':esc(v.nom),
+      canEdit()?'<input class="og-in og-tm" type="time" id="vc-d-'+v.id+'" value="'+esc(v.debut)+'"> – <input class="og-in og-tm" type="time" id="vc-f-'+v.id+'" value="'+esc(v.fin)+'">':esc(v.debut+' – '+v.fin),
+      esc(cl.map(classLabel).join(', ')||'—'),n,
+      canEdit()?btn('saveVac','💾',{i:v.id},'btn-primary')+' '+btn('delVac','🗑️',{i:v.id},'btn-danger'):''];
+  }),'Aucune vacation définie.'));
+  return h;
+}
+
+/* ───────────────── vue : enseignants ───────────────── */
+function viewEns(ec){
+  var y=ydR(ec,S.annee),pl=profs(ec),h=roTag();
+  if(!y.classes.length)return h+'<div class="og-empty">Aucune classe organisée pour cette année.</div>';
+  var occupe={};y.classes.forEach(function(c){Object.keys(c.aff||{}).forEach(function(k){(c.aff[k]||[]).forEach(function(l){occupe[l]=c.id;});});});
+  y.classes.forEach(function(c){
+    var keys=c.mode==='double_flux'?(c.slots||[]).map(function(s){return {k:s.id,t:s.nom+' ('+s.debut+'–'+s.fin+')'};}):[{k:'_',t:'Titulaire'}];
+    var body='<div class="og-grid">';
+    keys.forEach(function(kk){
+      var sel=(c.aff||{})[kk.k]||[];
+      var opts=pl.filter(function(u){return !occupe[u.login]||occupe[u.login]===c.id;});
+      body+='<div class="og-f"><span>'+esc(kk.t)+'</span><div class="og-chk" id="ens-'+c.id+'-'+kk.k+'">'+
+        (opts.length?opts.map(function(u){return '<label><input type="checkbox" value="'+esc(u.login)+'"'+(sel.indexOf(u.login)>=0?' checked':'')+(canEdit()?'':' disabled')+'> '+esc(u.nom)+' <small>('+esc(u.structure_val||'')+')</small></label>';}).join(''):'<em>Aucun enseignant disponible</em>')+
+        '</div></div>';
+    });
+    body+='</div>'+(canEdit()?'<div class="og-actions">'+btn('saveEns','💾 Enregistrer',{i:c.id},'btn-primary')+'</div>':'');
+    h+=card(MODE_ICON[c.mode]+' '+esc(classLabel(c))+' <small>— '+MODES[c.mode]+'</small>',body);
+  });
+  if(isSA())h+='<div class="og-actions">'+btn('syncAll','↻ Synchroniser les comptes maîtres de cette école')+'</div>';
+  h+='<div class="og-hint">Seuls les comptes enseignants validés par le Super Administrateur sont proposés. Un enseignant ne peut être titulaire que d’une seule classe par année.</div>';
+  return h;
+}
+
+/* ───────────────── vue : élèves ───────────────── */
+function slotChoices(y,c){
+  if(!c)return '';
+  if(c.mode==='double_flux')return '<select id="og-e-slot" data-c="eltslot">'+(c.slots||[]).map(function(s){return opt(s.id,s.nom+' ('+s.debut+'–'+s.fin+')',S.eltSlot===s.id);}).join('')+'</select>';
+  return '';
+}
+function affTxt(a){
+  if(!a)return '<span class="badge badge-orange">Non affecté</span>';
+  return esc(a.classe_nom||'')+(a.slot_nom?' <span class="badge badge-bleu">'+esc(a.slot_nom)+'</span>':'');
+}
+function viewEleves(ec){
+  var y=ydR(ec,S.annee),h=roTag();
+  if(!y.classes.length)return h+'<div class="og-empty">Créez d’abord des classes (menus « Classes simples », « jumelées », etc.).</div>';
+  var c=clsById(y,S.eltCls)||null;
+  var els=elevesDe(ec);
+  var h2='<div class="og-top">'+fld('Classe de destination','<select id="og-e-cls" data-c="eltcls"><option value="">— choisir —</option>'+
+    y.classes.map(function(k){return opt(k.id,classLabel(k)+' · '+MODES[k.mode],c&&k.id===c.id);}).join('')+'</select>');
+  if(c&&c.mode==='double_flux')h2+=fld('Flux',slotChoices(y,c));
+  h2+=fld('Afficher','<select id="og-e-show" data-c="eltshow">'+opt('non','Élèves non affectés',S.eltShow==='non')+opt('tous','Tous les élèves',S.eltShow==='tous')+'</select>')+
+      fld('Recherche','<input id="og-e-q" data-c="eltq" value="'+esc(S.eltQ)+'" placeholder="Nom, prénoms, matricule">')+'</div>';
+  var q=S.eltQ.toLowerCase();
+  var rows=els.filter(function(e){
+    var a=affOf(e,S.annee);
+    if(S.eltShow==='non'&&a)return false;
+    if(q&&((e.nom||'')+' '+(e.prenoms||'')+' '+(e.matricule||'')).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  }).sort(function(a,b){return NIV.indexOf(a.classe)-NIV.indexOf(b.classe)||((a.nom||'')<(b.nom||'')?-1:1);});
+  var total=rows.length;rows=rows.slice(0,250);
+  var tb=tbl(['','Nom et prénoms','Niveau','Affectation ('+esc(S.annee)+')',''],rows.map(function(e){
+    var a=affOf(e,S.annee),ok=c&&c.niveaux.indexOf(e.classe)>=0;
+    return ['<input type="checkbox" class="og-sel" value="'+esc(e.id)+'"'+((canEdit()&&ok)?'':' disabled')+(c&&!ok?' title="Niveau différent de la classe choisie"':'')+'>',
+      esc((e.nom||'')+' '+(e.prenoms||'')),'<span class="badge badge-vert">'+esc(e.classe||'—')+'</span>',affTxt(a),
+      btn('hist','🕘',{i:e.id})];
+  }),'Aucun élève à afficher.');
+  var acts='';
+  if(canEdit())acts='<div class="og-actions">'+btn('assign','✅ Affecter la sélection',null,'btn-primary')+btn('unassign','↩️ Retirer la sélection')+btn('selAll','☑️ Tout sélectionner')+btn('autoAssign','⚡ Affectation automatique')+'</div>';
+  var hist='';
+  if(S.eltHist){
+    var e=D().eleves.find(function(x){return x.id===S.eltHist;});
+    if(e){var hh=(e.orgp_hist||[]).slice().reverse();
+      hist=card('🕘 Historique — '+esc((e.nom||'')+' '+(e.prenoms||'')),tbl(['Date','Année','De','Vers','Par'],hh.map(function(x){
+        return [esc(x.date),esc(x.annee),x.de?esc(x.de.classe_nom+(x.de.slot_nom?' / '+x.de.slot_nom:'')):'—',x.vers?esc(x.vers.classe_nom+(x.vers.slot_nom?' / '+x.vers.slot_nom:'')):'<em>retiré</em>',esc(x.par||'')];
+      }),'Aucun changement enregistré.'),btn('closeHist','✖'));}
+  }
+  return h+h2+acts+'<div class="og-hint">'+total+' élève(s)'+(total>250?' — 250 affichés, affinez la recherche':'')+'. Seuls les élèves dont le niveau correspond à la classe choisie peuvent être sélectionnés ; le niveau réel de l’élève n’est jamais modifié.</div>'+card('🧒 Élèves',tb)+hist+
+    (canEdit()?'<div class="og-actions">'+btn('xlsEleves','⬇️ Exporter les affectations (Excel)')+'</div>':'');
+}
+
+/* ───────────────── vue : emplois du temps ───────────────── */
+function hhmm(n){return ('0'+Math.floor(n/60)).slice(-2)+':'+('0'+(n%60)).slice(-2);}
+function defRows(s,f){
+  var out=[];if(s==null||f==null||f<=s)return out;
+  for(var t=s;t+60<=f&&out.length<10;t+=60)out.push({debut:hhmm(t),fin:hhmm(t+60),cells:{}});
+  return out;
+}
+function edtKey(c,slotId){return c.mode==='double_flux'?slotId:'_';}
+function edtGet(c,key){
+  c.edt=c.edt||{};
+  if(!c.edt[key]){
+    var rows;
+    if(c.mode==='double_flux'){var s=(c.slots||[]).find(function(z){return z.id===key;});rows=s?defRows(tm(s.debut),tm(s.fin)):[];}
+    else rows=[{debut:'07:30',fin:'08:30',cells:{}},{debut:'08:30',fin:'09:30',cells:{}},{debut:'09:30',fin:'10:00',cells:{}},{debut:'10:00',fin:'11:00',cells:{}},{debut:'11:00',fin:'12:00',cells:{}}];
+    if(!rows.length)rows=[{debut:'07:30',fin:'08:30',cells:{}}];
+    c.edt[key]={rows:rows};
+  }
+  return c.edt[key];
+}
+function viewEdt(ec){
+  var y=ydR(ec,S.annee),h=roTag();
+  if(!y.classes.length)return h+'<div class="og-empty">Aucune classe organisée pour cette année.</div>';
+  var c=clsById(y,S.edtCls)||y.classes[0];S.edtCls=c.id;
+  var sl=slotsOf(c);if(sl.length&&!sl.some(function(s){return s.id===S.edtSlot;}))S.edtSlot=sl[0].id;
+  h+='<div class="og-top">'+fld('Classe','<select data-c="edtcls">'+y.classes.map(function(k){return opt(k.id,classLabel(k)+' · '+MODES[k.mode],k.id===c.id);}).join('')+'</select>');
+  if(sl.length)h+=fld('Flux','<select data-c="edtslot">'+sl.map(function(s){return opt(s.id,s.nom,s.id===S.edtSlot);}).join('')+'</select>');
+  h+='</div>';
+  var key=edtKey(c,S.edtSlot),E=edtGet(c,key),can=canEdit();
+  var ds='<datalist id="og-mat">'+MATIERES.map(function(m){return '<option value="'+m+'">';}).join('')+'</datalist>';
+  var body=ds+'<table class="og-t og-edt"><thead><tr><th>Horaire</th>'+JOURS.map(function(j){return '<th>'+j+'</th>';}).join('')+'</tr></thead><tbody>'+
+    E.rows.map(function(r,ri){
+      return '<tr><td class="og-hr">'+(can?'<input class="og-in og-tm" type="time" data-er="'+ri+'" data-ef="debut" value="'+esc(r.debut)+'"><input class="og-in og-tm" type="time" data-er="'+ri+'" data-ef="fin" value="'+esc(r.fin)+'">'
+        :esc(r.debut+' – '+r.fin))+'</td>'+
+        JOURS.map(function(j,ji){return '<td><input class="og-in" list="og-mat" data-er="'+ri+'" data-ej="'+ji+'" value="'+esc((r.cells||{})[ji]||'')+'"'+(can?'':' disabled')+'></td>';}).join('')+'</tr>';
+    }).join('')+'</tbody></table>';
+  var acts='<div class="og-actions">'+(can?btn('edtAdd','➕ Ajouter une ligne')+btn('edtDel','➖ Retirer la dernière ligne')+btn('edtSave','💾 Enregistrer',null,'btn-primary'):'')+btn('edtPrint','🖨️ Imprimer')+btn('edtXls','⬇️ Excel')+'</div>';
+  var ens=((c.aff||{})[edtKey(c,S.edtSlot)]||[]).map(function(l){var u=userBy(l);return u?u.nom:l;}).join(', ');
+  return h+card('🗓️ '+esc(classLabel(c))+(sl.length?' — '+esc((sl.find(function(s){return s.id===S.edtSlot;})||{}).nom||''):''),
+    '<div class="og-hint">Enseignant(s) : '+esc(ens||'non affecté')+' · Salle : '+esc(c.salle||'—')+'</div>'+body)+acts;
+}
+
+/* ───────────────── rendu principal ───────────────── */
+function render(){
+  var root=$('orgp-root');if(!root)return;
+  var ec=curEcole();
+  if(!ec){root.innerHTML='<div class="og-empty">Aucune école dans votre périmètre.</div>';return;}
+  if(!S.eid)S.eid=ec.id;
+  if(!S.annee)S.annee=anneeCourante();
+  var t=$('orgp-sub-title');if(t)t.textContent=ec.nom+' · '+S.annee;
+  var v=S.view,body='';
+  try{
+    if(v==='dashboard')body=viewDashboard(ec);
+    else if(MODES[v])body=viewClasses(ec,v);
+    else if(v==='sections')body=viewSections(ec);
+    else if(v==='flux')body=viewFlux(ec);
+    else if(v==='vacations')body=viewVacations(ec);
+    else if(v==='ens')body=viewEns(ec);
+    else if(v==='eleves')body=viewEleves(ec);
+    else if(v==='edt')body=viewEdt(ec);
+  }catch(e){console.error('[ORGP]',e);body='<div class="og-warn">Erreur d’affichage : '+esc(e.message)+'</div>';}
+  var title=(VIEWS.find(function(x){return x[0]===v;})||[])[2]||'';
+  root.innerHTML=headerHTML()+'<h3 class="og-h">'+esc(title)+'</h3>'+body;
+  var nav=document.querySelectorAll('#orgp-sub .nav-item');
+  nav.forEach(function(n){n.classList.toggle('active',n.getAttribute('data-v')===v);});
+}
+
+/* ───────────────── actions ───────────────── */
+function val(id){var e=$(id);return e?String(e.value||'').trim():'';}
+function selected(){return Array.prototype.slice.call(document.querySelectorAll('#orgp-root .og-sel:checked')).map(function(x){return x.value;});}
+var ACT={
+  newCls:function(d){S.edit={mode:d.m,id:'new'};render();},
+  editCls:function(d){var c=clsById(ydR(curEcole(),S.annee),d.i);if(c){S.edit={mode:c.mode,id:c.id};render();}},
+  cancelEdit:function(){S.edit=null;render();},
+  saveCls:function(d){
+    if(!canEdit())return;var ec=curEcole(),y=yd(ec),mode=d.m,isNew=d.i==='new';
+    var c=isNew?{id:uid('cl'),mode:mode,aff:{}}:clsById(y,d.i);if(!c)return;
+    var n1=val('og-f-n1'),n2=mode==='jumelee'?val('og-f-n2'):'';
+    if(mode==='jumelee'){if(!n1||!n2||n1===n2){notif('Une classe jumelée regroupe deux niveaux différents.','error');return;}}
+    var niv=mode==='jumelee'?[n1,n2].sort(function(a,b){return NIV.indexOf(a)-NIV.indexOf(b);}):[n1];
+    if(!niv[0]){notif('Choisissez un niveau.','error');return;}
+    var cand={id:c.id,mode:mode,niveaux:niv,section:val('og-f-sec'),salle:val('og-f-salle'),aff:c.aff||{},edt:c.edt,slots:c.slots,vac_id:c.vac_id};
+    cand.nom=val('og-f-nom')||(niv.join('-')+(cand.section?' '+cand.section:''));
+    if(y.classes.some(function(o){return o.id!==c.id&&o.nom===cand.nom;})){notif('Une classe porte déjà ce nom cette année.','error');return;}
+    if(!isNew&&c.niveaux&&(c.niveaux.join()!==niv.join())){
+      var nb=elevesDe(ec).filter(function(e){var a=affOf(e,S.annee);return a&&a.classe_id===c.id&&niv.indexOf(e.classe)<0;}).length;
+      if(nb){notif(nb+' élève(s) affecté(s) ont un niveau absent de la nouvelle configuration : retirez-les d’abord.','error');return;}
+    }
+    if(mode==='double_flux'){
+      var old=c.slots||[];cand.slots=[0,1].map(function(i){return {id:(old[i]&&old[i].id)||uid('fx'),nom:val('og-f-s'+i+'n')||('Flux '+(i+1)),debut:val('og-f-s'+i+'d'),fin:val('og-f-s'+i+'f'),salle:(old[i]&&old[i].salle&&old[i].salle!==c.salle)?old[i].salle:cand.salle};});
+      var a1=tm(cand.slots[0].debut),b1=tm(cand.slots[0].fin),a2=tm(cand.slots[1].debut),b2=tm(cand.slots[1].fin);
+      if([a1,b1,a2,b2].some(function(x){return x==null;})||a1>=b1||a2>=b2){notif('Renseignez des horaires valides pour les deux flux.','error');return;}
+      if(a1<b2&&a2<b1){notif('Les deux flux ne doivent pas se chevaucher.','error');return;}
+      if(cand.slots[0].nom===cand.slots[1].nom){notif('Les deux flux doivent avoir des noms différents.','error');return;}
+    }
+    if(mode==='double_vacation'){
+      cand.vac_id=val('og-f-vac');if(!cand.vac_id){notif('Choisissez une vacation.','error');return;}
+    }
+    var msg=salleConflict(y,cand);if(msg){notif(msg,'error');return;}
+    if(isNew)y.classes.push(cand);else{var ix=y.classes.indexOf(c);y.classes[ix]=cand;}
+    if(cand.salle&&!y.salles.some(function(s){return s.nom===cand.salle;}))y.salles.push({id:uid('sa'),nom:cand.salle});
+    /* mise à jour des affectations d'élèves existantes si le nom / flux change */
+    var touched=[];
+    elevesDe(ec).forEach(function(e){if(e.orgp&&e.orgp.annee===S.annee&&e.orgp.classe_id===cand.id){
+      e.orgp.classe_nom=classLabel(cand);e.orgp.section=cand.section||'';
+      if(mode==='double_flux'){var s=cand.slots.find(function(z){return z.id===e.orgp.slot_id;});if(s){e.orgp.slot_nom=s.nom;e.groupe=s.nom;}}
+      if(mode==='double_vacation'){var vv=vacById(y,cand.vac_id);e.orgp.vac_id=cand.vac_id;e.orgp.slot_nom=vv?vv.nom:'';if(vv)e.groupe=vv.nom;}
+      touched.push(e);}});
+    saveEcole(ec);if(touched.length)persist('eleves',touched);
+    Object.keys(cand.aff||{}).forEach(function(k){(cand.aff[k]||[]).forEach(function(l){syncProf(l,cand,y);});});
+    S.edit=null;notif('✅ Classe enregistrée.','success');render();
+  },
+  delCls:function(d){
+    if(!canEdit())return;var ec=curEcole(),y=yd(ec),c=clsById(y,d.i);if(!c)return;
+    var els=elevesDe(ec).filter(function(e){return e.orgp&&e.orgp.annee===S.annee&&e.orgp.classe_id===c.id;});
+    if(!confirm('Supprimer l’organisation « '+classLabel(c)+' » ?\n\n'+els.length+' élève(s) seront simplement retirés de cette organisation (leur dossier, leurs notes et leur niveau ne sont pas touchés).'))return;
+    els.forEach(function(e){unassignEleve(e,S.annee);});
+    Object.keys(c.aff||{}).forEach(function(k){(c.aff[k]||[]).forEach(function(l){unsyncProf(l);});});
+    y.classes.splice(y.classes.indexOf(c),1);
+    saveEcole(ec);if(els.length)persist('eleves',els);render();
+  },
+  copyYear:function(d){
+    if(!canEdit())return;var ec=curEcole(),src=ydR(ec,d.from),y=yd(ec);
+    var map={};
+    y.sections=JSON.parse(JSON.stringify(src.sections));y.salles=JSON.parse(JSON.stringify(src.salles));y.vacations=JSON.parse(JSON.stringify(src.vacations));
+    y.classes=src.classes.map(function(c){var n=JSON.parse(JSON.stringify(c));n.id=uid('cl');n.aff={};delete n.edt;
+      if(n.slots)n.slots.forEach(function(s){s.id=uid('fx');});return n;});
+    saveEcole(ec);notif('✅ Organisation copiée (sans élèves ni enseignants) — vous pouvez l’adapter.','success');render();
+  },
+  addSec:function(){var ec=curEcole(),n=val('og-sec');if(!canEdit()||!n)return;var y=yd(ec);
+    if(y.sections.some(function(s){return s.nom.toLowerCase()===n.toLowerCase();})){notif('Cette section existe déjà.','error');return;}
+    y.sections.push({id:uid('se'),nom:n});saveEcole(ec);render();},
+  delSec:function(d){var ec=curEcole(),y=yd(ec);
+    if(y.classes.some(function(c){return c.section===d.n;})){notif('Section utilisée par une classe : modifiez d’abord la classe.','error');return;}
+    y.sections=y.sections.filter(function(s){return s.nom!==d.n;});saveEcole(ec);render();},
+  addSalle:function(){var ec=curEcole(),n=val('og-salle');if(!canEdit()||!n)return;var y=yd(ec);
+    if(y.salles.some(function(s){return s.nom.toLowerCase()===n.toLowerCase();})){notif('Cette salle existe déjà.','error');return;}
+    y.salles.push({id:uid('sa'),nom:n});saveEcole(ec);render();},
+  delSalle:function(d){var ec=curEcole(),y=yd(ec);
+    if(y.classes.some(function(c){return intervalsOf(y,c).some(function(iv){return iv.salle===d.n;});})){notif('Salle utilisée par une classe.','error');return;}
+    y.salles=y.salles.filter(function(s){return s.nom!==d.n;});saveEcole(ec);render();},
+  saveFlux:function(d){
+    if(!canEdit())return;var ec=curEcole(),y=yd(ec),c=clsById(y,d.c);if(!c)return;
+    var s=c.slots.find(function(z){return z.id===d.s;});if(!s)return;
+    var other=c.slots.find(function(z){return z.id!==d.s;});
+    var nn=val('fx-n-'+d.s),dd=val('fx-d-'+d.s),ff=val('fx-f-'+d.s),ss=val('fx-s-'+d.s);
+    if(!nn||tm(dd)==null||tm(ff)==null||tm(dd)>=tm(ff)){notif('Nom et horaires valides requis.','error');return;}
+    if(other&&(other.nom===nn)){notif('Les deux flux doivent avoir des noms différents.','error');return;}
+    if(other&&tm(dd)<tm(other.fin)&&tm(other.debut)<tm(ff)){notif('Les deux flux ne doivent pas se chevaucher.','error');return;}
+    var bak={nom:s.nom,debut:s.debut,fin:s.fin,salle:s.salle};
+    s.nom=nn;s.debut=dd;s.fin=ff;s.salle=ss;
+    var msg=salleConflict(y,c);if(msg){s.nom=bak.nom;s.debut=bak.debut;s.fin=bak.fin;s.salle=bak.salle;notif(msg,'error');return;}
+    var touched=[];elevesDe(ec).forEach(function(e){if(e.orgp&&e.orgp.annee===S.annee&&e.orgp.slot_id===s.id){e.orgp.slot_nom=nn;e.groupe=nn;touched.push(e);}});
+    saveEcole(ec);if(touched.length)persist('eleves',touched);
+    ((c.aff||{})[s.id]||[]).forEach(function(l){syncProf(l,c,y);});
+    notif('✅ Flux enregistré.','success');render();
+  },
+  addVac:function(){
+    if(!canEdit())return;var ec=curEcole(),y=yd(ec),n=val('og-v-n'),d=val('og-v-d'),f=val('og-v-f');
+    if(!n||tm(d)==null||tm(f)==null||tm(d)>=tm(f)){notif('Nom et horaires valides requis.','error');return;}
+    if(y.vacations.some(function(v){return v.nom.toLowerCase()===n.toLowerCase();})){notif('Cette vacation existe déjà.','error');return;}
+    y.vacations.push({id:uid('va'),nom:n,debut:d,fin:f});saveEcole(ec);render();
+  },
+  defVac:function(){
+    if(!canEdit())return;var ec=curEcole(),y=yd(ec);
+    if(y.vacations.length&&!confirm('Des vacations existent déjà. Ajouter quand même Matin et Après-midi ?'))return;
+    y.vacations.push({id:uid('va'),nom:'Vacation du matin',debut:'07:30',fin:'12:30'},{id:uid('va'),nom:'Vacation de l’après-midi',debut:'13:00',fin:'17:30'});
+    saveEcole(ec);render();
+  },
+  saveVac:function(d){
+    if(!canEdit())return;var ec=curEcole(),y=yd(ec),v=vacById(y,d.i);if(!v)return;
+    var n=val('vc-n-'+d.i),a=val('vc-d-'+d.i),b=val('vc-f-'+d.i);
+    if(!n||tm(a)==null||tm(b)==null||tm(a)>=tm(b)){notif('Nom et horaires valides requis.','error');return;}
+    var bak={nom:v.nom,debut:v.debut,fin:v.fin};v.nom=n;v.debut=a;v.fin=b;
+    var bad='';y.classes.forEach(function(c){if(!bad&&c.mode==='double_vacation'&&c.vac_id===v.id)bad=salleConflict(y,c);});
+    if(bad){v.nom=bak.nom;v.debut=bak.debut;v.fin=bak.fin;notif(bad,'error');return;}
+    var touched=[],profsT=[];
+    elevesDe(ec).forEach(function(e){if(e.orgp&&e.orgp.annee===S.annee&&e.orgp.vac_id===v.id){e.orgp.slot_nom=n;e.groupe=n;touched.push(e);}});
+    y.classes.forEach(function(c){if(c.mode==='double_vacation'&&c.vac_id===v.id)Object.keys(c.aff||{}).forEach(function(k){(c.aff[k]||[]).forEach(function(l){syncProf(l,c,y);});});});
+    saveEcole(ec);if(touched.length)persist('eleves',touched);notif('✅ Vacation enregistrée.','success');render();
+  },
+  delVac:function(d){
+    if(!canEdit())return;var ec=curEcole(),y=yd(ec);
+    if(y.classes.some(function(c){return c.vac_id===d.i;})){notif('Vacation utilisée par une classe : dissociez-la d’abord.','error');return;}
+    y.vacations=y.vacations.filter(function(v){return v.id!==d.i;});saveEcole(ec);render();
+  },
+  saveEns:function(d){
+    if(!canEdit())return;var ec=curEcole(),y=yd(ec),c=clsById(y,d.i);if(!c)return;
+    var before={};Object.keys(c.aff||{}).forEach(function(k){(c.aff[k]||[]).forEach(function(l){before[l]=1;});});
+    var aff={},after={};
+    var keys=c.mode==='double_flux'?(c.slots||[]).map(function(s){return s.id;}):['_'];
+    keys.forEach(function(k){var box=$('ens-'+c.id+'-'+k);aff[k]=box?Array.prototype.slice.call(box.querySelectorAll('input:checked')).map(function(x){return x.value;}):[];aff[k].forEach(function(l){after[l]=1;});});
+    var dup=Object.keys(after).filter(function(l){return y.classes.some(function(o){return o.id!==c.id&&Object.keys(o.aff||{}).some(function(k){return (o.aff[k]||[]).indexOf(l)>=0;});});});
+    if(dup.length){notif('Enseignant déjà affecté à une autre classe : '+dup.join(', '),'error');return;}
+    c.aff=aff;
+    Object.keys(before).forEach(function(l){if(!after[l])unsyncProf(l);});
+    var changed=[];
+    Object.keys(after).forEach(function(l){
+      var u=userBy(l);
+      if(isSA()&&u&&c.niveaux.indexOf(u.structure_val)<0)changed.push(u.nom+' : '+u.structure_val+' → '+c.niveaux[0]);
+      syncProf(l,c,y);
+    });
+    saveEcole(ec);
+    notif('✅ Affectation enregistrée.'+(changed.length?' Niveau principal mis à jour : '+changed.join(' ; '):'')+(isSA()?'':' Les comptes maîtres ne sont pas modifiés : le Super Administrateur les synchronise.'),'success');render();
+  },
+  assign:function(){
+    if(!canEdit())return;
+    if(S.annee!==anneeCourante()){notif('Les affectations d’élèves ne se modifient que pour l’année en cours ('+anneeCourante()+'). Les autres années sont en consultation.','error');return;}
+var ec=curEcole(),y=yd(ec),c=clsById(y,S.eltCls);
+    if(!c){notif('Choisissez la classe de destination.','error');return;}
+    var ids=selected();if(!ids.length){notif('Sélectionnez au moins un élève.','error');return;}
+    var slot=null;if(c.mode==='double_flux'){var sid=val('og-e-slot')||S.eltSlot;slot=(c.slots||[]).find(function(s){return s.id===sid;});if(!slot){notif('Choisissez un flux.','error');return;}}
+    if(c.mode==='double_vacation'&&!vacById(y,c.vac_id)){notif('Cette classe n’a pas de vacation valide.','error');return;}
+    var ch=[],skipped=0;
+    ids.forEach(function(id){var e=D().eleves.find(function(x){return x.id===id;});if(!e)return;
+      if(c.niveaux.indexOf(e.classe)<0){skipped++;return;}
+      if(assignEleve(e,c,slot,S.annee))ch.push(e);});
+    if(ch.length)persist('eleves',ch);
+    notif('✅ '+ch.length+' élève(s) affecté(s)'+(skipped?' · '+skipped+' ignoré(s) (niveau différent)':'')+'.','success');render();
+  },
+  unassign:function(){
+    if(!canEdit())return;
+    if(S.annee!==anneeCourante()){notif('Les affectations d’élèves ne se modifient que pour l’année en cours ('+anneeCourante()+'). Les autres années sont en consultation.','error');return;}
+var ids=selected(),ch=[];
+    ids.forEach(function(id){var e=D().eleves.find(function(x){return x.id===id;});if(e&&unassignEleve(e,S.annee))ch.push(e);});
+    if(ch.length)persist('eleves',ch);notif(ch.length+' élève(s) retiré(s) de l’organisation.','info');render();
+  },
+  selAll:function(){document.querySelectorAll('#orgp-root .og-sel:not(:disabled)').forEach(function(x){x.checked=true;});},
+  autoAssign:function(){
+    if(!canEdit())return;
+    if(S.annee!==anneeCourante()){notif('Les affectations d’élèves ne se modifient que pour l’année en cours ('+anneeCourante()+'). Les autres années sont en consultation.','error');return;}
+var ec=curEcole(),y=yd(ec);
+    if(!y.classes.length){notif('Aucune classe organisée.','error');return;}
+    var cand=elevesDe(ec).filter(function(e){return !affOf(e,S.annee);}),plan=[];
+    cand.forEach(function(e){
+      var m=y.classes.filter(function(c){return c.niveaux.indexOf(e.classe)>=0;});
+      if(!m.length)return;
+      var pick=null,slot=null;
+      if(m.length===1)pick=m[0];
+      else{ /* plusieurs classes : on départage avec l'ancien champ « groupe » */
+        var byG=m.filter(function(c){return (c.mode==='double_vacation'&&(vacById(y,c.vac_id)||{}).nom===e.groupe)||(c.mode==='double_flux'&&(c.slots||[]).some(function(s){return s.nom===e.groupe;}));});
+        if(byG.length===1)pick=byG[0];
+      }
+      if(!pick)return;
+      if(pick.mode==='double_flux'){slot=(pick.slots||[]).find(function(s){return s.nom===e.groupe;});if(!slot)return;}
+      plan.push([e,pick,slot]);
+    });
+    if(!plan.length){notif('Aucune affectation sans ambiguïté possible : utilisez la sélection manuelle.','info');return;}
+    if(!confirm(plan.length+' élève(s) peuvent être affectés automatiquement (une seule classe possible pour leur niveau ou leur groupe).\n\nLes cas ambigus ne sont pas traités. Continuer ?'))return;
+    var ch=[];plan.forEach(function(p){if(assignEleve(p[0],p[1],p[2],S.annee))ch.push(p[0]);});
+    persist('eleves',ch);notif('✅ '+ch.length+' élève(s) affecté(s). Reste : '+(cand.length-ch.length)+'.','success');render();
+  },
+  syncAll:function(){if(!isSA())return;var ec=curEcole(),y=ydR(ec,S.annee),n=0;y.classes.forEach(function(c){Object.keys(c.aff||{}).forEach(function(k){(c.aff[k]||[]).forEach(function(l){syncProf(l,c,y);n++;});});});notif('✅ '+n+' compte(s) maître(s) synchronisé(s).','success');},
+  hist:function(d){S.eltHist=d.i;render();},
+  closeHist:function(){S.eltHist=null;render();},
+  saveGrp:function(){if(!canEdit())return;var ec=curEcole();if(!ec.orgp||typeof ec.orgp!=='object')ec.orgp={v:1,annees:{}};ec.orgp.groupe_scolaire=val('og-grp');saveEcole(ec);notif('✅ Groupe scolaire enregistré.','success');render();},
+  importLegacy:function(){
+    if(!canEdit())return;var ec=curEcole(),y=yd(ec),n=0,links=0;
+    profs(ec).forEach(function(u){
+      var t=u.org_type||'simple',niv=(t==='jumelee'&&Array.isArray(u.classes_val)&&u.classes_val.length)?u.classes_val.slice():(u.structure_val?[u.structure_val]:[]);
+      if(!niv.length||niv.some(function(x){return NIV.indexOf(x)<0;}))return;
+      var already=y.classes.some(function(c){return Object.keys(c.aff||{}).some(function(k){return (c.aff[k]||[]).indexOf(u.login)>=0;});});
+      if(already)return;
+      var mode=MODES[t]?t:'simple',c=null;
+      var nom=u.nom_classe||(niv.join('-'));
+      if(mode==='simple'||mode==='jumelee'){
+        c=y.classes.find(function(k){return k.mode===mode&&k.niveaux.join()===niv.join()&&k.nom===nom;});
+        if(!c){c={id:uid('cl'),mode:mode,nom:nom,niveaux:niv,section:'',salle:u.salle||'',aff:{}};if(!y.classes.some(function(o){return o.nom===c.nom;})){y.classes.push(c);n++;}else return;}
+        c.aff._=(c.aff._||[]).concat([u.login]);links++;
+      }
+    });
+    saveEcole(ec);
+    notif('✅ '+n+' classe(s) créée(s), '+links+' enseignant(s) rattaché(s). Les classes à double flux / vacation sont à créer manuellement.','success');render();
+  },
+  xlsDash:function(){
+    if(typeof XLSX==='undefined'){alert('Module Excel indisponible (connexion requise au premier chargement).');return;}
+    var R=stats(listeEcolesStats(),S.annee),a=[['ORGANISATION PÉDAGOGIQUE DES CLASSES — '+S.annee],[],['Mode','Classes','Élèves']];
+    Object.keys(MODES).forEach(function(m){a.push([MODES[m],R.nbClasses[m],R.nbEleves[m]]);});
+    a.push([],['Niveau','Élèves']);sortedKeys(R.niv).forEach(function(k){a.push([k,R.niv[k]]);});
+    a.push([],['Section','Élèves']);sortedKeys(R.sec).forEach(function(k){a.push([k,R.sec[k]]);});
+    a.push([],['Flux','Élèves']);sortedKeys(R.flux).forEach(function(k){a.push([k,R.flux[k]]);});
+    a.push([],['Vacation','Élèves']);sortedKeys(R.vac).forEach(function(k){a.push([k,R.vac[k]]);});
+    a.push([],['Enseignants affectés',R.nbEns],['Élèves non affectés',R.nonAff]);
+    a.push([],['Salle','Occupée par']);Object.keys(R.salles).sort().forEach(function(k){a.push([k,R.salles[k].join(' · ')]);});
+    a.push([],['Niveau','Classe','Flux/vacation','Moyenne /20','Évaluations']);
+    Object.keys(R.res).forEach(function(k){var o=R.res[k];a.push([o.niv,o.cls,o.slot,+(o.s/o.n).toFixed(2),o.n]);});
+    var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),'Organisation');XLSX.writeFile(wb,'organisation_classes_'+S.annee+'.xlsx');
+  },
+  xlsEleves:function(){
+    if(typeof XLSX==='undefined'){alert('Module Excel indisponible.');return;}
+    var ec=curEcole(),a=[['Matricule','Nom','Prénoms','Niveau','Classe','Section','Flux / Vacation','Année']];
+    elevesDe(ec).forEach(function(e){var x=affOf(e,S.annee);a.push([e.matricule||'',e.nom||'',e.prenoms||'',e.classe||'',x?x.classe_nom:'',x?x.section:'',x?x.slot_nom:'',S.annee]);});
+    var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),'Affectations');XLSX.writeFile(wb,'affectations_eleves_'+S.annee+'.xlsx');
+  },
+  edtAdd:function(){var E=edtCur();if(!E)return;edtRead(E);var l=E.rows[E.rows.length-1];E.rows.push({debut:l?l.fin:'07:30',fin:l?l.fin:'08:30',cells:{}});render();},
+  edtDel:function(){var E=edtCur();if(!E)return;edtRead(E);if(E.rows.length>1)E.rows.pop();render();},
+  edtSave:function(){var E=edtCur();if(!E)return;edtRead(E);var ec=curEcole();saveEcole(ec);notif('✅ Emploi du temps enregistré.','success');render();},
+  edtPrint:function(){
+    var ec=curEcole(),c=clsById(ydR(ec,S.annee),S.edtCls);if(!c)return;var E=edtGet(c,edtKey(c,S.edtSlot));
+    var w=window.open('','_blank');if(!w)return;
+    w.document.write('<html><head><meta charset="UTF-8"><title>Emploi du temps</title><style>body{font-family:Arial;margin:20px}h2{text-align:center}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:6px;font-size:12px;text-align:center}th{background:#009E60;color:#fff}</style></head><body><h2>EMPLOI DU TEMPS — '+esc(classLabel(c))+'</h2><p style="text-align:center">'+esc(ec.nom)+' · '+esc(S.annee)+'</p><table><thead><tr><th>Horaire</th>'+JOURS.map(function(j){return '<th>'+j+'</th>';}).join('')+'</tr></thead><tbody>'+
+      E.rows.map(function(r){return '<tr><td>'+esc(r.debut)+' – '+esc(r.fin)+'</td>'+JOURS.map(function(j,ji){return '<td>'+esc((r.cells||{})[ji]||'')+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></body></html>');
+    w.document.close();setTimeout(function(){try{w.print();}catch(e){}},300);
+  },
+  edtXls:function(){
+    if(typeof XLSX==='undefined'){alert('Module Excel indisponible.');return;}
+    var ec=curEcole(),c=clsById(ydR(ec,S.annee),S.edtCls);if(!c)return;var E=edtGet(c,edtKey(c,S.edtSlot));
+    var a=[['Horaire'].concat(JOURS)];E.rows.forEach(function(r){a.push([r.debut+' – '+r.fin].concat(JOURS.map(function(j,ji){return (r.cells||{})[ji]||'';})));});
+    var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(a),'Emploi du temps');XLSX.writeFile(wb,'emploi_du_temps_'+classLabel(c).replace(/\W+/g,'_')+'.xlsx');
+  }
+};
+function edtCur(){var ec=curEcole(),y=ydR(ec,S.annee),c=clsById(y,S.edtCls);if(!c||!canEdit())return null;var yy=yd(ec),cc=clsById(yy,c.id);return edtGet(cc,edtKey(cc,S.edtSlot));}
+function edtRead(E){
+  document.querySelectorAll('#orgp-root [data-er]').forEach(function(i){
+    var r=+i.getAttribute('data-er'),row=E.rows[r];if(!row)return;
+    if(i.hasAttribute('data-ef'))row[i.getAttribute('data-ef')]=i.value;
+    else if(i.hasAttribute('data-ej')){row.cells=row.cells||{};row.cells[i.getAttribute('data-ej')]=i.value.trim();}
+  });
+}
+var CH={
+  ecole:function(el){S.eid=el.value;S.edit=null;S.eltCls='';S.eltHist=null;S.edtCls='';render();},
+  annee:function(el){S.annee=el.value;S.edit=null;S.eltCls='';S.eltHist=null;S.edtCls='';render();},
+  scope:function(el){S.scope=el.value;render();},
+  eltcls:function(el){S.eltCls=el.value;var y=ydR(curEcole(),S.annee),c=clsById(y,S.eltCls);S.eltSlot=c&&c.slots&&c.slots[0]?c.slots[0].id:'';render();},
+  eltslot:function(el){S.eltSlot=el.value;},
+  eltshow:function(el){S.eltShow=el.value;render();},
+  eltq:function(el){S.eltQ=el.value;var p=el.selectionStart;render();var n=$('og-e-q');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}},
+  edtcls:function(el){S.edtCls=el.value;S.edtSlot='';render();},
+  edtslot:function(el){S.edtSlot=el.value;render();}
+};
+
+/* ───────────────── navigation & installation ───────────────── */
+function go(view,el){
+  if(!canSee())return;
+  S.view=view;S.edit=null;S.eltHist=null;
+  var l=ecoles();if(!S.eid&&l[0])S.eid=l[0].id;
+  if(!S.annee)S.annee=anneeCourante();
+  if(typeof showPage==='function')showPage('orgp');
+  var sub=$('orgp-sub'),head=$('orgp-head');if(sub)sub.classList.add('open');if(head)head.classList.add('open');
+  render();
+}
+function toggleNav(){var s=$('orgp-sub'),h=$('orgp-head');if(!s)return;var o=!s.classList.contains('open');s.classList.toggle('open',o);if(h)h.classList.toggle('open',o);}
+function installCSS(){
+  if($('orgp-css'))return;
+  var st=document.createElement('style');st.id='orgp-css';
+  st.textContent='#page-orgp{max-width:100%;overflow-x:hidden;}#orgp-root{min-width:0;}'+
+  '.og-h{margin:6px 0 12px;font-size:16px;color:var(--bleu,#1A3D6E);}'+
+  '.og-top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px;}'+
+  '.og-school{font-size:14px;padding:8px 0;}'+
+  '.og-f{display:flex;flex-direction:column;gap:4px;min-width:160px;flex:1 1 180px;max-width:100%;}'+
+  '.og-f>span{font-size:11px;font-weight:700;color:var(--text2,#555);text-transform:uppercase;letter-spacing:.4px;}'+
+  '.og-f input,.og-f select,.og-in{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border,#ddd);border-radius:8px;font:inherit;font-size:13px;background:#fff;min-width:0;}'+
+  '.og-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:10px;}'+
+  '.og-form{background:#F9FAFB;border:1px solid var(--border,#ddd);border-radius:10px;padding:12px;margin-bottom:14px;}'+
+  '.og-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}'+
+  '.og-b{padding:7px 12px;font-size:12.5px;}'+
+  '.og-card{margin-bottom:14px;}.og-body{padding:12px 14px;}'+
+  '.og-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:14px;}'+
+  '.og-stats{margin-bottom:14px;}'+
+  '.og-t{width:100%;table-layout:auto;border-collapse:collapse;}.og-t th,.og-t td{padding:7px 8px;font-size:12.5px;text-align:left;white-space:normal;word-break:break-word;border-bottom:1px solid var(--border,#eee);vertical-align:middle;}'+
+  '.og-t th{white-space:normal;}'+
+  '.og-hint{background:#EFF6FF;border-left:3px solid var(--bleu,#1A3D6E);padding:8px 12px;border-radius:6px;font-size:12.5px;margin:8px 0 12px;color:#334155;}'+
+  '.og-ro{background:#FFFBEB;border-left:3px solid #F59E0B;padding:8px 12px;border-radius:6px;font-size:12.5px;margin-bottom:12px;}'+
+  '.og-warn{color:#B45309;font-size:12.5px;margin:6px 0;}.og-empty{padding:18px;text-align:center;color:var(--text2,#777);font-size:13px;}'+
+  '.og-sub{font-size:12px;color:var(--text2,#666);margin:6px 0;}'+
+  '.og-chk{display:flex;flex-direction:column;gap:5px;max-height:220px;overflow-y:auto;border:1px solid var(--border,#ddd);border-radius:8px;padding:8px;background:#fff;}'+
+  '.og-chk label{font-size:13px;display:flex;gap:6px;align-items:center;}'+
+  '.og-tm{width:auto;max-width:96px;display:inline-block;}.og-hr{white-space:nowrap;min-width:110px;}.og-hr .og-in{max-width:78px;padding:4px 4px;font-size:11px;}'+
+  '.og-edt td .og-in{padding:6px;font-size:12px;}'+
+  '@media(max-width:700px){.og-t th,.og-t td{padding:5px 4px;font-size:11.5px;}.og-f{flex:1 1 100%;}}';
+  document.head.appendChild(st);
+}
+function installNav(){
+  if($('grp-orgp'))return true;
+  var anchor=$('grp-espaces');if(!anchor||!anchor.parentNode)return false;
+  var g=document.createElement('div');g.className='nav-group';g.id='grp-orgp';g.style.display='none';
+  g.innerHTML='<div class="nav-group-label">Organisation</div>'+
+    '<div class="nav-item nav-esp-head" id="orgp-head" style="display:flex;"><span class="nav-icon">🏫</span> Organisation pédagogique des classes <span class="esp-chevron">▸</span></div>'+
+    '<div class="nav-sub" id="orgp-sub">'+VIEWS.map(function(v){return '<div class="nav-item nav-subitem" data-v="'+v[0]+'"><span class="nav-icon">'+v[1]+'</span> '+v[2]+'</div>';}).join('')+'</div>';
+  anchor.parentNode.insertBefore(g,anchor.nextSibling);
+  $('orgp-head').addEventListener('click',toggleNav);
+  $('orgp-sub').addEventListener('click',function(ev){var it=ev.target.closest('.nav-subitem');if(it)go(it.getAttribute('data-v'),it);});
+  return true;
+}
+function installPage(){
+  if($('page-orgp'))return true;
+  var host=$('page-espace-directeur')||document.querySelector('.content .page');if(!host||!host.parentNode)return false;
+  var p=document.createElement('div');p.id='page-orgp';p.className='page';
+  p.innerHTML='<div class="esp-banner di"><span class="esp-emoji">🏫</span><div><h2>Organisation pédagogique des classes</h2><p id="orgp-sub-title"></p></div></div><div id="orgp-root"></div>';
+  host.parentNode.insertBefore(p,host.nextSibling);
+  p.addEventListener('click',function(ev){var b=ev.target.closest('[data-a]');if(!b)return;var f=ACT[b.getAttribute('data-a')];if(!f)return;
+    var d={};for(var i=0;i<b.attributes.length;i++){var n=b.attributes[i].name;if(n.indexOf('data-')===0&&n!=='data-a')d[n.slice(5)]=b.attributes[i].value;}
+    try{f(d,b);}catch(e){console.error('[ORGP]',e);notif('Erreur : '+e.message,'error');}});
+  p.addEventListener('change',function(ev){var el=ev.target;var c=el.getAttribute&&el.getAttribute('data-c');if(c&&c!=='eltq'&&CH[c]){try{CH[c](el);}catch(e){console.error(e);}}});
+  p.addEventListener('input',function(ev){var el=ev.target;if(el.getAttribute&&el.getAttribute('data-c')==='eltq'){CH.eltq(el);}});
+  return true;
+}
+function applyRole(){
+  var g=$('grp-orgp');if(!g)return;
+  g.style.display=canSee()?'':'none';
+}
+function install(){
+  installCSS();
+  var ok=installPage()&&installNav();
+  try{if(typeof PAGE_LABELS!=='undefined')PAGE_LABELS.orgp='Organisation pédagogique des classes';}catch(e){}
+  applyRole();
+  return ok;
+}
+function boot(){
+  if(!install()){setTimeout(boot,500);return;}
+  /* le menu suit la connexion / déconnexion sans toucher au code existant */
+  var last='';
+  setInterval(function(){var u=me(),k=u?u.login+'|'+u.role:'';if(k!==last){last=k;applyRole();}},1200);
+  try{ /* enveloppe additive : la fonction d'origine est toujours appelée en premier */
+    if(typeof applyEspacesRoleUI==='function'&&!applyEspacesRoleUI.__orgp){
+      var o=applyEspacesRoleUI,w=function(){var x=o.apply(this,arguments);try{applyRole();}catch(e){}return x;};w.__orgp=true;
+      window.applyEspacesRoleUI=w;
+    }
+  }catch(e){}
+}
+window.ORGP={go:go,S:S,stats:stats,assignEleve:assignEleve,unassignEleve:unassignEleve,affOf:affOf,ACT:ACT,_render:render,version:'1.0'};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+console.log('✅ PGNEP : module « Organisation pédagogique des classes » chargé');
+})();
+
+</script>
+
+<script id="pgnep-cm2ec">
+(function(){
+'use strict';
+if(window.PGEC) return;
+
+/* ═════════════════════════════════════════════════════════════════════
+   GESTION CM2 — COMPOSITIONS 1 & 2 ET EXAMENS BLANCS / CONCOURS
+   Bloc 100 % ADDITIF (aucune ligne existante modifiée ou supprimée).
+   Retirer ce bloc suffit pour revenir à l'état précédent.
+   • Espace Directeur : relevé de notes + bilan (C1 et C2 indépendantes),
+     import/export Excel, PDF, signature, transmission.
+   • Espace Correspondant « Examens et concours » (désigné par le Super
+     Administrateur) : centres, affectation libre des écoles et candidats,
+     convocations EB1/EB2, CEAP/CAP, réception et consolidation.
+   • Matrice d'action / d'activités des deux correspondants.
+   Données : ecole.cm2 (fiches) · user.ec2 / user.mx (correspondant) — aucune
+   nouvelle table, aucune note existante (DB.notes) n'est touchée.
+   ═════════════════════════════════════════════════════════════════════ */
+
+var COMPS={c1:'Composition 1',c2:'Composition 2',eb1:'Examen blanc 1',eb2:'Examen blanc 2'};
+var NKEYS=['c1','c2','eb1','eb2'];
+/* Barème définitif (cahier des charges) — même ordre que le classeur */
+var MAT4=[
+  {k:'et',  l:'E.T',  n:'Étude de texte',                max:50,seuil:25},
+  {k:'aem', l:'A.E.M',n:'Activités d’éveil au milieu',   max:50,seuil:25},
+  {k:'orth',l:'ORTH', n:'Orthographe',                   max:20,seuil:10},
+  {k:'maths',l:'MATHS',n:'Mathématiques',                max:50,seuil:25}
+];
+/* Examens blancs : mêmes matières + EPS (/20) — barème du menu « Saisie des notes » */
+var MAT5=MAT4.concat([{k:'eps',l:'EPS',n:'Éducation physique et sportive',max:20,seuil:10}]);
+var MAT=MAT5; /* ensemble complet (cumuls) — l'affichage utilise matOf(n) */
+function isEB(n){return n==='eb1'||n==='eb2';}
+function matOf(n){return isEB(n)?MAT5:MAT4;}
+function divOf(n){var t=0;matOf(n).forEach(function(m){t+=m.max;});return t/20;}
+function totMax(n){return divOf(n)*20;}
+var DIV=8.5,ADMIS=10,TOTAL_MAX=170;
+
+/* ───────── utilitaires ───────── */
+function $(i){return document.getElementById(i);}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function uid(p){return p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function D(){return (typeof DB!=='undefined')?DB:{users:[],ecoles:[],eleves:[],notes:[]};}
+function me(){try{return (typeof getCurrentUserData==='function')?getCurrentUserData():null;}catch(e){return null;}}
+function notif(m,t){try{if(typeof showNotif==='function')showNotif(m,t||'info');else console.log(m);}catch(e){}}
+function today(){return new Date().toISOString().slice(0,10);}
+function fr(d){return d?String(d).split('-').reverse().join('/'):'';}
+function isSA(){var u=me();return !!u&&(u.role==='admin'||u.login==='diomande');}
+function isDir(){var u=me();return !!u&&u.role==='directeur';}
+function isCorr(){var u=me();return !!u&&u.role==='correspondant';}
+function isEC(){var u=me();return !!u&&u.role==='correspondant'&&u.ec_designe===true;}
+function anneeCourante(){return (typeof ANNEE_SCOLAIRE!=='undefined'&&ANNEE_SCOLAIRE)?ANNEE_SCOLAIRE:(window.ANNEE_SCOLAIRE||'2026-2027');}
+function anneesListe(){var c=anneeCourante(),m=/^(\d{4})\s*-\s*(\d{4})$/.exec(c);if(!m)return [c];var a=+m[1],o=[];for(var i=-3;i<=1;i++)o.push((a+i)+'-'+(a+i+1));return o;}
+function persist(col,items){
+  var d=D();
+  try{localStorage.setItem('pgnep_'+col,JSON.stringify(d[col]));}catch(e){console.warn('[PGEC] stockage local',e);}
+  try{if(window._firebaseReady&&window._fb&&items)items.forEach(function(it){var id=it&&(it.id||it.login);if(id)window._fb.set(col,id,it).catch(function(e){console.warn('[PGEC] cloud',e);});});}catch(e){console.warn(e);}
+}
+function num(v){
+  if(v==null||v==='')return null;
+  var n=parseFloat(String(v).replace(',','.'));return isNaN(n)?null:n;
+}
+function fx(x,d){return x==null||isNaN(x)?'':x.toFixed(d==null?2:d).replace('.',',');}
+function pct(x){return x==null||isNaN(x)?'—':(x*100).toFixed(1).replace('.',',')+' %';}
+function norm(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();}
+function cmpNom(a,b){var x=norm((a.nom||'')+' '+(a.prenoms||'')),y=norm((b.nom||'')+' '+(b.prenoms||''));return x<y?-1:x>y?1:0;}
+function armoiries(){var i=document.querySelector('img[src^="data:image/jpeg;base64,/9j/4AAQ"]');return i?i.getAttribute('src'):'';}
+
+/* ───────── données : écoles, élèves, fiches ───────── */
+function genre(e){var s=String(e&&e.sexe||'').toUpperCase();return s==='F'?'F':(s==='M'||s==='G')?'M':'';}
+function cm2Eleves(ec,an,cls){
+  var l=D().eleves.filter(function(e){return e&&e.ecole_id===ec.id&&String(e.classe||'').toUpperCase()==='CM2';});
+  if(an){var sr=ec.cm2&&ec.cm2[an]&&ec.cm2[an].sortie6;(sr||[]).forEach(function(x){if(!l.some(function(e){return e.id===x.id;}))l.push(Object.assign({},x,{ecole_id:ec.id,classe:'CM2',_sorti:true}));});}
+  if(cls)l=l.filter(function(e){return inCls(e,an,cls);});
+  return l.sort(cmpNom);
+}
+/* ───────── organisation pédagogique des classes (lecture seule) ───────── */
+function orgOf(e,an){
+  if(e&&e.orgp&&e.orgp.annee===an)return e.orgp;
+  var h=((e&&e.orgp_hist)||[]).filter(function(x){return x.annee===an;});
+  return h.length?h[h.length-1].vers:null;
+}
+function clsListe(ec,an){var y=ec&&ec.orgp&&ec.orgp.annees&&ec.orgp.annees[an];return y?(y.classes||[]).filter(function(c){return (c.niveaux||[]).indexOf('CM2')>=0;}):[];}
+function inCls(e,an,cls){if(!cls)return true;var a=orgOf(e,an);if(cls==='_none')return !a;return !!a&&a.classe_id===cls;}
+function clsLab(c){return c.nom||((c.niveaux||[]).join('–')+(c.section?' '+c.section:''));}
+function clsNom(e,an){var a=orgOf(e,an);return a?(a.classe_nom||'')+(a.slot_nom?' · '+a.slot_nom:''):'';}
+function ficheR(ec,an,n){var y=ec&&ec.cm2&&ec.cm2[an];return (y&&y[n])||{rows:{},inscrits:null,noms:{},sign:{},transmis:null,hist:[]};}
+function fiche(ec,an,n){
+  if(!ec.cm2||typeof ec.cm2!=='object')ec.cm2={};
+  var y=ec.cm2[an]=ec.cm2[an]||{};
+  var f=y[n]=y[n]||{rows:{},inscrits:null,noms:{},sign:{},transmis:null,hist:[],migr:true};
+  if(!f.rows)f.rows={};if(!f.noms)f.noms={};if(!f.sign)f.sign={};if(!f.hist)f.hist=[];
+  return f;
+}
+function ecoleById(id){return D().ecoles.find(function(e){return e.id===id;})||null;}
+
+
+/* ═══════════ Lien avec le menu « Saisie des notes » (source unique : DB.notes) ═══════════
+   Pour l'année en cours, les notes des CM2 sont lues/écrites directement dans DB.notes
+   (composition1, composition2, examen_blanc1, examen_blanc2) : saisie, résultats, rangs,
+   bulletins et statistiques de l'application les voient automatiquement, et inversement.
+   Un miroir par année est conservé dans ecole.cm2[année] pour l'archivage. */
+var CFGN={
+  c1:{ev:'composition1',p:'cecm_',m:{et:'exploitation',aem:'eveil',orth:'dictee',maths:'maths'}},
+  c2:{ev:'composition2',p:'cecm_',m:{et:'exploitation',aem:'eveil',orth:'dictee',maths:'maths'}},
+  eb1:{ev:'examen_blanc1',p:'cm2_',m:{et:'exploitation',aem:'eveil',orth:'dictee',maths:'maths',eps:'eps'}},
+  eb2:{ev:'examen_blanc2',p:'cm2_',m:{et:'exploitation',aem:'eveil',orth:'dictee',maths:'maths',eps:'eps'}}
+};
+var NSAVE={t:null,set:{},del:{}};
+function gid(){return (typeof genId==='function')?genId('n'):uid('n');}
+function isCur(an){return an===anneeCourante();}
+function noteRec(eid,n){return D().notes.find(function(x){return x&&x.eleve_id===eid&&x.eval_type===CFGN[n].ev;})||null;}
+function flushNotes(){
+  try{if(typeof save==='function')save('notes');else localStorage.setItem('pgnep_notes',JSON.stringify(D().notes));}catch(e){console.warn(e);}
+  try{if(window._firebaseReady&&window._fb){
+    Object.keys(NSAVE.set).forEach(function(id){window._fb.set('notes',id,NSAVE.set[id]).catch(function(){});});
+    Object.keys(NSAVE.del).forEach(function(id){window._fb.del('notes',id).catch(function(){});});}}catch(e){}
+  NSAVE.set={};NSAVE.del={};
+  try{if(typeof updateStats==='function')updateStats();if(typeof renderDashboard==='function')renderDashboard();}catch(e){}
+}
+function notesSoon(){clearTimeout(NSAVE.t);NSAVE.t=setTimeout(flushNotes,600);}
+function rowOf(ec,an,n,e){
+  if(isCur(an)&&!e._sorti){
+    var rec=noteRec(e.id,n),r={};
+    if(rec&&rec.notes){var c=CFGN[n];matOf(n).forEach(function(m){var v=rec.notes[c.p+c.m[m.k]];if(v!==undefined&&v!==null&&v!=='')r[m.k]=v;});}
+    return r;
+  }
+  return ficheR(ec,an,n).rows[e.id]||{};
+}
+function writeCell(ec,an,n,e,k,v){
+  var f=fiche(ec,an,n);f.rows[e.id]=f.rows[e.id]||{};
+  if(v==null)delete f.rows[e.id][k];else f.rows[e.id][k]=v;
+  f.maj=today();
+  if(!isCur(an)||e._sorti)return;
+  var cfg=CFGN[n],key=cfg.p+cfg.m[k],rec=noteRec(e.id,n);
+  if(v==null){
+    if(!rec||!rec.notes)return;
+    delete rec.notes[key];
+    if(!Object.keys(rec.notes).length){D().notes.splice(D().notes.indexOf(rec),1);NSAVE.del[rec.id]=1;delete NSAVE.set[rec.id];notesSoon();return;}
+  }else{
+    if(!rec){rec={id:gid(),eleve_id:e.id,eval_type:cfg.ev,classe:'CM2',notes:{}};D().notes.unshift(rec);}
+    if(!rec.notes)rec.notes={};rec.notes[key]=v;
+  }
+  rec.horodatage=new Date().toISOString();NSAVE.set[rec.id]=rec;delete NSAVE.del[rec.id];notesSoon();
+}
+/* reprise unique des notes saisies avec la première version du module (miroir → DB.notes) */
+function migrate(ec,an,n){
+  if(!isCur(an))return 0;var y=ec.cm2&&ec.cm2[an],f=y&&y[n];if(!f||f.migr)return 0;
+  var cfg=CFGN[n],cnt=0;f.migr=true;
+  cm2Eleves(ec).forEach(function(e){
+    var r=f.rows&&f.rows[e.id];if(!r||noteRec(e.id,n))return;
+    var rec={id:gid(),eleve_id:e.id,eval_type:cfg.ev,classe:'CM2',notes:{},horodatage:new Date().toISOString()};
+    matOf(n).forEach(function(m){var v=num(r[m.k]);if(v!=null)rec.notes[cfg.p+cfg.m[m.k]]=v;});
+    if(Object.keys(rec.notes).length){D().notes.unshift(rec);NSAVE.set[rec.id]=rec;cnt++;}
+  });
+  persist('ecoles',[ec]);if(cnt)notesSoon();return cnt;
+}
+/* miroir de l'année (archivage) : recopie DB.notes dans ecole.cm2[année] si changement */
+function mirrorYear(ec,an){
+  if(!isCur(an))return;var ch=false;
+  NKEYS.forEach(function(n){migrate(ec,an,n);});
+  NKEYS.forEach(function(n){
+    var f=fiche(ec,an,n),before=JSON.stringify(f.rows);
+    cm2Eleves(ec).forEach(function(e){var r=rowOf(ec,an,n,e);if(Object.keys(r).length)f.rows[e.id]=r;else delete f.rows[e.id];});
+    if(JSON.stringify(f.rows)!==before)ch=true;
+  });
+  if(ch)persist('ecoles',[ec]);
+}
+
+/* ───────── calcul fidèle au classeur ───────── */
+function calcRow(r,n){
+  var mats=matOf(n||'c1'),vals=[],abs=[],cnt=0,total=0,be=0;
+  mats.forEach(function(m){
+    var v=num(r&&r[m.k]);
+    if(v===501){vals.push(null);abs.push(true);return;}
+    be+=m.max;abs.push(false);vals.push(v);if(v!=null){cnt++;total+=v;}
+  });
+  if(!cnt)return {vals:vals,abs:abs,total:null,moy:null,obs:''};
+  var moy=total/(be/20);
+  return {vals:vals,abs:abs,total:total,moy:moy,obs:moy>=ADMIS?'A':'R'};
+}
+function bilanOf(ec,an,n,cls){
+  migrate(ec,an,n);
+  var els=cm2Eleves(ec,an,cls),mats=matOf(n),f=ficheR(ec,an,n);
+  var B={n:n,ec:ec,ins:{M:0,F:0},insDyn:{M:0,F:0},pres:{M:0,F:0},adm:{M:0,F:0},disc:{},moys:[],sansGenre:0,transmis:!!f.transmis,nbNotes:0};
+  MAT.forEach(function(m){B.disc[m.k]={M:0,F:0};});
+  els.forEach(function(e){
+    var g=genre(e);if(g)B.insDyn[g]++;else B.sansGenre++;
+    var c=calcRow(rowOf(ec,an,n,e),n);
+    if(c.total!=null)B.nbNotes++;
+    if(c.total!=null&&c.total>0)B.moys.push(c.moy);
+    if(!g)return;
+    if(c.total!=null&&c.total>0)B.pres[g]++;
+    if(c.moy!=null&&c.moy>=ADMIS)B.adm[g]++;
+    mats.forEach(function(m,i){var v=c.vals[i];if(v!=null&&v>=m.seuil)B.disc[m.k][g]++;});
+  });
+  B.ins=(f.inscrits&&!cls)?{M:num(f.inscrits.m)||0,F:num(f.inscrits.f)||0}:{M:B.insDyn.M,F:B.insDyn.F};
+  finishB(B);return B;
+}
+function ratio(a,b){return b>0?a/b:null;}
+function finishB(B){
+  B.insT=B.ins.M+B.ins.F;B.presT=B.pres.M+B.pres.F;B.admT=B.adm.M+B.adm.F;
+  B.abs=Math.max(0,B.insT-B.presT);
+  B.tauxM=ratio(B.adm.M,B.pres.M);B.tauxF=ratio(B.adm.F,B.pres.F);B.taux=ratio(B.admT,B.presT);
+  B.tauxDisc={};MAT.forEach(function(m){B.tauxDisc[m.k]=ratio(B.disc[m.k].M+B.disc[m.k].F,B.presT);});
+  var s=0;B.moys.forEach(function(x){s+=x;});B.moyClasse=B.moys.length?s/B.moys.length:null;
+}
+/* somme de plusieurs bilans (consolidation) — la moyenne est recalculée sur les moyennes individuelles */
+function sumB(list){
+  var T={n:(list[0]&&list[0].n)||'c1',ins:{M:0,F:0},pres:{M:0,F:0},adm:{M:0,F:0},disc:{},moys:[],nbEcoles:list.length,nbTransmis:0,nbNotes:0};
+  MAT.forEach(function(m){T.disc[m.k]={M:0,F:0};});
+  list.forEach(function(B){
+    ['M','F'].forEach(function(g){T.ins[g]+=B.ins[g];T.pres[g]+=B.pres[g];T.adm[g]+=B.adm[g];MAT.forEach(function(m){T.disc[m.k][g]+=B.disc[m.k][g];});});
+    T.moys=T.moys.concat(B.moys);if(B.transmis)T.nbTransmis++;T.nbNotes+=B.nbNotes;
+  });
+  finishB(T);return T;
+}
+
+/* ───────── en-tête dynamique (selon l'école et son rattachement) ───────── */
+function hdrBlock(drena,iepp,an){
+  var arm=armoiries();
+  return '<table class="hd"><tr><td class="l">MINISTÈRE DE L’ÉDUCATION NATIONALE, DE L’ALPHABÉTISATION ET DE L’ENSEIGNEMENT TECHNIQUE<br>DIRECTION RÉGIONALE : <b>'+esc(drena||'……………')+'</b><br>INSPECTION DE L’ENSEIGNEMENT PRÉSCOLAIRE ET PRIMAIRE : <b>'+esc(iepp||'……………')+'</b></td>'+
+    '<td class="r"><div class="ar">'+(arm?'<img src="'+arm+'" style="height:64px">':'')+'<br>Année scolaire : <b>'+esc(an)+'</b></div></td></tr></table>';
+}
+function enteteHTML(ec,an,titre){
+  return hdrBlock(ec.drena,ec.iepp,an)+
+    '<div class="ttl">'+esc(titre)+'</div>'+
+    '<div class="sub">École : <b>'+esc(ec.nom||'')+'</b> &nbsp;·&nbsp; Code : <b>'+esc(ec.code||'………')+'</b> &nbsp;·&nbsp; Cours : <b>CM2</b></div>';
+}
+var PRINT_CSS='@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;font-size:11px;color:#000}.np{background:#EFF6FF;border:1px solid #93C5FD;padding:8px 12px;margin-bottom:10px;font-size:13px}.np button{padding:6px 12px;margin-left:6px;font-size:13px;cursor:pointer}canvas.sgc{width:270px;height:84px;border:1px dashed #64748B;touch-action:none;display:block;margin:4px auto;background:#fff}@media print{.np{display:none}canvas.sgc{border:none}}'+
+  '.hd{width:100%;border-collapse:collapse;margin-bottom:6px}.hd td{vertical-align:top;font-size:10px}.hd .l{width:62%}.hd .r{text-align:right;width:38%}.hd .ar{display:inline-block;text-align:center;font-size:10px}'+
+  '.ttl{text-align:center;font-weight:bold;font-size:15px;margin:6px 0;text-decoration:underline}.sub{text-align:center;margin-bottom:8px}'+
+  'table.t{width:100%;border-collapse:collapse}table.t th,table.t td{border:1px solid #333;padding:3px 4px;text-align:center;font-size:10.5px}'+
+  'table.t th{background:#f3f4f6}table.t td.n{text-align:left}.brk{page-break-before:always}'+
+  '.sg{display:flex;justify-content:space-between;margin-top:22px;gap:30px}.sg div{flex:1;text-align:center;font-size:11px}.sg img{max-height:70px;max-width:100%}'+
+  '.cv{border:1.5px dashed #333;padding:10px 16px;margin-bottom:10px;page-break-inside:avoid;font-size:12px}.cv h2{text-align:center;margin:6px 0;font-size:15px}.cv table{width:100%}.cv td{padding:3px 0}';
+function printHTML(title,html,css){
+  var w=window.open('','_blank');if(!w){notif('Autorisez les fenêtres pop-up pour imprimer / enregistrer en PDF.','error');return;}
+  var inter=html.indexOf('class="sgc"')>=0;
+  var bar=inter?'<div class="np"><b>✍️ Signature sur l’écran :</b> dessinez la signature dans le cadre (doigt, stylet ou souris), puis <button onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button> <button onclick="sgSave()">💾 Garder la signature dans l’application</button> <button onclick="sgClr()">Effacer</button></div>':'';
+  var js=inter?'<script>(function(){function ini(c){var x=c.getContext("2d");x.lineWidth=2.2;x.lineCap="round";var d=false,lx=0,ly=0;function p(e){var r=c.getBoundingClientRect();return [(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height];}'+
+    'c.addEventListener("pointerdown",function(e){d=true;var q=p(e);lx=q[0];ly=q[1];c.dataset.has="1";try{c.setPointerCapture(e.pointerId);}catch(z){}e.preventDefault();});'+
+    'c.addEventListener("pointermove",function(e){if(!d)return;var q=p(e);x.beginPath();x.moveTo(lx,ly);x.lineTo(q[0],q[1]);x.stroke();lx=q[0];ly=q[1];e.preventDefault();});'+
+    'c.addEventListener("pointerup",function(){d=false;});c.addEventListener("pointercancel",function(){d=false;});}'+
+    'document.querySelectorAll("canvas.sgc").forEach(ini);'+
+    'window.sgClr=function(){document.querySelectorAll("canvas.sgc").forEach(function(c){c.getContext("2d").clearRect(0,0,c.width,c.height);c.dataset.has="";});};'+
+    'window.sgSave=function(){var n=0;document.querySelectorAll("canvas.sgc").forEach(function(c){if(c.dataset.has==="1"&&window.opener&&window.opener.PGEC){window.opener.PGEC.storeSign(c.getAttribute("data-n"),c.getAttribute("data-w"),c.toDataURL("image/png"));n++;}});alert(n?"Signature enregistrée dans l’application.":"Rien à enregistrer.");};})();<\/script>':'';
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+esc(title)+'</title><style>'+PRINT_CSS+(css||'')+'</style></head><body>'+bar+html+js+'</body></html>');
+  w.document.close();
+  if(!inter)setTimeout(function(){try{w.focus();w.print();}catch(e){}},400);
+}
+/* ───────── documents imprimables : relevé et bilan ───────── */
+function releveTable(ec,an,n,cls){
+  var els=cm2Eleves(ec,an,cls),mats=matOf(n),tm=totMax(n),avecCls=clsListe(ec,an).length>0;
+  var h='<table class="t"><thead><tr><th rowspan="2">N°</th><th rowspan="2">MATRICULE</th><th rowspan="2">NOM</th><th rowspan="2">PRÉNOMS</th><th rowspan="2">DATE NAIS.</th><th rowspan="2">LIEU DE NAISSANCE</th><th rowspan="2">GENRE</th>'+(avecCls?'<th rowspan="2">CLASSE</th>':'')+'<th colspan="'+mats.length+'">MATIÈRES</th><th colspan="3">RÉSULTATS</th></tr><tr>'+
+    mats.map(function(m){return '<th>'+m.l+'<br><small>/'+m.max+'</small></th>';}).join('')+'<th>TOTAL<br><small>/'+tm+'</small></th><th>MOY<br><small>/20</small></th><th>OBS</th></tr></thead><tbody>';
+  els.forEach(function(e,i){var c=calcRow(rowOf(ec,an,n,e),n);
+    h+='<tr><td>'+(i+1)+'</td><td>'+esc(e.matricule||'')+'</td><td class="n">'+esc(e.nom||'')+'</td><td class="n">'+esc(e.prenoms||'')+'</td><td>'+esc(fr(e.ddn))+'</td><td class="n">'+esc(e.lieu||'')+'</td><td>'+esc(genre(e)||'')+'</td>'+(avecCls?'<td>'+esc(clsNom(e,an))+'</td>':'')+
+      mats.map(function(m,k){return '<td>'+(c.abs[k]?'ABS':(c.vals[k]==null?'':fx(c.vals[k])))+'</td>';}).join('')+'<td>'+(c.total==null?'':fx(c.total))+'</td><td>'+(c.moy==null?'':fx(c.moy))+'</td><td><b>'+c.obs+'</b></td></tr>';});
+  return h+'</tbody></table><p style="font-size:10px">Légende : E.T = Étude de texte · A.E.M = Activités d’éveil au milieu · ORTH = Orthographe · MATHS = Mathématiques'+(isEB(n)?' · EPS = Éducation physique et sportive':'')+'. Moyenne = total ÷ '+String(divOf(n)).replace('.',',')+'. A = admis (moyenne ≥ 10/20) · R = refusé · ABS = absent à l’épreuve.</p>';
+}
+function bilanTable(B){
+  var n=B.n||'c1',mats=matOf(n),ord=['et','aem','maths','orth','eps'].filter(function(k){return mats.some(function(m){return m.k===k;});}),
+      lab={et:'E.T',aem:'E.M',maths:'MATHS',orth:'ORTH',eps:'EPS'},d=B.disc,k=ord.length,MF='<th>M</th><th>F</th>';
+  var h='<table class="t"><thead><tr><th rowspan="3">GENRE</th><th colspan="2" rowspan="2">INSCRITS</th><th colspan="2" rowspan="2">PRÉSENTS</th><th colspan="'+(2*k)+'">NOMBRE D’ÉLÈVES AYANT OBTENU LA MOYENNE</th><th colspan="2" rowspan="2">TOTAL AYANT LA MOYENNE</th><th colspan="2" rowspan="2">% DE RÉUSSITE</th></tr><tr>'+
+    ord.map(function(x){return '<th colspan="2">'+lab[x]+'</th>';}).join('')+'</tr><tr>'+MF+MF+new Array(k+1).join(MF)+MF+MF+'</tr></thead><tbody>';
+  var c2=function(a,b){return '<td>'+a+'</td><td>'+b+'</td>';};
+  h+='<tr><td><b>EFFECTIF</b></td>'+c2(B.ins.M,B.ins.F)+c2(B.pres.M,B.pres.F)+ord.map(function(x){return c2(d[x].M,d[x].F);}).join('')+c2(B.adm.M,B.adm.F)+c2(pct(B.tauxM),pct(B.tauxF))+'</tr>'+
+    '<tr><td><b>EFFECTIF TOTAL</b></td><td colspan="2">'+B.insT+'</td><td colspan="2">'+B.presT+'</td>'+ord.map(function(x){return '<td colspan="2">'+(d[x].M+d[x].F)+'</td>';}).join('')+'<td colspan="2">'+B.admT+'</td><td colspan="2">'+pct(B.taux)+'</td></tr>'+
+    '<tr><td><b>TAUX DE RÉUSSITE</b></td><td colspan="2"></td><td colspan="2"></td>'+ord.map(function(x){return '<td colspan="2">'+pct(B.tauxDisc[x])+'</td>';}).join('')+'<td colspan="2">'+pct(B.taux)+'</td><td colspan="2"></td></tr>'+
+    '</tbody></table><p style="margin-top:8px"><b>MOYENNE DE LA CLASSE DE CM2 : '+(B.moyClasse==null?'—':fx(B.moyClasse)+' / 20')+'</b> &nbsp;·&nbsp; Absents : '+B.abs+'</p>';
+  return h;
+}
+function signaturesHTML(f,n){
+  var s=(f&&f.sign)||{},nm=(f&&f.noms)||{};
+  function box(w){return s[w]?'<img src="'+s[w]+'">':'<canvas class="sgc" data-w="'+w+'" data-n="'+(n||'')+'" width="360" height="112"></canvas>';}
+  return '<div class="sg"><div>Le (la) Maître (esse)<br>'+box('maitre')+'<br>Nom, Prénoms, Signature et Contact<br><b>'+esc(nm.maitre||'')+'</b> '+esc(nm.maitre_tel||'')+'</div>'+
+    '<div>Le (la) Directeur (trice)<br>'+box('directeur')+'<br>Nom, Prénoms, Signature, cachet et Contact<br><b>'+esc(nm.directeur||'')+'</b> '+esc(nm.directeur_tel||'')+'</div></div>';
+}
+function docComplet(ec,an,n,cls){
+  var f=ficheR(ec,an,n),B=bilanOf(ec,an,n,cls),t=COMPS[n].toUpperCase(),sfx=cls&&cls!=='_none'?' — '+clsLab(clsListe(ec,an).find(function(c){return c.id===cls;})||{}):'';
+  return enteteHTML(ec,an,'RELEVÉ DE NOTES — '+t+sfx)+releveTable(ec,an,n,cls)+
+    '<div class="brk"></div>'+enteteHTML(ec,an,'BILAN DE LA '+t+' — CM2'+sfx)+bilanTable(B)+signaturesHTML(f,n);
+}
+/* ───────── Excel : export fidèle au classeur (3 feuilles + formules) ───────── */
+function needX(){if(typeof XLSX==='undefined'){alert('Module Excel indisponible : vérifiez la connexion Internet puis réessayez.');return false;}return true;}
+function setC(ws,a,v,f,t){var c={t:t||(typeof v==='number'?'n':'s'),v:v};if(f)c.f=f;ws[a]=c;}
+function xlsReleve(ec,an,n,blank){
+  if(!needX())return;
+  if(isEB(n))return xlsReleveEB(ec,an,n,blank);
+  mirrorYear(ec,an);
+  var els=cm2Eleves(ec,an),B=bilanOf(ec,an,n),first=19,rows=Math.max(50,els.length),last=first+rows-1;
+  var wb=XLSX.utils.book_new(),ws={},R='\'Relevé de notes\'!';
+  setC(ws,'K1','RÉPUBLIQUE DE CÔTE D’IVOIRE');setC(ws,'D3','MINISTÈRE DE L’ÉDUCATION NATIONALE, DE L’ALPHABÉTISATION ET DE L’ENSEIGNEMENT TECHNIQUE');
+  setC(ws,'D5','DIRECTION RÉGIONALE : '+(ec.drena||''));setC(ws,'K6','Union - Discipline - Travail');
+  setC(ws,'D7','INSPECTION DE L’ENSEIGNEMENT PRÉSCOLAIRE ET PRIMAIRE : '+(ec.iepp||''));setC(ws,'D9','École : '+(ec.nom||'')+' — Code : '+(ec.code||''));
+  setC(ws,'K12','Année scolaire : '+an);setC(ws,'A15','Cours : CM2');setC(ws,'C15','NB : LE FICHIER DOIT ÊTRE RENSEIGNÉ DANS L’ORDRE ALPHABÉTIQUE ET EN CARACTÈRES D’IMPRIMERIE');
+  setC(ws,'L15','CODE : '+(ec.code||''));setC(ws,'H17','MATIÈRES');setC(ws,'L17','RÉSULTATS');setC(ws,'F13',COMPS[n].toUpperCase());
+  ['N°','MATRICULE','NOM','PRENOMS','DATE DE NAIS','LIEU DE NAISSANCE','GENRE','E.T','A.E.M','ORTH','MATHS','TOTAL','MOY','OBS'].forEach(function(h,i){setC(ws,XLSX.utils.encode_cell({r:17,c:i}),h);});
+  MAT.forEach(function(m,i){setC(ws,'Q'+(18+i),m.l);setC(ws,'R'+(18+i),m.n);});
+  for(var i=0;i<rows;i++){
+    var r=first+i,e=els[i],row=(e&&!blank&&rowOf(ec,an,n,e))||{},c=calcRow(row,n);
+    setC(ws,'A'+r,i+1);
+    if(e){setC(ws,'B'+r,e.matricule||'');setC(ws,'C'+r,e.nom||'');setC(ws,'D'+r,e.prenoms||'');setC(ws,'E'+r,fr(e.ddn));setC(ws,'F'+r,e.lieu||'');setC(ws,'G'+r,genre(e));}
+    ['H','I','J','K'].forEach(function(col,k){var v=c.vals[k];if(v!=null)setC(ws,col+r,v);});
+    setC(ws,'L'+r,c.total==null?'':c.total,'IF(COUNT(H'+r+':K'+r+')=0,"",SUM(H'+r+':K'+r+'))',c.total==null?'s':'n');
+    setC(ws,'M'+r,c.moy==null?'':c.moy,'IF(L'+r+'="","",L'+r+'/Paramètres!$B$5)',c.moy==null?'s':'n');
+    setC(ws,'N'+r,c.obs,'IF(M'+r+'="","",IF(M'+r+'>=Paramètres!$B$4,"A","R"))','s');
+  }
+  ws['!ref']='A1:R'+last;
+  ws['!merges']=[{s:{r:0,c:10},e:{r:0,c:13}},{s:{r:2,c:3},e:{r:2,c:9}},{s:{r:4,c:3},e:{r:4,c:9}},{s:{r:6,c:3},e:{r:6,c:9}},{s:{r:8,c:3},e:{r:8,c:9}},{s:{r:16,c:7},e:{r:16,c:10}},{s:{r:16,c:11},e:{r:16,c:13}}];
+  ws['!cols']=[{wch:5},{wch:14},{wch:22},{wch:26},{wch:12},{wch:20},{wch:7},{wch:8},{wch:8},{wch:8},{wch:8},{wch:9},{wch:9},{wch:6},{wch:3},{wch:3},{wch:8},{wch:28}];
+  XLSX.utils.book_append_sheet(wb,ws,'Relevé de notes');
+  /* Bilan */
+  var b={},G=function(col,g){return 'COUNTIFS('+R+'$G$'+first+':$G$'+last+',"'+g+'",'+R+'$'+col+'$'+first+':$'+col+'$'+last;};
+  function cnt(col,crit,v,genreF){ /* M (+G) ou F */
+    if(genreF)return {f:'COUNTIFS('+R+'$G$'+first+':$G$'+last+',"F",'+R+'$'+col+'$'+first+':$'+col+'$'+last+','+crit+')',v:v};
+    return {f:'COUNTIFS('+R+'$G$'+first+':$G$'+last+',"M",'+R+'$'+col+'$'+first+':$'+col+'$'+last+','+crit+')+COUNTIFS('+R+'$G$'+first+':$G$'+last+',"G",'+R+'$'+col+'$'+first+':$'+col+'$'+last+','+crit+')',v:v};
+  }
+  setC(b,'B3','BILAN DE LA '+COMPS[n].toUpperCase()+' — CM2 — '+(ec.nom||''));setC(b,'B5','EFFECTIFS');setC(b,'D5','NOMBRE D’ÉLÈVES AYANT OBTENU LA MOYENNE');setC(b,'N5','TOTAL DES ÉLÈVES AYANT LA MOYENNE');setC(b,'P5','POURCENTAGE DE RÉUSSITE');
+  setC(b,'B6','INSCRITS');setC(b,'D6','PRÉSENTS');setC(b,'F6','E.T');setC(b,'H6','E.M');setC(b,'J6','MATHS');setC(b,'L6','ORTH');setC(b,'A7','GENRE');
+  ['B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q'].forEach(function(c,i){setC(b,c+'7',i%2?'F':'M');});
+  setC(b,'A8','EFFECTIF');setC(b,'B8',B.ins.M);setC(b,'C8',B.ins.F);
+  var thr={H:'">="&Paramètres!$B$2',I:'">="&Paramètres!$B$2',K:'">="&Paramètres!$B$2',J:'">="&Paramètres!$B$3',L:'">0"',M:'">="&Paramètres!$B$4'};
+  var plan=[['D','L','pres'],['F','H','et'],['H','I','aem'],['J','K','maths'],['L','J','orth'],['N','M','adm']];
+  plan.forEach(function(p){
+    var cM=p[0],cF=String.fromCharCode(cM.charCodeAt(0)+1),src=p[1],key=p[2],crit=key==='pres'?'">0"':(src==='J'?thr.J:(src==='M'?thr.M:thr.H));
+    var vM=key==='pres'?B.pres.M:key==='adm'?B.adm.M:B.disc[key].M,vF=key==='pres'?B.pres.F:key==='adm'?B.adm.F:B.disc[key].F;
+    var a=cnt(src,crit,vM,false),c2=cnt(src,crit,vF,true);
+    setC(b,cM+'8',a.v,a.f);setC(b,cF+'8',c2.v,c2.f);
+  });
+  setC(b,'P8',B.tauxM==null?'':B.tauxM,'IF(D8=0,"",N8/D8)',B.tauxM==null?'s':'n');setC(b,'Q8',B.tauxF==null?'':B.tauxF,'IF(E8=0,"",O8/E8)',B.tauxF==null?'s':'n');
+  setC(b,'A9','EFFECTIF TOTAL');
+  [['B','C',B.insT],['D','E',B.presT],['F','G',B.disc.et.M+B.disc.et.F],['H','I',B.disc.aem.M+B.disc.aem.F],['J','K',B.disc.maths.M+B.disc.maths.F],['L','M',B.disc.orth.M+B.disc.orth.F],['N','O',B.admT]].forEach(function(p){setC(b,p[0]+'9',p[2],p[0]+'8+'+p[1]+'8');});
+  setC(b,'P9',B.taux==null?'':B.taux,'IF(D9=0,"",N9/D9)',B.taux==null?'s':'n');
+  setC(b,'A10','TAUX DE RÉUSSITE');
+  [['F','et'],['H','aem'],['J','maths'],['L','orth']].forEach(function(p){setC(b,p[0]+'10',B.tauxDisc[p[1]]==null?'':B.tauxDisc[p[1]],'IF($D$9=0,"",'+p[0]+'9/$D$9)',B.tauxDisc[p[1]]==null?'s':'n');});
+  setC(b,'N10',B.taux==null?'':B.taux,'IF($D$9=0,"",N9/$D$9)',B.taux==null?'s':'n');
+  setC(b,'A11','MOYENNE DE LA CLASSE DE CM2 DE L’EPP '+(ec.nom||''));
+  setC(b,'P11',B.moyClasse==null?'':B.moyClasse,'IFERROR(AVERAGEIF('+R+'$L$'+first+':$L$'+last+',">0",'+R+'$M$'+first+':$M$'+last+'),"")',B.moyClasse==null?'s':'n');
+  setC(b,'A13','NB : les effectifs inscrits (B8 et C8) sont alimentés par les inscriptions CM2 de l’école ; ils peuvent être corrigés à la main (contrôle administratif).');
+  setC(b,'A14','Présents = élèves du relevé ayant un TOTAL > 0 ; taux par matière = admis dans la matière ÷ total des présents.');
+  setC(b,'A16','Le (la) Maître (esse)');setC(b,'L16','Le (la) Directeur (trice)');setC(b,'A17','Nom, Prénoms, Signature et Contact');setC(b,'L17','Nom, Prénoms, Signature, cachet et Contact');
+  b['!ref']='A1:Q21';b['!cols']=[{wch:22}].concat(new Array(16).fill({wch:7}));
+  XLSX.utils.book_append_sheet(wb,b,'Bilan par disciplines');
+  var p={};setC(p,'A1','PARAMÈTRES DE CALCUL');
+  setC(p,'A2','Note minimale pour avoir la moyenne en E.T, E.M et MATHS');setC(p,'B2',25);
+  setC(p,'A3','Note minimale pour avoir la moyenne en ORTH');setC(p,'B3',10);
+  setC(p,'A4','Moyenne minimale pour être admis(e)');setC(p,'B4',10);
+  setC(p,'A5','Diviseur du TOTAL pour obtenir la MOY');setC(p,'B5',8.5);
+  setC(p,'A8','Barème : E.T /50 · A.E.M /50 · ORTH /20 · MATHS /50 · Total /170 · MOY = TOTAL ÷ 8,5.');
+  setC(p,'A9','Genre : M = garçon (G accepté), F = fille.');
+  p['!ref']='A1:B9';p['!cols']=[{wch:60},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,p,'Paramètres');
+  wb.Workbook={CalcPr:{fullCalcOnLoad:true}};
+  XLSX.writeFile(wb,(blank?'modele_':'')+'composition'+n.slice(1)+'_CM2_'+(ec.nom||'ecole').replace(/\W+/g,'_')+'_'+an+'.xlsx');
+}
+
+
+/* Examens blancs : relevé Excel avec EPS (barème de la Saisie des notes) */
+function xlsReleveEB(ec,an,n,blank){
+  mirrorYear(ec,an);
+  var mats=matOf(n),els=cm2Eleves(ec,an),B=bilanOf(ec,an,n),first=9,nm=mats.length,cL=XLSX.utils.encode_col,
+      cT=7+nm,cM=cT+1,cO=cM+1,rows=Math.max(50,els.length),last=first+rows-1;
+  var wb=XLSX.utils.book_new(),ws={};
+  setC(ws,'A1','MINISTÈRE DE L’ÉDUCATION NATIONALE, DE L’ALPHABÉTISATION ET DE L’ENSEIGNEMENT TECHNIQUE');
+  setC(ws,'A2','DIRECTION RÉGIONALE : '+(ec.drena||''));setC(ws,'A3','INSPECTION DE L’ENSEIGNEMENT PRÉSCOLAIRE ET PRIMAIRE : '+(ec.iepp||''));
+  setC(ws,'A4','École : '+(ec.nom||'')+' — Code : '+(ec.code||'')+' — Cours : CM2 — Année scolaire : '+an);
+  setC(ws,'A6',COMPS[n].toUpperCase()+' — RELEVÉ DE NOTES');
+  var head=['N°','MATRICULE','NOM','PRENOMS','DATE DE NAIS','LIEU DE NAISSANCE','GENRE'].concat(mats.map(function(m){return m.l;}),['TOTAL','MOY','OBS']);
+  head.forEach(function(h,i){setC(ws,cL(i)+'8',h);});
+  for(var i=0;i<rows;i++){
+    var r=first+i,e=els[i],c=calcRow((e&&!blank&&rowOf(ec,an,n,e))||{},n);
+    setC(ws,'A'+r,i+1);
+    if(e){setC(ws,'B'+r,e.matricule||'');setC(ws,'C'+r,e.nom||'');setC(ws,'D'+r,e.prenoms||'');setC(ws,'E'+r,fr(e.ddn));setC(ws,'F'+r,e.lieu||'');setC(ws,'G'+r,genre(e));}
+    mats.forEach(function(m,k){var v=c.abs[k]?'ABS':c.vals[k];if(v!=null)setC(ws,cL(7+k)+r,v);});
+    var a=cL(7)+r,z=cL(6+nm)+r;
+    setC(ws,cL(cT)+r,c.total==null?'':c.total,'IF(COUNT('+a+':'+z+')=0,"",SUM('+a+':'+z+'))',c.total==null?'s':'n');
+    setC(ws,cL(cM)+r,c.moy==null?'':c.moy,'IF('+cL(cT)+r+'="","",'+cL(cT)+r+'/'+divOf(n)+')',c.moy==null?'s':'n');
+    setC(ws,cL(cO)+r,c.obs,'IF('+cL(cM)+r+'="","",IF('+cL(cM)+r+'>=10,"A","R"))','s');
+  }
+  ws['!ref']='A1:'+cL(cO)+last;ws['!cols']=[{wch:5},{wch:14},{wch:22},{wch:26},{wch:12},{wch:20},{wch:7}].concat(mats.map(function(){return {wch:8};}),[{wch:9},{wch:9},{wch:6}]);
+  XLSX.utils.book_append_sheet(wb,ws,'Relevé de notes');
+  var d=B.disc,ord=['et','aem','maths','orth','eps'].filter(function(k){return mats.some(function(m){return m.k===k;});});
+  var lab={et:'E.T',aem:'E.M',maths:'MATHS',orth:'ORTH',eps:'EPS'},aoa=[['BILAN — '+COMPS[n].toUpperCase()+' — CM2 — '+(ec.nom||'')],[],['GENRE','INSCRITS','PRÉSENTS'].concat(ord.map(function(k){return lab[k];}),['ADMIS','% RÉUSSITE'])];
+  aoa.push(['M',B.ins.M,B.pres.M].concat(ord.map(function(k){return d[k].M;}),[B.adm.M,B.tauxM==null?'':+(B.tauxM*100).toFixed(2)]));
+  aoa.push(['F',B.ins.F,B.pres.F].concat(ord.map(function(k){return d[k].F;}),[B.adm.F,B.tauxF==null?'':+(B.tauxF*100).toFixed(2)]));
+  aoa.push(['TOTAL',B.insT,B.presT].concat(ord.map(function(k){return d[k].M+d[k].F;}),[B.admT,B.taux==null?'':+(B.taux*100).toFixed(2)]));
+  aoa.push(['TAUX','','' ].concat(ord.map(function(k){return B.tauxDisc[k]==null?'':+(B.tauxDisc[k]*100).toFixed(2);}),['','']));
+  aoa.push([],['MOYENNE DE LA CLASSE : '+(B.moyClasse==null?'—':B.moyClasse.toFixed(2)+' / 20'),'Absents : '+B.abs]);
+  var bs=XLSX.utils.aoa_to_sheet(aoa);bs['!cols']=[{wch:16}].concat(new Array(9).fill({wch:10}));
+  XLSX.utils.book_append_sheet(wb,bs,'Bilan par disciplines');
+  wb.Workbook={CalcPr:{fullCalcOnLoad:true}};
+  XLSX.writeFile(wb,(blank?'modele_':'')+'examen_blanc'+n.slice(2)+'_CM2_'+(ec.nom||'ecole').replace(/\W+/g,'_')+'_'+an+'.xlsx');
+}
+
+/* ───────── Excel : import du relevé (avec vérification avant validation) ───────── */
+function parseReleve(wb,ec,n,an){n=n||'c1';var mats=matOf(n);
+  var name=wb.SheetNames.indexOf('Relevé de notes')>=0?'Relevé de notes':wb.SheetNames[0];
+  var aoa=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:''});
+  var hi=-1,col={};
+  for(var i=0;i<aoa.length&&hi<0;i++){
+    var up=aoa[i].map(function(x){return norm(x);});
+    if(up.indexOf('MATRICULE')>=0&&up.indexOf('NOM')>=0){hi=i;up.forEach(function(h,j){if(h&&col[h]==null)col[h]=j;});}
+  }
+  if(hi<0)return {error:'En-tête introuvable : le fichier doit contenir les colonnes MATRICULE et NOM (utilisez le modèle).'};
+  var idx={mat:col['MATRICULE'],nom:col['NOM'],pren:col['PRENOMS']!=null?col['PRENOMS']:col['PRENOM']};
+  var miss=[];mats.forEach(function(m){idx[m.k]=col[norm(m.l)];if(idx[m.k]==null)miss.push(m.l);});
+  if(miss.length)return {error:'Colonnes requises introuvables : '+miss.join(', ')+' (utilisez le modèle).'};
+  var els=cm2Eleves(ec,an),byMat={},byNom={};
+  els.forEach(function(e){if(e.matricule)byMat[norm(e.matricule)]=e;byNom[norm(e.nom+' '+e.prenoms)]=e;});
+  var out={ok:[],inconnus:[],erreurs:[]};
+  for(var r=hi+1;r<aoa.length;r++){
+    var L=aoa[r],mat=String(L[idx.mat]||'').trim(),nom=String(L[idx.nom]||'').trim(),pren=idx.pren!=null?String(L[idx.pren]||'').trim():'';
+    var raw={};mats.forEach(function(m){raw[m.k]=L[idx[m.k]];});
+    var any=mats.some(function(m){return String(raw[m.k]).trim()!=='';});
+    if(!nom&&!mat)continue;if(!any)continue;
+    var e=(mat&&byMat[norm(mat)])||byNom[norm(nom+' '+pren)];
+    if(!e){out.inconnus.push((nom+' '+pren).trim()||mat);continue;}
+    var row={},bad=[];
+    mats.forEach(function(m){var t=String(raw[m.k]).trim(),v=/^(ABS|A)$/i.test(t)?501:num(raw[m.k]);if(t!==''&&(v==null||v<0||(v>m.max&&v!==501)))bad.push(m.l+' = '+raw[m.k]+' (max '+m.max+')');row[m.k]=(v==null||v<0||(v>m.max&&v!==501))?null:v;});
+    if(bad.length)out.erreurs.push(e.nom+' '+e.prenoms+' : '+bad.join(' ; '));
+    out.ok.push({id:e.id,nom:e.nom+' '+e.prenoms,row:row,bad:bad.length>0,sorti:!!e._sorti});
+  }
+  return out;
+}
+
+/* ───────── Excel : export d'un tableau simple (réutilisable) ───────── */
+function xlsAoa(aoa,sheet,file,widths){
+  if(!needX())return;var wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(aoa);
+  if(widths)ws['!cols']=widths.map(function(w){return {wch:w};});
+  XLSX.utils.book_append_sheet(wb,ws,sheet.slice(0,31));XLSX.writeFile(wb,file);
+}
+function readFirstSheet(file,cb){
+  if(!needX())return;var rd=new FileReader();
+  rd.onload=function(){try{var wb=XLSX.read(rd.result,{type:'array'});cb(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}),wb);}catch(e){notif('Fichier illisible : '+e.message,'error');}};
+  rd.readAsArrayBuffer(file);
+}
+function colv(r,names){for(var i=0;i<names.length;i++){for(var k in r){if(norm(k)===norm(names[i]))return String(r[k]).trim();}}return '';}
+
+/* ───────── consolidation (correspondant) ───────── */
+function consolidate(ecoles,an,n,onlyTransmis){
+  var list=[];
+  ecoles.forEach(function(ec){var B=bilanOf(ec,an,n);if(!onlyTransmis||B.transmis)list.push(B);});
+  var T=sumB(list);T.n=n;return {parEcole:list,total:T,n:n};
+}
+/* Bilan d'un centre : candidats affectés → leurs notes dans la fiche de leur école */
+function bilanCentre(centre,an,n){
+  var mats=matOf(n);
+  var B={n:n,ins:{M:0,F:0},insDyn:{M:0,F:0},pres:{M:0,F:0},adm:{M:0,F:0},disc:{},moys:[],transmis:true,nbNotes:0};
+  MAT.forEach(function(m){B.disc[m.k]={M:0,F:0};});
+  (centre.eleves||[]).forEach(function(id){
+    var e=D().eleves.find(function(x){return x.id===id;});if(!e)return;
+    var ec=ecoleById(e.ecole_id);if(!ec)return;
+    var g=genre(e);if(g)B.ins[g]++;
+    var c=calcRow(rowOf(ec,an,n,e),n);
+    if(c.total!=null&&c.total>0)B.moys.push(c.moy);
+    if(!g)return;
+    if(c.total!=null&&c.total>0)B.pres[g]++;
+    if(c.moy!=null&&c.moy>=ADMIS)B.adm[g]++;
+    mats.forEach(function(m,i){var v=c.vals[i];if(v!=null&&v>=m.seuil)B.disc[m.k][g]++;});
+  });
+  finishB(B);return B;
+}
+
+/* ═══════════════════════ PARTIE 2 : vues, actions, installation ═══════════════════════ */
+function fxt(x){return Number.isInteger(x)?String(x):fx(x);}
+var S={zone:'dir',view:'c1-releve',annee:null,eid:'',owner:'',comp:'c1',centre:'',filEc:'',q:'',showAll:false,
+       cls:'',recEc:'',recN:'c1',consComp:'c1',consOnly:true,imp:null,mxEdit:null,mxQ:'',cepEdit:null,cepQ:'',convSel:{},sig:null};
+var DIR_ITEMS=[['c1-releve','📝','Composition 1 · Relevé de notes'],['c1-bilan','📊','Composition 1 · Bilan'],['c2-releve','📝','Composition 2 · Relevé de notes'],['c2-bilan','📊','Composition 2 · Bilan'],
+               ['eb1-releve','📝','Examen blanc 1 · Relevé de notes'],['eb1-bilan','📊','Examen blanc 1 · Bilan'],['eb2-releve','📝','Examen blanc 2 · Relevé de notes'],['eb2-bilan','📊','Examen blanc 2 · Bilan'],
+               ['sign','✍️','PDF, signature et transmission'],['synth','↔️','Synthèse comparative'],['entree6','🎓','Entrée en 6ème · sortie du CM2'],['arch','🗄️','Archivage']];
+var EC_ITEMS=[['dash','📊','Tableau de bord'],['centre1','🏫','Création du centre 1'],['centre2','🏫','Création du centre 2'],['ecoles','🔗','Affectation libre des écoles'],['repart','🧒','Répartition des candidats'],
+              ['recep','📥','Réception des fiches'],['consol','🧮','Contrôle et consolidation'],['conv','📨','Convocations EB1 / EB2'],['ceap','🎓','CEAP / CAP'],['matrice','📋','Matrice d’action'],['arch','🗄️','Archivage'],['desig','🔑','Désignation (Super Admin)']];
+var CF_ITEMS=[['matrice-cf','🗓️','Matrice d’activités']];
+var MXCFG={
+  ec:{titre:'Matrice d’action — Examens & Concours',cols:[{k:'phase',l:'Phase',opts:['Préparation','Déroulement','Après-examen']},{k:'periode',l:'Période'},{k:'activite',l:'Activité',wide:1},{k:'resp',l:'Responsable'},{k:'statut',l:'Statut',opts:['Programmée','En cours','Réalisée','Reportée']},{k:'obs',l:'Observation'}],
+    start:[['Préparation','15–30 Avril','Réception et impression des sujets','Secrétariat','Programmée',''],['Préparation','1–10 Mai','Élaboration de la liste des centres d’examen et attribution des surveillants','Inspecteur','Programmée',''],
+           ['Préparation','10–20 Mai','Convocation des candidats et distribution des convocations','Directeurs','Programmée',''],['Déroulement','Période des épreuves','Déroulement des épreuves','Surveillants','Programmée',''],
+           ['Déroulement','Fin des épreuves','Saisie et encodage des notes en direct','CPI / Secrétariat','Programmée',''],['Après-examen','Après les épreuves','Délibération et proclamation des résultats','Inspecteur','Programmée','']]},
+  cf:{titre:'Matrice d’activités du Correspondant Fichier',cols:[{k:'trim',l:'Trimestre',opts:['1er Trimestre','2ème Trimestre','3ème Trimestre']},{k:'periode',l:'Périodes / dates'},{k:'activite',l:'Activités',wide:1},{k:'obs',l:'Observations'}],
+    start:[['1er Trimestre','04 au 20 Septembre','Réception des points de recrutement du CP1.',''],['1er Trimestre','21 au 29 Septembre','Réception des rapports de rentrée.',''],['1er Trimestre','29 Septembre','Dépôt des rapports au service informatique.',''],
+           ['1er Trimestre','08 au 20 Décembre','Réception des rapports du 1er Trimestre.',''],['1er Trimestre','22 Décembre','Dépôt des rapports du 1er Trimestre au service informatique.',''],
+           ['2ème Trimestre','1er au 30 Janvier','Réception, distribution, remplissage des fiches de recensement annuel des écoles.',''],['2ème Trimestre','1er au 28 Février','Saisie des fiches de recensement des écoles.','']]}
+};
+
+/* ───────── accès & périmètre ───────── */
+function isMaitre(){var u=me();return !!u&&(u.role==='instituteur'||u.role==='benevole')&&(u.structure_val==='CM2'||(Array.isArray(u.classes_val)&&u.classes_val.indexOf('CM2')>=0));}
+function canSignW(w){return isSA()||isDir()||(isMaitre()&&w==='maitre');}
+function dirEcoles(){
+  if(isSA())return D().ecoles;
+  if(isMaitre()){var u=me(),id=(typeof resolveEcoleId==='function')?resolveEcoleId(u.ecole_val):u.ecole_val;var e=ecoleById(id)||D().ecoles.find(function(x){return x.nom===u.ecole_val;});return e?[e]:[];}
+  var l=(typeof getScopeEcoles==='function')?getScopeEcoles():[];return l||[];
+}
+function curEc(){var l=dirEcoles();for(var i=0;i<l.length;i++)if(l[i].id===S.eid)return l[i];return l[0]||null;}
+function correspondants(){return D().users.filter(function(u){return u.role==='correspondant';});}
+function ownerU(){
+  if(isCorr())return me();
+  if(isSA()){var l=correspondants();return l.find(function(x){return x.login===S.owner;})||l.filter(function(x){return x.ec_designe;})[0]||l[0]||null;}
+  return null;
+}
+function scopeOf(o){return o?D().ecoles.filter(function(e){return e.iepp===o.structure_val;}):[];}
+function canDir(){return isDir()||isSA()||isMaitre();}
+function canEC(){return isEC()||isSA();}
+function canCF(){return isCorr()||isSA();}
+function Y(o,an){
+  if(!o.ec2||typeof o.ec2!=='object')o.ec2={annees:{}};if(!o.ec2.annees)o.ec2.annees={};
+  var y=o.ec2.annees[an]=o.ec2.annees[an]||{};
+  ['centres','ceap','journal'].forEach(function(k){if(!Array.isArray(y[k]))y[k]=[];});if(!y.archives)y.archives={};return y;
+}
+function YR(o,an){var y=o&&o.ec2&&o.ec2.annees&&o.ec2.annees[an];return y||{centres:[],ceap:[],journal:[],archives:{}};}
+function saveOwner(o){persist('users',[o]);}
+function MXR(o,kind,an){var m=o&&o.mx&&o.mx[kind]&&o.mx[kind][an];return Array.isArray(m)?m:[];}
+function MX(o,kind,an){if(!o.mx||typeof o.mx!=='object')o.mx={};if(!o.mx[kind])o.mx[kind]={};if(!Array.isArray(o.mx[kind][an]))o.mx[kind][an]=[];return o.mx[kind][an];}
+
+/* ───────── briques d'affichage ───────── */
+function opt(v,l,sel){return '<option value="'+esc(v)+'"'+(sel?' selected':'')+'>'+esc(l)+'</option>';}
+function fld(l,h,w){return '<label class="og-f"'+(w?' style="flex:'+w+'"':'')+'><span>'+l+'</span>'+h+'</label>';}
+function btn(a,label,d,cls){var at='';if(d)Object.keys(d).forEach(function(k){at+=' data-'+k+'="'+esc(d[k])+'"';});return '<button type="button" class="btn '+(cls||'btn-secondary')+' og-b" data-a="'+a+'"'+at+'>'+label+'</button>';}
+function card(t,b,x){return '<div class="card og-card"><div class="card-header"><h3>'+t+'</h3>'+(x||'')+'</div><div class="og-body">'+b+'</div></div>';}
+function stat(l,v,c){return '<div class="stat-card '+(c||'vert')+'"><div class="stat-value">'+v+'</div><div class="stat-label">'+l+'</div></div>';}
+function tbl(head,rows,empty){
+  if(!rows.length)return '<div class="og-empty">'+(empty||'Aucune donnée.')+'</div>';
+  return '<table class="og-t"><thead><tr>'+head.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table>';
+}
+function sel(id,c,items,cur){return '<select id="'+id+'" data-c="'+c+'">'+items.map(function(i){return opt(i[0],i[1],String(i[0])===String(cur));}).join('')+'</select>';}
+function yearSel(){return fld('Année scolaire',sel('cm-an','annee',anneesListe().map(function(a){return [a,a];}),S.annee));}
+function roTag(m){return '<div class="og-ro">👁️ '+m+'</div>';}
+function val(id){var e=$(id);return e?String(e.value||'').trim():'';}
+function who(e){return esc((e.nom||'')+' '+(e.prenoms||''));}
+
+/* ═══════════════ ESPACE DIRECTEUR ═══════════════ */
+function clsFilter(ec){
+  var l=clsListe(ec,S.annee);if(!l.length)return '';
+  return fld('Classe (organisation pédagogique)',sel('cm-cl','cls',[['','Toutes les classes de CM2']].concat(l.map(function(c){return [c.id,clsLab(c)];})).concat([['_none','Non affectés à une classe']]),S.cls));
+}
+function dirTop(){
+  var l=dirEcoles(),ec=curEc(),h='<div class="og-top">';
+  if(l.length>1)h+=fld('École',sel('cm-ec','ecole',l.map(function(e){return [e.id,e.nom];}),ec&&ec.id));
+  else if(ec)h+='<div class="og-school">🏫 <strong>'+esc(ec.nom)+'</strong></div>';
+  return h+yearSel()+'</div>';
+}
+function lockInfo(ec,n){var f=ficheR(ec,S.annee,n);return f.transmis?'<div class="og-ro">✅ Fiche transmise le '+esc(fr(f.transmis.date))+' — lecture seule'+(isSA()?' (modifiable par le Super Administrateur)':'. Pour corriger : « PDF, signature et transmission » → Rouvrir.')+'</div>':'';}
+function padHTML(f,w,lab,locked,n){
+  var ro=locked||!canSignW(w),nm=f.noms||{},u=me();
+  var v=nm[w]||((w==='directeur'&&isDir())||(w==='maitre'&&isMaitre())?(u&&u.nom)||'':'');
+  return '<div class="og-f"><span>'+lab+'</span><input id="cm-nm-'+w+'" placeholder="Nom et prénoms" value="'+esc(v)+'"'+(ro?' disabled':'')+'><input id="cm-tl-'+w+'" placeholder="Contact" value="'+esc(nm[w+'_tel']||'')+'"'+(ro?' disabled':'')+'>'+
+    '<canvas class="sg" id="cm-sg-'+w+'" data-img="'+esc((f.sign||{})[w]||'')+'"'+(ro?' data-ro="1"':'')+'></canvas>'+(ro?'':'<div class="og-actions">'+btn('sgClear','Effacer',{w:w,n:n})+'</div>')+'</div>';
+}
+function sigPads(ec,n,locked){
+  var f=ficheR(ec,S.annee,n);
+  return card('✍️ Signature sur l’écran (doigt ou stylet sur téléphone / tablette, souris sur ordinateur)','<div class="og-grid">'+padHTML(f,'maitre','Le (la) Maître (esse)',locked,n)+padHTML(f,'directeur','Le (la) Directeur (trice)',locked,n)+'</div>'+
+    (locked?'':'<div class="og-actions">'+btn('saveSign','💾 Enregistrer les signatures',{n:n},'btn-primary')+'</div>')+
+    '<div class="og-hint">Les signatures enregistrées s’impriment automatiquement sur le PDF. Vous pouvez aussi signer directement sur la page PDF (bouton « Imprimer / PDF »).</div>');
+}
+function viewReleve(ec,n){
+  mirrorYear(ec,S.annee);
+  var f=ficheR(ec,S.annee,n),cls=S.cls,els=cm2Eleves(ec,S.annee,cls),B=bilanOf(ec,S.annee,n,cls),locked=!!f.transmis&&!isSA(),mats=matOf(n),avecCls=clsListe(ec,S.annee).length>0,cur=isCur(S.annee);
+  var h=lockInfo(ec,n);
+  h+='<div class="og-top">'+clsFilter(ec)+'</div>';
+  h+='<div class="og-hint">'+COMPS[n]+' · barème '+mats.map(function(m){return m.l+' /'+m.max;}).join(' · ')+' = <b>'+totMax(n)+'</b> · moyenne = total ÷ '+String(divOf(n)).replace('.',',')+' · admis si moyenne ≥ 10/20. Cellule vide = pas de note ; tapez <b>ABS</b> (ou 501) pour absent à une épreuve. '+
+    (cur?'<b>Ces notes sont celles du menu « Saisie des notes »</b> : toute note saisie ici ou là apparaît automatiquement dans les deux, ainsi que dans Résultats, Statistiques et Bulletins.':'Année archivée : lecture de l’archive.')+' '+els.length+' élève(s) CM2'+(cls?' dans cette classe':'')+'.</div>';
+  h+='<div class="og-actions">'+btn('xlsReleve','⬇️ Export Excel',{n:n},'btn-primary')+btn('xlsModele','📄 Modèle Excel',{n:n})+
+    (locked?'':'<label class="btn btn-secondary og-b" style="cursor:pointer">📥 Importer Excel<input type="file" accept=".xlsx,.xls" data-c="impfile" data-n="'+n+'" style="display:none"></label>')+
+    btn('prtReleve','🖨️ Imprimer / PDF (avec signature)',{n:n})+'</div>';
+  if(S.imp&&S.imp.n===n)h+=impPanel();
+  if(!isMaitre()&&!cls)h+='<div class="og-form"><div class="og-grid">'+
+    fld('Inscrits — garçons (dynamique : '+B.insDyn.M+')','<input id="cm-im" type="number" min="0" value="'+B.ins.M+'"'+(locked?' disabled':'')+'>')+
+    fld('Inscrits — filles (dynamique : '+B.insDyn.F+')','<input id="cm-if" type="number" min="0" value="'+B.ins.F+'"'+(locked?' disabled':'')+'>')+
+    (locked?'':'<div class="og-f"><span>&nbsp;</span><div class="og-actions" style="margin:0">'+btn('saveIns','Enregistrer les effectifs',{n:n})+btn('resetIns','Revenir au calcul automatique',{n:n})+'</div></div>')+'</div>'+
+    (B.sansGenre?'<div class="og-warn">⚠️ '+B.sansGenre+' élève(s) sans genre renseigné (M/F) : ils ne sont comptés dans aucune colonne garçons / filles.</div>':'')+'</div>';
+  var rows=els.map(function(e,i){
+    var r=rowOf(ec,S.annee,n,e),c=calcRow(r,n),dis=locked||e._sorti||!cur?' disabled':'';
+    return '<tr data-row="'+esc(e.id)+'"><td>'+(i+1)+'</td><td class="cm-h">'+esc(e.matricule||'')+'</td><td class="nm">'+esc(e.nom||'')+(e._sorti?' <span class="badge badge-gold">🎓 6ème</span>':'')+'</td><td class="nm">'+esc(e.prenoms||'')+'</td><td class="cm-h">'+esc(fr(e.ddn))+'</td><td>'+esc(genre(e)||'?')+'</td>'+(avecCls?'<td class="cm-h">'+esc(clsNom(e,S.annee)||'—')+'</td>':'')+
+      mats.map(function(m){var v=r[m.k];return '<td><input class="cm-n" inputmode="decimal" data-id="'+esc(e.id)+'" data-k="'+m.k+'" data-n="'+n+'" data-max="'+m.max+'" placeholder="/'+m.max+'" value="'+(v==null?'':(num(v)===501?'ABS':esc(String(v).replace('.',','))))+'"'+dis+'></td>';}).join('')+
+      '<td id="cm-t-'+esc(e.id)+'">'+(c.total==null?'':fxt(c.total))+'</td><td id="cm-m-'+esc(e.id)+'">'+(c.moy==null?'':fx(c.moy))+'</td><td id="cm-o-'+esc(e.id)+'"><b>'+c.obs+'</b></td></tr>';
+  }).join('');
+  h+=els.length?'<div class="card og-card"><div class="og-body"><div class="og-scroll"><table class="og-t cm-rel"><thead><tr><th>N°</th><th class="cm-h">Matricule</th><th>Nom</th><th>Prénoms</th><th class="cm-h">Date nais.</th><th>Genre</th>'+(avecCls?'<th class="cm-h">Classe</th>':'')+mats.map(function(m){return '<th>'+m.l+'<br><small>/'+m.max+'</small></th>';}).join('')+'<th>Total<br><small>/'+totMax(n)+'</small></th><th>Moy<br><small>/20</small></th><th>Obs</th></tr></thead><tbody>'+rows+'</tbody></table></div></div></div>':
+    '<div class="og-empty">Aucun élève CM2 inscrit dans cette école'+(cls?' / cette classe':'')+'.</div>';
+  h+=sigPads(ec,n,locked);
+  return h;
+}
+function impPanel(){
+  var I=S.imp;if(I.error)return '<div class="og-warn">⚠️ '+esc(I.error)+' '+btn('impCancel','Fermer')+'</div>';
+  var okN=I.ok.filter(function(x){return !x.bad;}).length;
+  return card('📥 Vérification avant validation',
+    '<p><b>'+I.ok.length+'</b> ligne(s) reconnue(s) · <b>'+okN+'</b> prête(s) à importer · <b>'+I.inconnus.length+'</b> élève(s) introuvable(s) · <b>'+I.erreurs.length+'</b> erreur(s) de barème.</p>'+
+    (I.erreurs.length?'<div class="og-warn">'+I.erreurs.slice(0,8).map(esc).join('<br>')+(I.erreurs.length>8?'<br>…':'')+'<br>Les notes hors barème ne sont pas importées.</div>':'')+
+    (I.inconnus.length?'<div class="og-warn">Introuvables (ni matricule ni nom) : '+I.inconnus.slice(0,10).map(esc).join(', ')+(I.inconnus.length>10?'…':'')+'</div>':'')+
+    '<div class="og-actions">'+btn('impApply','✅ Valider l’importation',null,'btn-primary')+btn('impCancel','Annuler')+'</div>');
+}
+function viewBilan(ec,n){
+  mirrorYear(ec,S.annee);
+  var B=bilanOf(ec,S.annee,n,S.cls),locked=!!ficheR(ec,S.annee,n).transmis&&!isSA();
+  return lockInfo(ec,n)+'<div class="og-top">'+clsFilter(ec)+'</div><div class="og-actions">'+btn('prtBilan','🖨️ Imprimer / PDF (avec signature)',{n:n},'btn-primary')+btn('xlsReleve','⬇️ Export Excel',{n:n})+'</div>'+
+    card('Bilan de la '+COMPS[n].toLowerCase()+' — '+esc(ec.nom),'<div class="og-scroll">'+bilanTable(B).replace('<table class="t">','<table class="t cm-bil">')+'</div>')+sigPads(ec,n,locked);
+}
+function viewSign(ec){
+  var n=S.comp,f=ficheR(ec,S.annee,n),B=bilanOf(ec,S.annee,n),locked=!!f.transmis&&!isSA(),canT=isDir()||isSA();
+  var h='<div class="og-top">'+fld('Évaluation',sel('cm-cp','comp',NKEYS.map(function(k){return [k,COMPS[k]];}),n))+'</div>'+lockInfo(ec,n);
+  h+='<div class="stats-grid og-stats">'+stat('Inscrits',B.insT)+stat('Présents',B.presT,'bleu')+stat('Admis',B.admT,'orange')+stat('Taux de réussite',pct(B.taux),'gold')+stat('Moyenne de la classe',B.moyClasse==null?'—':fx(B.moyClasse),'vert')+'</div>';
+  h+=sigPads(ec,n,locked);
+  h+='<div class="og-actions">'+btn('prtDoc','📄 Générer le PDF (relevé + bilan + signatures)',{n:n},'btn-primary')+btn('xlsReleve','⬇️ Export Excel',{n:n})+
+    (canT?(f.transmis?btn('reopen','↩️ Rouvrir pour correction',{n:n}):btn('transmit','📤 Enregistrer et transmettre au correspondant',{n:n},'btn-primary')):'')+'</div>';
+  if(!canT)h+='<div class="og-hint">La transmission au correspondant est faite par le Directeur de l’école.</div>';
+  if((f.hist||[]).length)h+=card('Historique',tbl(['Date','Action','Par'],f.hist.slice().reverse().map(function(x){return [esc(fr(x.date)),esc(x.action),esc(x.par||'')];})));
+  return h;
+}
+function synthCard(ec,a,b){
+  var b1=bilanOf(ec,S.annee,a),b2=bilanOf(ec,S.annee,b);
+  function d(x,y,p){if(x==null||y==null)return '—';var z=(y-x)*(p?100:1);return (z>0?'+':'')+z.toFixed(p?1:2).replace('.',',')+(p?' pts':'');}
+  var rows=[['Présents',b1.presT,b2.presT,(b2.presT-b1.presT>0?'+':'')+(b2.presT-b1.presT)],['Admis',b1.admT,b2.admT,(b2.admT-b1.admT>0?'+':'')+(b2.admT-b1.admT)],
+    ['Taux de réussite',pct(b1.taux),pct(b2.taux),d(b1.taux,b2.taux,1)],['Moyenne de la classe /20',b1.moyClasse==null?'—':fx(b1.moyClasse),b2.moyClasse==null?'—':fx(b2.moyClasse),d(b1.moyClasse,b2.moyClasse)]];
+  matOf(a).forEach(function(m){rows.push(['Taux — '+m.n,pct(b1.tauxDisc[m.k]),pct(b2.tauxDisc[m.k]),d(b1.tauxDisc[m.k],b2.tauxDisc[m.k],1)]);});
+  return card('↔️ Évolution '+COMPS[a]+' → '+COMPS[b]+' — '+esc(ec.nom),tbl(['Indicateur',COMPS[a],COMPS[b],'Évolution'],rows));
+}
+function viewSynth(ec){
+  return '<div class="og-hint">Comparaison indicative entre deux évaluations. Aucune moyenne annuelle n’est calculée ici (le bulletin et la décision de passage restent calculés par le menu « Résultats & Stats ») et une évaluation n’écrase jamais l’autre.</div>'+synthCard(ec,'c1','c2')+synthCard(ec,'eb1','eb2');
+}
+function e6Data(ec){
+  var an=S.annee;
+  function mo(e,ev){var r=D().notes.find(function(x){return x.eleve_id===e.id&&x.eval_type===ev;});return r&&typeof calcNote==='function'?calcNote(r).moy:null;}
+  return cm2Eleves(ec,an).filter(function(e){return !e._sorti;}).map(function(e){
+    var st=(typeof getStatutPassage==='function')?getStatutPassage(e.id,'CM2'):{statut:'incomplet',label:'—'};
+    return {e:e,st:st,m:[mo(e,'composition1'),mo(e,'composition2'),mo(e,'examen_blanc1'),mo(e,'examen_blanc2'),mo(e,'entree6')]};
+  });
+}
+function canArchive6(){return isSA()||isDir()||(!isMaitre()&&typeof canPassage==='function'&&canPassage());}
+function viewEntree6(ec){
+  var an=S.annee,cur=isCur(an),h='<div class="og-hint">Les élèves de CM2 <b>admis</b> (règle officielle de l’application : moyenne générale annuelle et total général ≥ 85, avec les 2 compositions, les 2 examens blancs et l’entrée en 6ème) quittent le CM2 : ils sont <b>archivés</b> (Corbeille › « CM2 archivés – admis en 6ème ») et disparaissent des listes de l’école. Leurs résultats de l’année restent dans les relevés, bilans et statistiques de cette année.</div>';
+  if(cur){
+    var D6=e6Data(ec),adm=D6.filter(function(x){return x.st.statut==='admis';}).length,can=canArchive6();
+    h+='<div class="stats-grid og-stats">'+stat('Élèves CM2',D6.length)+stat('Admis en 6ème',adm,'vert')+stat('Non admis / incomplet',D6.length-adm,'orange')+'</div>';
+    if(can)h+='<div class="og-actions">'+btn('chk6','☑️ Cocher tous les admis')+btn('archive6','🎓 Archiver les admis cochés (passage en 6ème)',null,'btn-primary')+'</div>';
+    h+=card('🎓 Résultats de fin de cycle — '+esc(ec.nom),'<div class="og-scroll">'+tbl([can?'':'','Nom et prénoms','Classe','Compo 1','Compo 2','EB 1','EB 2','Entrée 6ème','Décision'],D6.map(function(x){
+      return [can&&x.st.statut==='admis'?'<input type="checkbox" class="cm-sel" value="'+esc(x.e.id)+'">':'',who(x.e),esc(clsNom(x.e,an)||'—')].concat(x.m.map(function(v){return v==null?'—':fx(v);})).concat([esc(x.st.label||'')]);}),'Aucun élève CM2.')+'</div>');
+  }
+  var so=(ec.cm2&&ec.cm2[an]&&ec.cm2[an].sortie6)||[];
+  h+=card('Élèves déjà sortis du CM2 en '+esc(an),tbl(['Nom et prénoms','Classe','Sortie le','Moy. générale annuelle','Décision'],so.map(function(x){return [esc((x.nom||'')+' '+(x.prenoms||'')),esc(x.cls||'—'),esc(fr(x.date)),x.mga==null?'—':fx(x.mga),esc(x.statut||'Admis en 6ème')];}),'Aucun élève archivé pour cette année.'));
+  return h;
+}
+function viewArchDir(ec){
+  var y=ec.cm2||{},rows=Object.keys(y).sort().reverse().map(function(an){
+    var a=bilanOf(ec,an,'c1'),b=bilanOf(ec,an,'c2'),t1=ficheR(ec,an,'c1').transmis,t2=ficheR(ec,an,'c2').transmis;
+    return [esc(an),a.presT+' / '+a.admT+' / '+pct(a.taux)+(t1?' ✅':''),b.presT+' / '+b.admT+' / '+pct(b.taux)+(t2?' ✅':'')];});
+  return card('🗄️ Résultats archivés — '+esc(ec.nom),tbl(['Année','Composition 1 (présents / admis / taux)','Composition 2 (présents / admis / taux)'],rows,'Aucune fiche enregistrée.'))+
+    '<div class="og-hint">Ces résultats sont conservés par année scolaire ; changer l’année en haut de page pour ouvrir un relevé ancien.</div>';
+}
+
+/* ═══════════════ ESPACE CORRESPONDANT EXAMENS ET CONCOURS ═══════════════ */
+function ecTop(o){
+  var h='<div class="og-top">';
+  if(isSA())h+=fld('Correspondant (périmètre)',sel('cm-ow','owner',correspondants().map(function(u){return [u.login,u.nom+' — '+(u.structure_val||'')+(u.ec_designe?' ✔ E&C':'')];}),o&&o.login));
+  var sc=scopeOf(o),dr=sc[0]&&sc[0].drena;
+  h+='<div class="og-school">📍 IEPP : <strong>'+esc((o&&o.structure_val)||'—')+'</strong>'+(dr?' · DRENAET : <strong>'+esc(dr)+'</strong>':'')+' · '+sc.length+' école(s)</div>'+yearSel()+'</div>';
+  return h;
+}
+function candidats(o){var out=[];scopeOf(o).forEach(function(ec){cm2Eleves(ec).forEach(function(e){out.push(e);});});return out;}
+function centreOf(y,id,session){return y.centres.find(function(c){return c.session===session&&c.eleves.indexOf(id)>=0;})||null;}
+function centreStats(c){var g={M:0,F:0,x:0};c.eleves.forEach(function(id){var e=D().eleves.find(function(z){return z.id===id;});if(!e)return;var k=genre(e);if(k)g[k]++;else g.x++;});return {M:g.M,F:g.F,T:c.eleves.length};}
+function ecoleNom(id){var e=ecoleById(id);return e?e.nom:id;}
+function sessLabel(s){return s==='EB2'?'Examen blanc 2':'Examen blanc 1';}
+function dupCheck(y){var bad=[];['EB1','EB2'].forEach(function(s){var seen={};y.centres.filter(function(c){return c.session===s&&c.statut!=='cloture';}).forEach(function(c){c.eleves.forEach(function(id){if(seen[id])bad.push(id);seen[id]=1;});});});return bad;}
+
+function viewDashEC(o){
+  var an=S.annee,sc=scopeOf(o),y=YR(o,an),cand=candidats(o);
+  var g=cand.filter(function(e){return genre(e)==='M';}).length,f=cand.filter(function(e){return genre(e)==='F';}).length;
+  var tr1=sc.filter(function(e){return ficheR(e,an,'c1').transmis;}).length,tr2=sc.filter(function(e){return ficheR(e,an,'c2').transmis;}).length;
+  var aff1=cand.filter(function(e){return centreOf(y,e.id,'EB1');}).length,aff2=cand.filter(function(e){return centreOf(y,e.id,'EB2');}).length;
+  var h='<div class="stats-grid og-stats">'+stat('Écoles du périmètre',sc.length)+stat('Candidats CM2',cand.length,'bleu')+stat('Garçons / Filles',g+' / '+f,'orange')+stat('Centres créés',y.centres.length,'gold')+
+    stat('Fiches C1 transmises',tr1+' / '+sc.length,'vert')+stat('Fiches C2 transmises',tr2+' / '+sc.length,'bleu')+stat('Candidats affectés EB1',aff1+' / '+cand.length,'orange')+stat('Candidats affectés EB2',aff2+' / '+cand.length,'gold')+'</div>';
+  var bad=dupCheck(y);if(bad.length)h+='<div class="og-warn">⚠️ '+bad.length+' double(s) affectation(s) active(s) détectée(s) : corrigez-les dans « Répartition des candidats ».</div>';
+  h+=card('Centres d’examen blanc — '+esc(an),tbl(['Centre','Session','Composition liée','École d’accueil','Écoles','Garçons','Filles','Total','Statut'],y.centres.map(function(c){var s=centreStats(c);
+    return [esc(c.nom)+' <small>('+esc(c.code)+')</small>',esc(sessLabel(c.session)),esc(c.comp?COMPS[c.comp.toLowerCase()]:'—'),esc(ecoleNom(c.accueil)),(c.ecoles||[]).length,s.M,s.F,'<b>'+s.T+'</b>',esc(c.statut)];}),'Aucun centre créé : utilisez « Création du centre 1 / 2 ».'));
+  return h;
+}
+function centreForm(o,num){
+  var y=YR(o,S.annee),c=S.centreEdit&&S.centreEdit!=='new'?y.centres.find(function(x){return x.id===S.centreEdit;}):null,sc=scopeOf(o);
+  var code=c?c.code:autoCode(o,num);
+  return '<div class="og-form"><div class="og-grid">'+
+    fld('Nom du centre','<input id="ce-nom" value="'+esc(c?c.nom:'')+'" placeholder="Ex : Centre EPP Sapli 1">')+
+    fld('Code du centre (unique)','<input id="ce-code" value="'+esc(code)+'">')+
+    fld('École d’accueil','<select id="ce-acc"><option value="">— choisir —</option>'+sc.map(function(e){return opt(e.id,e.nom,c&&c.accueil===e.id);}).join('')+'</select>')+
+    fld('Session','<select id="ce-ses">'+opt('EB1','Examen blanc 1',(c?c.session:'EB'+num)==='EB1')+opt('EB2','Examen blanc 2',(c?c.session:'EB'+num)==='EB2')+'</select>')+
+    fld('Composition concernée','<select id="ce-comp">'+opt('','— non précisée —',!c||!c.comp)+opt('C1','Composition 1',c&&c.comp==='C1')+opt('C2','Composition 2',c&&c.comp==='C2')+'</select>')+
+    fld('Responsable','<input id="ce-resp" value="'+esc(c?c.resp:'')+'">')+
+    fld('Date des épreuves','<input id="ce-date" type="date" value="'+esc(c?c.date:'')+'">')+
+    fld('Heure de début','<input id="ce-heure" type="time" value="'+esc(c?c.heure:'07:30')+'">')+
+    fld('Statut','<select id="ce-st">'+['preparation','ouvert','cloture'].map(function(s){return opt(s,{preparation:'Préparation',ouvert:'Ouvert',cloture:'Clôturé'}[s],(c?c.statut:'preparation')===s);}).join('')+'</select>')+
+    '</div><div class="og-actions">'+btn('saveCentre','💾 Enregistrer le centre',{n:num},'btn-primary')+btn('cancelCentre','Annuler')+'</div></div>';
+}
+function autoCode(o,num){
+  var y=YR(o,S.annee),ini=String(o&&o.structure_val||'IEPP').replace(/IEPP/i,'').trim().split(/\s+/).map(function(w){return w.charAt(0);}).join('').toUpperCase()||'IE';
+  var k=1,c;do{c=ini+'-'+S.annee.slice(2,4)+'-C'+num+'-'+('0'+k).slice(-2);k++;}while(y.centres.some(function(x){return x.code===c;}));return c;
+}
+function viewCentre(o,num){
+  var y=YR(o,S.annee),list=y.centres.filter(function(c){return c.num===num;}),h='';
+  h+='<div class="og-hint">Les centres 1 et 2 sont des <b>structures d’organisation</b> : ils ne sont pas automatiquement liés aux compositions 1 et 2. Précisez la composition concernée pour chaque session.</div>';
+  if(S.centreEdit)h+=card((S.centreEdit==='new'?'Nouveau':'Modifier le')+' centre '+num,centreForm(o,num));
+  else h+='<div class="og-actions">'+btn('newCentre','➕ Créer un centre '+num,{n:num},'btn-primary')+'</div>';
+  h+=card('Centres n° '+num+' — '+esc(S.annee),tbl(['Centre','Code','Session','École d’accueil','Écoles','Gar.','Fil.','Total','Responsable','Statut',''],list.map(function(c){var s=centreStats(c);
+    return [esc(c.nom),esc(c.code),esc(sessLabel(c.session)),esc(ecoleNom(c.accueil)),(c.ecoles||[]).length,s.M,s.F,'<b>'+s.T+'</b>',esc(c.resp||''),esc(c.statut),btn('editCentre','✏️',{i:c.id})+' '+btn('delCentre','🗑️',{i:c.id},'btn-danger')];}),'Aucun centre '+num+' pour cette année.'));
+  return h;
+}
+function centreSelect(o){
+  var y=YR(o,S.annee);if(!y.centres.length)return null;
+  if(!y.centres.some(function(c){return c.id===S.centre;}))S.centre=y.centres[0].id;
+  return fld('Centre',sel('cm-ce','centre',y.centres.map(function(c){return [c.id,c.nom+' — '+sessLabel(c.session)+' ('+c.code+')'];}),S.centre));
+}
+function viewEcolesAff(o){
+  var y=YR(o,S.annee),cs=centreSelect(o);if(!cs)return '<div class="og-empty">Créez d’abord un centre (menus « Création du centre 1 / 2 »).</div>';
+  var c=y.centres.find(function(x){return x.id===S.centre;}),sc=scopeOf(o);
+  var rows=sc.map(function(ec){var els=cm2Eleves(ec),inC=els.filter(function(e){return c.eleves.indexOf(e.id)>=0;}).length,
+      ail=els.filter(function(e){var k=centreOf(y,e.id,c.session);return k&&k.id!==c.id;}).length,libres=els.length-inC-ail;
+    return ['<input type="checkbox" class="cm-sel" value="'+esc(ec.id)+'">',esc(ec.nom),els.length,'<b>'+inC+'</b>',ail,libres];});
+  return '<div class="og-top">'+cs+'</div><div class="og-hint">Cochez les écoles dont <b>tous les candidats non encore affectés</b> (pour la session « '+sessLabel(c.session)+' ») rejoignent ce centre. Pour répartir une école entre plusieurs centres, utilisez « Répartition des candidats ».</div>'+
+    (c.statut==='cloture'?roTag('Centre clôturé : modification impossible.'):'<div class="og-actions">'+btn('affEcoles','✅ Affecter les écoles cochées',null,'btn-primary')+btn('retEcoles','↩️ Retirer les écoles cochées du centre')+'</div>')+
+    card('Écoles du périmètre',tbl(['','École','CM2','Dans ce centre','Dans un autre centre','Non affectés'],rows,'Aucune école dans votre périmètre.'));
+}
+function viewRepart(o){
+  var y=YR(o,S.annee),cs=centreSelect(o);if(!cs)return '<div class="og-empty">Créez d’abord un centre.</div>';
+  var c=y.centres.find(function(x){return x.id===S.centre;}),sc=scopeOf(o),q=norm(S.q);
+  var all=candidats(o).filter(function(e){return (!S.filEc||e.ecole_id===S.filEc)&&(!q||norm(e.nom+' '+e.prenoms+' '+(e.matricule||'')).indexOf(q)>=0);});
+  var total=all.length;all=all.slice(0,250);
+  var h='<div class="og-top">'+cs+fld('École',sel('cm-fe','filec',[['','Toutes les écoles']].concat(sc.map(function(e){return [e.id,e.nom];})),S.filEc))+fld('Recherche','<input id="cm-q" data-c="q" value="'+esc(S.q)+'" placeholder="Nom, prénoms, matricule">')+'</div>';
+  var st=centreStats(c);
+  h+='<div class="stats-grid og-stats">'+stat('Candidats du centre',st.T)+stat('Garçons',st.M,'bleu')+stat('Filles',st.F,'orange')+stat('Session',sessLabel(c.session),'gold')+'</div>';
+  h+=c.statut==='cloture'?roTag('Centre clôturé : les affectations ne peuvent plus être modifiées.'):'<div class="og-actions">'+btn('assignC','✅ Affecter / déplacer vers ce centre',null,'btn-primary')+btn('unassignC','↩️ Retirer du centre')+btn('selAllC','☑️ Tout sélectionner')+'</div>';
+  h+='<div class="og-hint">'+total+' candidat(s)'+(total>250?' (250 affichés)':'')+'. Un candidat ne peut appartenir qu’à un seul centre actif par session : l’affecter ici le déplace depuis son centre actuel (tant que celui-ci n’est pas clôturé).</div>';
+  h+=card('Candidats CM2',tbl(['','Nom et prénoms','Genre','École','Centre actuel ('+esc(c.session)+')'],all.map(function(e){var k=centreOf(y,e.id,c.session);
+    return ['<input type="checkbox" class="cm-sel" value="'+esc(e.id)+'">',who(e),esc(genre(e)||'?'),esc(ecoleNom(e.ecole_id)),k?esc(k.nom)+(k.id===c.id?' ✅':''):'<span class="badge badge-orange">Non affecté</span>'];}),'Aucun candidat.'));
+  h+='<div class="og-actions">'+btn('xlsCentre','⬇️ Liste nominative du centre (Excel)',{i:c.id})+btn('prtCentre','🖨️ Imprimer la liste',{i:c.id})+'</div>';
+  return h;
+}
+function viewRecep(o){
+  var an=S.annee,sc=scopeOf(o);
+  var stt=function(ec,n){var f=ficheR(ec,an,n);return f.transmis?'<span class="badge badge-vert">Transmise '+esc(fr(f.transmis.date))+'</span>':(bilanOf(ec,an,n).nbNotes?'<span class="badge badge-orange">En saisie</span>':'<span class="badge badge-gray">Non commencée</span>');};
+  var rows=sc.map(function(ec){var a=bilanOf(ec,an,'c1'),b=bilanOf(ec,an,'c2');return [esc(ec.nom),cm2Eleves(ec).length,stt(ec,'c1'),a.presT,stt(ec,'c2'),b.presT,btn('consult','👁️',{e:ec.id,n:'c1'})+' '+btn('consult','👁️ C2',{e:ec.id,n:'c2'})];});
+  var h=card('📥 Réception des fiches — '+esc(an),tbl(['École','CM2','Composition 1','Présents C1','Composition 2','Présents C2','Consulter'],rows,'Aucune école dans le périmètre.'));
+  if(S.recEc){var ec=ecoleById(S.recEc);if(ec)h+=card('Consultation (lecture seule) — '+esc(ec.nom)+' · '+COMPS[S.recN],'<div class="og-scroll">'+releveTable(ec,an,S.recN).replace('<table class="t">','<table class="t cm-bil">')+bilanTable(bilanOf(ec,an,S.recN)).replace('<table class="t">','<table class="t cm-bil">')+'</div>',btn('consultClose','✖'));}
+  return h;
+}
+function consolData(o){
+  var an=S.annee,n=S.consComp,sc=scopeOf(o),y=YR(o,an);
+  var C=consolidate(sc,an,n,S.consOnly);
+  var centres=y.centres.map(function(c){return {c:c,B:bilanCentre(c,an,n)};});
+  return {C:C,centres:centres,n:n};
+}
+function bilanRow(lab,B){return [lab,B.insT,B.presT,B.abs,B.adm.M+' / '+B.adm.F,'<b>'+B.admT+'</b>',pct(B.taux),B.moyClasse==null?'—':fx(B.moyClasse)];}
+function viewConsol(o){
+  var d=consolData(o),T=d.C.total,h='<div class="og-top">'+fld('Évaluation',sel('cm-cc','cons',NKEYS.map(function(k){return [k,COMPS[k]];}),S.consComp))+
+    fld('Fiches prises en compte',sel('cm-co','consonly',[['1','Transmises uniquement'],['0','Toutes (même non transmises)']],S.consOnly?'1':'0'))+'</div>';
+  h+='<div class="stats-grid og-stats">'+stat('Écoles consolidées',d.C.parEcole.length+' / '+scopeOf(o).length)+stat('Inscrits',T.insT,'bleu')+stat('Présents',T.presT,'orange')+stat('Absents',T.abs,'gold')+stat('Admis',T.admT)+stat('Taux de réussite',pct(T.taux),'bleu')+stat('Moyenne /20',T.moyClasse==null?'—':fx(T.moyClasse),'orange')+'</div>';
+  h+='<div class="og-actions">'+btn('xlsConsol','⬇️ Export Excel',null,'btn-primary')+btn('prtConsol','🖨️ Export PDF / Imprimer')+btn('freeze','🗄️ Figer pour l’archivage')+'</div>';
+  var head=['','Inscrits','Présents','Absents','Admis M / F','Admis','Taux','Moy /20'];
+  h+=card('Circonscription — '+esc(o.structure_val||''),tbl(head,[bilanRow('<b>CIRCONSCRIPTION</b>',T)]));
+  h+=card('Par école',tbl(['École'].concat(head.slice(1)),d.C.parEcole.map(function(B){return bilanRow(esc(B.ec.nom)+(B.transmis?'':' <small>(non transmise)</small>'),B);}),'Aucune fiche à consolider.'));
+  h+=card('Par centre d’examen blanc',tbl(['Centre'].concat(head.slice(1)),d.centres.map(function(x){return bilanRow(esc(x.c.nom)+' <small>('+esc(sessLabel(x.c.session))+(x.c.comp?' · '+x.c.comp:'')+')</small>',x.B);}),'Aucun centre.'));
+  h+=card('Par discipline et par genre — '+esc(COMPS[S.consComp]),tbl(['Discipline','Garçons ayant la moyenne','Filles ayant la moyenne','Total','Taux (présents)'],matOf(S.consComp).map(function(m){return [esc(m.n),T.disc[m.k].M,T.disc[m.k].F,T.disc[m.k].M+T.disc[m.k].F,pct(T.tauxDisc[m.k])];}).concat([['<b>Moyenne générale (≥ 10/20)</b>',T.adm.M,T.adm.F,T.admT,pct(T.taux)],['Présents',T.pres.M,T.pres.F,T.presT,''],['Inscrits',T.ins.M,T.ins.F,T.insT,'']])));
+  return h;
+}
+function convList(o){
+  var y=YR(o,S.annee),c=y.centres.find(function(x){return x.id===S.centre;});if(!c)return {c:null,list:[]};
+  var els=c.eleves.map(function(id){return D().eleves.find(function(e){return e.id===id;});}).filter(Boolean).sort(cmpNom);
+  els.forEach(function(e,i){e._tbl=i+1;});
+  return {c:c,list:els};
+}
+function viewConv(o){
+  var y=YR(o,S.annee),cs=centreSelect(o);if(!cs)return '<div class="og-empty">Créez d’abord un centre : les convocations sont émises par centre.</div>';
+  var L=convList(o),c=L.c,sc=scopeOf(o),q=norm(S.q);
+  var list=L.list.filter(function(e){return (!S.filEc||e.ecole_id===S.filEc)&&(!q||norm(e.nom+' '+e.prenoms+' '+(e.matricule||'')).indexOf(q)>=0);});
+  var h='<div class="og-top">'+cs+fld('École',sel('cm-fe','filec',[['','Toutes les écoles']].concat(sc.map(function(e){return [e.id,e.nom];})),S.filEc))+fld('Recherche','<input id="cm-q" data-c="q" value="'+esc(S.q)+'" placeholder="Nom, matricule">')+'</div>';
+  h+='<div class="og-hint">Convocation à l’<b>'+sessLabel(c.session)+'</b> — centre « '+esc(c.nom)+' » ('+esc(ecoleNom(c.accueil))+'), le '+esc(c.date?fr(c.date):'(date à renseigner dans le centre)')+' à '+esc(c.heure||'')+'. Le numéro de table suit l’ordre alphabétique du centre.</div>';
+  h+='<div class="og-actions">'+btn('prtConv','🖨️ Imprimer les convocations ('+list.length+')',{all:'1'},'btn-primary')+btn('prtConv','🖨️ Imprimer la sélection',{all:'0'})+btn('xlsConv','⬇️ Liste (Excel)')+btn('selAllC','☑️ Tout sélectionner')+'</div>';
+  h+=card('Candidats convoqués',tbl(['','N° table','Nom et prénoms','Matricule','École d’origine'],list.map(function(e){return ['<input type="checkbox" class="cm-sel" value="'+esc(e.id)+'">',e._tbl,who(e),esc(e.matricule||''),esc(ecoleNom(e.ecole_id))];}),'Aucun candidat affecté à ce centre.'));
+  return h;
+}
+/* ── CEAP / CAP ── */
+var CEAP_STATUTS=['Enseignant titulaire','Stagiaire en attente de titularisation'];
+function ceapMoy(c){var s=0,t=0;(c.portfolio||[]).forEach(function(p){var n=num(p.note),m=num(p.total);if(n!=null&&m>0){s+=n;t+=m;}});return t>0?s/t*20:null;}
+function viewCeap(o){
+  var y=YR(o,S.annee),q=norm(S.cepQ),list=y.ceap.filter(function(c){return !q||norm(c.nom+' '+c.prenoms+' '+(c.ecole||'')).indexOf(q)>=0;});
+  var h='<div class="stats-grid og-stats">'+stat('Candidats CEAP / CAP',y.ceap.length)+stat('Hommes',y.ceap.filter(function(c){return c.sexe==='M';}).length,'bleu')+stat('Femmes',y.ceap.filter(function(c){return c.sexe==='F';}).length,'orange')+stat('Stagiaires en attente',y.ceap.filter(function(c){return c.statut===CEAP_STATUTS[1];}).length,'gold')+'</div>';
+  h+='<div class="og-hint">Examen pédagogique CEAP / CAP — enseignants et stagiaires en attente de titularisation. Le portfolio (4 matières au choix avec total et notes obtenues) se saisit par candidat ; la moyenne est ramenée sur 20.</div>';
+  h+='<div class="og-actions">'+btn('newCeap','➕ Nouveau candidat CEAP / CAP',null,'btn-primary')+btn('xlsCeap','⬇️ Export Excel')+btn('xlsCeapModele','📄 Modèle Excel')+
+    '<label class="btn btn-secondary og-b" style="cursor:pointer">📥 Importer Excel<input type="file" accept=".xlsx,.xls" data-c="ceapfile" style="display:none"></label>'+btn('prtCeapListe','🖨️ Imprimer la liste')+'</div>';
+  if(S.cepEdit)h+=card(S.cepEdit==='new'?'Nouveau candidat':'Modifier le candidat',ceapForm(o,y));
+  h+='<div class="og-top">'+fld('Recherche','<input id="cm-cq" data-c="cepq" value="'+esc(S.cepQ)+'" placeholder="Nom, école de stage">')+'</div>';
+  h+=card('🎓 Candidats CEAP / CAP — '+esc(S.annee),tbl(['Nom et prénoms','Sexe','Né(e) le · lieu','Statut','Type','École de stage','Classe','Encadreur','Notes / total','Moy /20',''],list.map(function(c){var m=ceapMoy(c),sn=0,st=0;(c.portfolio||[]).forEach(function(p){if(num(p.note)!=null){sn+=num(p.note);st+=num(p.total)||0;}});
+    return [who(c),esc(c.sexe||''),esc(fr(c.ddn))+'<br><small>'+esc(c.lieu||'')+'</small>',esc(c.statut||''),'<span class="badge badge-bleu">'+esc(c.type||'')+'</span>',esc(c.ecole||''),esc(c.classe||''),esc(c.encadreur||''),st?fx(sn,1)+' / '+st:'—',m==null?'—':fx(m),
+      btn('viewCeap','👁️',{i:c.id})+' '+btn('editCeap','✏️',{i:c.id})+' '+btn('delCeap','🗑️',{i:c.id},'btn-danger')];}),'Aucun candidat CEAP / CAP.'));
+  return h;
+}
+function ceapForm(o,y){
+  var c=S.cepEdit&&S.cepEdit!=='new'?y.ceap.find(function(x){return x.id===S.cepEdit;}):null;c=c||{portfolio:[]};
+  var sc=scopeOf(o),ens=D().users.filter(function(u){return (u.role==='instituteur'||u.role==='benevole')&&sc.some(function(e){return e.id===u.ecole_val||e.nom===u.ecole_val;});});
+  var pf='';for(var i=0;i<4;i++){var p=(c.portfolio||[])[i]||{};pf+='<div class="og-grid">'+fld('Matière '+(i+1),'<input id="cp-m'+i+'" value="'+esc(p.matiere||'')+'">')+fld('Note obtenue','<input id="cp-n'+i+'" inputmode="decimal" value="'+esc(p.note==null?'':p.note)+'">')+fld('Total','<input id="cp-t'+i+'" inputmode="decimal" value="'+esc(p.total==null?'':p.total)+'">')+'</div>';}
+  return '<div class="og-form">'+(ens.length?'<div class="og-grid">'+fld('Choisir un enseignant existant (facultatif)','<select id="cp-pick" data-c="cpPick"><option value="">—</option>'+ens.map(function(u){return opt(u.login,u.nom);}).join('')+'</select>')+'</div>':'')+
+    '<div class="og-grid">'+fld('Nom','<input id="cp-nom" value="'+esc(c.nom||'')+'">')+fld('Prénoms','<input id="cp-pre" value="'+esc(c.prenoms||'')+'">')+
+    fld('Sexe','<select id="cp-sx">'+opt('M','Homme',c.sexe==='M')+opt('F','Femme',c.sexe==='F')+'</select>')+fld('Date de naissance','<input id="cp-dn" type="date" value="'+esc(c.ddn||'')+'">')+fld('Lieu de naissance','<input id="cp-ln" value="'+esc(c.lieu||'')+'">')+
+    fld('Statut','<select id="cp-st">'+CEAP_STATUTS.map(function(s){return opt(s,s,c.statut===s);}).join('')+'</select>')+fld('Type','<select id="cp-ty">'+opt('CEAP','CEAP',c.type!=='CAP')+opt('CAP','CAP',c.type==='CAP')+'</select>')+
+    fld('CAP de provenance','<input id="cp-pv" value="'+esc(c.provenance||'')+'">')+fld('École de stage','<input id="cp-ec" list="cp-ecl" value="'+esc(c.ecole||'')+'"><datalist id="cp-ecl">'+sc.map(function(e){return '<option value="'+esc(e.nom)+'">';}).join('')+'</datalist>')+
+    fld('Classe','<input id="cp-cl" value="'+esc(c.classe||'')+'">')+fld('Encadreur','<input id="cp-en" value="'+esc(c.encadreur||'')+'">')+fld('Durée','<input id="cp-du" value="'+esc(c.duree||'')+'" placeholder="Ex : 1 an">')+'</div>'+
+    '<div class="og-sub">Portfolio — 4 matières au choix</div>'+pf+'<div class="og-actions">'+btn('saveCeap','💾 Enregistrer',{i:S.cepEdit},'btn-primary')+btn('cancelCeap','Annuler')+'</div></div>';
+}
+function ceapFiche(o,c){
+  var sc=scopeOf(o)[0]||{},m=ceapMoy(c);
+  var rows=(c.portfolio||[]).filter(function(p){return p.matiere;}).map(function(p){return '<tr><td class="n">'+esc(p.matiere)+'</td><td>'+esc(p.note==null?'':p.note)+'</td><td>'+esc(p.total==null?'':p.total)+'</td></tr>';}).join('');
+  return hdrBlock(sc.drena,o.structure_val,S.annee)+
+    '<div class="ttl">FICHE DE CANDIDAT — EXAMEN PÉDAGOGIQUE '+esc(c.type||'CEAP')+'</div>'+
+    '<table class="t" style="margin-bottom:8px"><tr><th>Nom et prénoms</th><td class="n">'+who(c)+'</td><th>Sexe</th><td>'+esc(c.sexe||'')+'</td></tr><tr><th>Né(e) le · à</th><td class="n">'+esc(fr(c.ddn))+' · '+esc(c.lieu||'')+'</td><th>Statut</th><td>'+esc(c.statut||'')+'</td></tr><tr><th>École de stage</th><td class="n">'+esc(c.ecole||'')+'</td><th>Classe</th><td>'+esc(c.classe||'')+'</td></tr><tr><th>Encadreur</th><td class="n">'+esc(c.encadreur||'')+'</td><th>CAP de provenance · durée</th><td>'+esc(c.provenance||'')+' · '+esc(c.duree||'')+'</td></tr></table>'+
+    '<table class="t"><thead><tr><th>Matière (portfolio)</th><th>Note obtenue</th><th>Total</th></tr></thead><tbody>'+rows+'</tbody></table><p><b>Moyenne : '+(m==null?'—':fx(m)+' / 20')+'</b></p>'+
+    '<div class="sg"><div>Le candidat<br><br><br></div><div>L’encadreur<br><br><br></div><div>L’Inspecteur<br><br><br></div></div>';
+}
+/* ── Matrices (E&C et Fichier) ── */
+function viewMatrice(o,kind){
+  var cfg=MXCFG[kind],an=S.annee,rows=MXR(o,kind,an),q=norm(S.mxQ);
+  var list=rows.filter(function(r){return !q||norm(cfg.cols.map(function(c){return r[c.k];}).join(' ')).indexOf(q)>=0;});
+  var h='<div class="og-top">'+fld('Recherche','<input id="cm-mq" data-c="mxq" value="'+esc(S.mxQ)+'" placeholder="Phase, activité, responsable…">')+'</div>';
+  h+='<div class="og-actions">'+btn('newMx','➕ Nouvelle activité',{k:kind},'btn-primary')+btn('xlsMx','⬇️ Export Excel',{k:kind})+btn('xlsMxModele','📄 Modèle Excel',{k:kind})+
+    '<label class="btn btn-secondary og-b" style="cursor:pointer">📥 Importer<input type="file" accept=".xlsx,.xls" data-c="mxfile" data-k="'+kind+'" style="display:none"></label>'+btn('prtMx','🖨️ Imprimer / PDF',{k:kind})+
+    (rows.length?'':btn('startMx','📋 Charger la matrice type',{k:kind}))+'</div>';
+  if(S.mxEdit){
+    var r=S.mxEdit==='new'?{}:(rows.find(function(x){return x.id===S.mxEdit;})||{});
+    h+=card(S.mxEdit==='new'?'Nouvelle activité':'Modifier l’activité','<div class="og-form"><div class="og-grid">'+cfg.cols.map(function(c){
+      return fld(c.l,c.opts?'<select id="mx-'+c.k+'">'+c.opts.map(function(x){return opt(x,x,r[c.k]===x);}).join('')+'</select>':(c.wide?'<textarea id="mx-'+c.k+'" rows="3">'+esc(r[c.k]||'')+'</textarea>':'<input id="mx-'+c.k+'" value="'+esc(r[c.k]||'')+'">'),c.wide?2:0);}).join('')+
+      '</div><div class="og-actions">'+btn('saveMx','💾 Enregistrer',{k:kind,i:S.mxEdit},'btn-primary')+btn('cancelMx','Annuler')+'</div></div>');
+  }
+  h+=card('📋 '+esc(cfg.titre)+' — '+esc(an),tbl(cfg.cols.map(function(c){return c.l;}).concat(['']),list.map(function(r){
+    return cfg.cols.map(function(c){var v=esc(r[c.k]||'');return c.k==='statut'?'<span class="badge badge-'+({'Réalisée':'vert','En cours':'bleu','Reportée':'red'}[r.statut]||'orange')+'">'+v+'</span>':v;}).concat([btn('editMx','✏️',{k:kind,i:r.id})+' '+btn('delMx','🗑️',{k:kind,i:r.id},'btn-danger')]);}),
+    'Aucune activité. Utilisez « Charger la matrice type » (modifiable) ou « Nouvelle activité ».'));
+  return h;
+}
+function viewArchEC(o){
+  var ys=Object.keys((o.ec2&&o.ec2.annees)||{}).sort().reverse();
+  var rows=[];ys.forEach(function(an){var y=o.ec2.annees[an];Object.keys(y.archives||{}).forEach(function(k){var a=y.archives[k];rows.push([esc(an),esc(a.comp),esc(fr(a.date)),a.ecoles,a.ins,a.pres,a.adm,pct(a.taux),a.moy==null?'—':fx(a.moy)]);});});
+  var cen=[];ys.forEach(function(an){(o.ec2.annees[an].centres||[]).forEach(function(c){var s=centreStats(c);cen.push([esc(an),esc(c.nom),esc(sessLabel(c.session)),esc(c.statut),s.T]);});});
+  return card('🗄️ Consolidations archivées (par année scolaire)',tbl(['Année','Composition','Figée le','Écoles','Inscrits','Présents','Admis','Taux','Moy /20'],rows,'Aucune consolidation archivée : utilisez « Figer pour l’archivage » dans « Contrôle et consolidation ».'))+
+    card('Centres par année',tbl(['Année','Centre','Session','Statut','Candidats'],cen,'Aucun centre.'));
+}
+function viewDesig(){
+  if(!isSA())return '<div class="og-empty">Réservé au Super Administrateur.</div>';
+  return '<div class="og-hint">Seul le Super Administrateur désigne le « Correspondant fichier – Examens et concours ». Les autres Correspondants gardent leur espace actuel, sans changement. Aucun compte n’est créé, supprimé ni modifié en dehors de cette case.</div>'+
+    card('🔑 Correspondants',tbl(['Nom','Identifiant','IEPP','Examens et concours'],correspondants().map(function(u){return [esc(u.nom),esc(u.login),esc(u.structure_val||''),'<input type="checkbox" class="cm-desig" value="'+esc(u.login)+'"'+(u.ec_designe?' checked':'')+'>'];}),'Aucun compte Correspondant.')+
+    '<div class="og-actions">'+btn('saveDesig','💾 Enregistrer la désignation',null,'btn-primary')+'</div>');
+}
+
+/* ═══════════════ RENDU ═══════════════ */
+var TITLES={};DIR_ITEMS.concat(EC_ITEMS,CF_ITEMS).forEach(function(i){TITLES[i[0]]=i[2];});
+function render(){
+  var root=$('cm2-root');if(!root)return;
+  if(!S.annee)S.annee=anneeCourante();
+  var z=S.zone,v=S.view,body='',top='',gate=z==='dir'?canDir():z==='ec'?canEC():canCF();
+  if(!gate){root.innerHTML='<div class="og-empty">Accès non autorisé pour votre profil.</div>';return;}
+  try{
+    if(z==='dir'){
+      var ec=curEc();if(!ec){root.innerHTML='<div class="og-empty">Aucune école associée à votre compte.</div>';return;}
+      S.eid=ec.id;top=dirTop();
+      var mm=/^(c1|c2|eb1|eb2)-(releve|bilan)$/.exec(v);
+      if(mm)body=mm[2]==='releve'?viewReleve(ec,mm[1]):viewBilan(ec,mm[1]);
+      else if(v==='sign')body=viewSign(ec);else if(v==='synth')body=viewSynth(ec);else if(v==='arch')body=viewArchDir(ec);else if(v==='entree6')body=viewEntree6(ec);
+      var sb=$('cm2-sub-title');if(sb)sb.textContent=ec.nom+' · '+S.annee+' · '+(ec.iepp||'')+(ec.drena?' · '+ec.drena:'');
+    }else{
+      var o=ownerU();if(!o){root.innerHTML='<div class="og-empty">Aucun compte Correspondant disponible.</div>';return;}
+      top=ecTop(o);
+      var sbt=$('cm2-sub-title');if(sbt)sbt.textContent='IEPP '+(o.structure_val||'')+' · '+S.annee;
+      if(v==='dash')body=viewDashEC(o);else if(v==='centre1')body=viewCentre(o,1);else if(v==='centre2')body=viewCentre(o,2);else if(v==='ecoles')body=viewEcolesAff(o);else if(v==='repart')body=viewRepart(o);
+      else if(v==='recep')body=viewRecep(o);else if(v==='consol')body=viewConsol(o);else if(v==='conv')body=viewConv(o);else if(v==='ceap')body=viewCeap(o);else if(v==='matrice')body=viewMatrice(o,'ec');
+      else if(v==='matrice-cf')body=viewMatrice(o,'cf');else if(v==='arch')body=viewArchEC(o);else if(v==='desig'){body=viewDesig();}
+    }
+  }catch(e){console.error('[PGEC]',e);body='<div class="og-warn">Erreur d’affichage : '+esc(e.message)+'</div>';}
+  root.innerHTML=top+'<h3 class="og-h">'+esc(TITLES[v]||'')+'</h3>'+body;
+  document.querySelectorAll('#grp-cm2dir .nav-subitem,#grp-cm2ec .nav-subitem,#grp-cm2cf .nav-subitem').forEach(function(n){n.classList.toggle('active',n.getAttribute('data-z')===z&&n.getAttribute('data-v')===v);});
+  if(document.querySelector('#cm2-root canvas.sg'))initPads();
+}
+function initPads(){
+  document.querySelectorAll('#cm2-root canvas.sg').forEach(function(cv){
+    var ctx=cv.getContext&&cv.getContext('2d');if(!ctx)return;
+    cv.width=Math.max(260,cv.parentNode.clientWidth||360);cv.height=140;ctx.lineWidth=2.2;ctx.lineCap='round';ctx.strokeStyle='#111';
+    var im=cv.getAttribute('data-img');if(im){var I=new Image();I.onload=function(){ctx.drawImage(I,0,0,cv.width,cv.height);cv.dataset.has='1';};I.src=im;}
+    var d=false,lx=0,ly=0;
+    function pos(e){var r=cv.getBoundingClientRect();return [(e.clientX-r.left)*cv.width/(r.width||cv.width),(e.clientY-r.top)*cv.height/(r.height||cv.height)];}
+    cv.onpointerdown=function(e){if(cv.dataset.ro)return;d=true;var p=pos(e);lx=p[0];ly=p[1];try{cv.setPointerCapture(e.pointerId);}catch(x){}e.preventDefault();};
+    cv.onpointermove=function(e){if(!d)return;var p=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(p[0],p[1]);ctx.stroke();lx=p[0];ly=p[1];cv.dataset.has='1';cv.dataset.dirty='1';e.preventDefault();};
+    cv.onpointerup=cv.onpointercancel=function(){d=false;};
+  });
+}
+
+/* ═══════════════ ACTIONS ═══════════════ */
+var saveT=null;
+function saveEcoleSoon(ec){clearTimeout(saveT);saveT=setTimeout(function(){persist('ecoles',[ec]);},500);}
+function liveNote(el){
+  var ec=curEc();if(!ec)return;var n=el.getAttribute('data-n'),id=el.getAttribute('data-id'),k=el.getAttribute('data-k'),max=+el.getAttribute('data-max');
+  var f0=ficheR(ec,S.annee,n);if(f0.transmis&&!isSA())return;
+  var e=cm2Eleves(ec,S.annee).find(function(x){return x.id===id;});if(!e||e._sorti||!isCur(S.annee))return;
+  var raw=el.value.trim(),v=null;
+  if(/^AB?$/i.test(raw))return; /* saisie de « ABS » en cours */
+  if(raw!==''){
+    if(/^(ABS|501)$/i.test(raw))v=501;
+    else{v=num(raw);if(v==null||v<0||v>max){el.classList.add('cm-bad');return;}}
+  }
+  el.classList.remove('cm-bad');
+  writeCell(ec,S.annee,n,e,k,v);
+  var c=calcRow(rowOf(ec,S.annee,n,e),n);
+  var t=$('cm-t-'+id),m=$('cm-m-'+id),o=$('cm-o-'+id);
+  if(t)t.textContent=c.total==null?'':fxt(c.total);if(m)m.textContent=c.moy==null?'':fx(c.moy);if(o)o.innerHTML='<b>'+c.obs+'</b>';
+  saveEcoleSoon(ec);
+}
+function selected(){return Array.prototype.slice.call(document.querySelectorAll('#cm2-root .cm-sel:checked')).map(function(x){return x.value;});}
+function ownerSave(o){saveOwner(o);}
+function mxRow(kind){var cfg=MXCFG[kind],r={id:uid('mx')};cfg.cols.forEach(function(c){r[c.k]=val('mx-'+c.k);});return r;}
+var ACT={
+  xlsReleve:function(d){var ec=curEc();if(ec)xlsReleve(ec,S.annee,d.n,false);},
+  xlsModele:function(d){var ec=curEc();if(ec)xlsReleve(ec,S.annee,d.n,true);},
+  prtReleve:function(d){var ec=curEc();if(!ec)return;ACT.saveSign({n:d.n},true);var cls=S.cls,sf=cls&&cls!=='_none'?' — '+clsLab(clsListe(ec,S.annee).find(function(c){return c.id===cls;})||{}):'';
+    printHTML('Relevé '+COMPS[d.n],enteteHTML(ec,S.annee,'RELEVÉ DE NOTES — '+COMPS[d.n].toUpperCase()+sf)+releveTable(ec,S.annee,d.n,cls)+signaturesHTML(ficheR(ec,S.annee,d.n),d.n));},
+  prtBilan:function(d){var ec=curEc();if(!ec)return;ACT.saveSign({n:d.n},true);var cls=S.cls,sf=cls&&cls!=='_none'?' — '+clsLab(clsListe(ec,S.annee).find(function(c){return c.id===cls;})||{}):'';
+    printHTML('Bilan '+COMPS[d.n],enteteHTML(ec,S.annee,'BILAN DE LA '+COMPS[d.n].toUpperCase()+' — CM2'+sf)+bilanTable(bilanOf(ec,S.annee,d.n,cls))+signaturesHTML(ficheR(ec,S.annee,d.n),d.n));},
+  prtDoc:function(d){var ec=curEc();if(ec){ACT.saveSign({n:d.n},true);printHTML(COMPS[d.n]+' CM2',docComplet(ec,S.annee,d.n));}},
+  saveIns:function(d){var ec=curEc();if(!ec||isMaitre())return;var f=fiche(ec,S.annee,d.n);if(f.transmis&&!isSA())return;f.inscrits={m:Math.max(0,num(val('cm-im'))||0),f:Math.max(0,num(val('cm-if'))||0)};persist('ecoles',[ec]);notif('✅ Effectifs inscrits enregistrés.','success');render();},
+  resetIns:function(d){var ec=curEc();if(!ec||isMaitre())return;var f=fiche(ec,S.annee,d.n);f.inscrits=null;persist('ecoles',[ec]);render();},
+  impCancel:function(){S.imp=null;render();},
+  impApply:function(){
+    var I=S.imp;if(!I||I.error)return;var ec=curEc();var f0=ficheR(ec,S.annee,I.n);if((f0.transmis&&!isSA())||!isCur(S.annee))return;
+    var els=cm2Eleves(ec,S.annee),n=0;
+    I.ok.forEach(function(x){if(x.bad||x.sorti)return;var e=els.find(function(z){return z.id===x.id;});if(!e)return;
+      matOf(I.n).forEach(function(m){if(x.row[m.k]!=null)writeCell(ec,S.annee,I.n,e,m.k,x.row[m.k]);});n++;});
+    persist('ecoles',[ec]);S.imp=null;notif('✅ '+n+' ligne(s) importée(s) — notes visibles aussi dans « Saisie des notes ».','success');render();
+  },
+  saveSign:function(d,silent){
+    var ec=curEc();if(!ec||!$('cm-sg-maitre'))return;var n=(d&&d.n)||S.comp;if(!CFGN[n])return;var f=fiche(ec,S.annee,n);if(f.transmis&&!isSA())return;
+    ['maitre','directeur'].forEach(function(w){if(!canSignW(w))return;var cv=$('cm-sg-'+w);
+      if(cv&&cv.dataset.has==='1'&&cv.dataset.dirty==='1'){try{f.sign[w]=cv.toDataURL('image/png');}catch(e){}}
+      f.noms[w]=val('cm-nm-'+w);f.noms[w+'_tel']=val('cm-tl-'+w);});
+    persist('ecoles',[ec]);if(!silent)notif('✅ Signatures enregistrées.','success');},
+  sgClear:function(d){var ec=curEc();var cv=$('cm-sg-'+d.w);if(cv&&canSignW(d.w)){var x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);cv.dataset.has='';cv.dataset.dirty='';
+    var f=fiche(ec,S.annee,d.n||S.comp);if(f.transmis&&!isSA())return;if(f.sign)delete f.sign[d.w];persist('ecoles',[ec]);}},
+  transmit:function(d){
+    var ec=curEc();if(!ec||!(isDir()||isSA()))return;ACT.saveSign({n:d.n},true);mirrorYear(ec,S.annee);var f=fiche(ec,S.annee,d.n),B=bilanOf(ec,S.annee,d.n);
+    if(!B.nbNotes){notif('Aucune note saisie : rien à transmettre.','error');return;}
+    if(!f.sign.directeur||!f.noms.directeur){notif('Renseignez le nom et la signature du Directeur avant de transmettre.','error');return;}
+    if(!confirm('Transmettre la '+COMPS[d.n]+' ('+B.presT+' présent(s), '+B.admT+' admis) au correspondant ?\nLa fiche sera verrouillée.'))return;
+    var u=me();f.transmis={date:today(),at:new Date().toISOString(),par:u?u.login:''};f.hist.push({date:today(),action:'Transmission',par:u?u.login:''});
+    persist('ecoles',[ec]);notif('✅ Fiche transmise.','success');render();
+  },
+  reopen:function(d){var ec=curEc();if(!ec||!(isDir()||isSA()))return;if(!confirm('Rouvrir la fiche pour correction ? Le correspondant ne la verra plus comme transmise.'))return;
+    var f=fiche(ec,S.annee,d.n),u=me();f.transmis=null;f.hist.push({date:today(),action:'Réouverture pour correction',par:u?u.login:''});persist('ecoles',[ec]);render();},
+  chk6:function(){document.querySelectorAll('#cm2-root .cm-sel').forEach(function(x){x.checked=true;});},
+  archive6:function(){
+    var ec=curEc();if(!ec||!canArchive6()||!isCur(S.annee))return;var ids=selected();
+    if(!ids.length){notif('Cochez au moins un élève admis.','error');return;}
+    if(!confirm('Archiver '+ids.length+' élève(s) admis en 6ème ?\nIls quittent le CM2 et disparaissent des listes de l’école (Corbeille › CM2 archivés). Leurs résultats de l’année restent dans les relevés et bilans.'))return;
+    mirrorYear(ec,S.annee);var an=S.annee,done=0;
+    ids.forEach(function(id){
+      var idx=D().eleves.findIndex(function(x){return x.id===id;});if(idx<0)return;var e=D().eleves[idx];
+      var st=(typeof getStatutPassage==='function')?getStatutPassage(e.id,'CM2'):{statut:'admis'};if(st.statut!=='admis')return;
+      NKEYS.forEach(function(n){var f=fiche(ec,an,n),r=rowOf(ec,an,n,e);if(Object.keys(r).length)f.rows[e.id]=r;});
+      var y=ec.cm2[an];if(!Array.isArray(y.sortie6))y.sortie6=[];
+      y.sortie6.push({id:e.id,nom:e.nom,prenoms:e.prenoms,matricule:e.matricule,ddn:e.ddn,lieu:e.lieu,sexe:e.sexe,cls:clsNom(e,an),date:today(),mga:st.moy==null?null:st.moy,tgp:st.tgp==null?null:st.tgp,statut:'Admis en 6ème'});
+      var notesEleve=D().notes.filter(function(x){return x.eleve_id===e.id;});
+      var arch=Object.assign({},e,{_archive:true,_archive_le:new Date().toLocaleDateString('fr-FR'),_statut:'Admis en 6ème',_notes:notesEleve});
+      D().corbeille.push(arch);D().eleves.splice(idx,1);D().notes=D().notes.filter(function(x){return x.eleve_id!==e.id;});
+      try{if(window._firebaseReady&&window._fb){window._fb.del('eleves',e.id).catch(function(){});notesEleve.forEach(function(x){window._fb.del('notes',x.id).catch(function(){});});window._fb.set('corbeille',e.id,arch).catch(function(){});}}catch(x){}
+      done++;
+    });
+    try{if(typeof save==='function'){save('eleves');save('notes');save('corbeille');}}catch(x){}
+    persist('ecoles',[ec]);
+    try{var b=$('badge-corbeille');if(b){b.textContent=D().corbeille.length;b.style.display='inline-block';}if(typeof updateStats==='function')updateStats();if(typeof renderEleves==='function')renderEleves();if(typeof renderDashboard==='function')renderDashboard();}catch(x){}
+    notif('🎓 '+done+' élève(s) archivé(s) — admis en 6ème.','success');render();
+  },
+  /* ── centres ── */
+  newCentre:function(d){S.centreEdit='new';render();},
+  editCentre:function(d){S.centreEdit=d.i;render();},
+  cancelCentre:function(){S.centreEdit=null;render();},
+  saveCentre:function(d){
+    var o=ownerU();if(!o||!canEC())return;var y=Y(o,S.annee),id=S.centreEdit,isNew=id==='new',c=isNew?{id:uid('ce'),num:+d.n,eleves:[],ecoles:[]}:y.centres.find(function(x){return x.id===id;});if(!c)return;
+    var nom=val('ce-nom'),code=val('ce-code');if(!nom||!code){notif('Nom et code du centre obligatoires.','error');return;}
+    if(y.centres.some(function(x){return x.id!==c.id&&x.code===code;})){notif('Ce code de centre existe déjà.','error');return;}
+    var ses=val('ce-ses');
+    if(!isNew&&c.session!==ses&&c.eleves.length){notif('La session ne peut plus changer : des candidats sont déjà affectés.','error');return;}
+    c.nom=nom;c.code=code;c.accueil=val('ce-acc');c.session=ses;c.comp=val('ce-comp');c.resp=val('ce-resp');c.date=val('ce-date');c.heure=val('ce-heure');c.statut=val('ce-st')||'preparation';
+    if(isNew)y.centres.push(c);ownerSave(o);S.centreEdit=null;notif('✅ Centre enregistré.','success');render();
+  },
+  delCentre:function(d){var o=ownerU();if(!o||!canEC())return;var y=Y(o,S.annee),c=y.centres.find(function(x){return x.id===d.i;});if(!c)return;
+    if(!confirm('Supprimer le centre « '+c.nom+' » ? Ses '+c.eleves.length+' candidat(s) redeviendront non affectés.'))return;y.centres.splice(y.centres.indexOf(c),1);ownerSave(o);render();},
+  affEcoles:function(){
+    var o=ownerU();if(!o||!canEC())return;var y=Y(o,S.annee),c=y.centres.find(function(x){return x.id===S.centre;});if(!c||c.statut==='cloture')return;var n=0;
+    selected().forEach(function(eid){var ec=ecoleById(eid);if(!ec)return;cm2Eleves(ec).forEach(function(e){if(!centreOf(y,e.id,c.session)){c.eleves.push(e.id);n++;}});if((c.ecoles||[]).indexOf(eid)<0){c.ecoles=c.ecoles||[];c.ecoles.push(eid);}});
+    ownerSave(o);notif('✅ '+n+' candidat(s) affecté(s) au centre.','success');render();},
+  retEcoles:function(){
+    var o=ownerU();if(!o||!canEC())return;var y=Y(o,S.annee),c=y.centres.find(function(x){return x.id===S.centre;});if(!c||c.statut==='cloture')return;
+    selected().forEach(function(eid){c.eleves=c.eleves.filter(function(id){var e=D().eleves.find(function(z){return z.id===id;});return !(e&&e.ecole_id===eid);});c.ecoles=(c.ecoles||[]).filter(function(x){return x!==eid;});});ownerSave(o);render();},
+  assignC:function(){
+    var o=ownerU();if(!o||!canEC())return;var y=Y(o,S.annee),c=y.centres.find(function(x){return x.id===S.centre;});if(!c)return;
+    if(c.statut==='cloture'){notif('Centre clôturé.','error');return;}var add=0,mv=0,bl=0;
+    selected().forEach(function(id){var cur=centreOf(y,id,c.session);if(cur&&cur.id===c.id)return;if(cur&&cur.statut==='cloture'){bl++;return;}
+      if(cur){cur.eleves=cur.eleves.filter(function(x){return x!==id;});mv++;}else add++;c.eleves.push(id);
+      var e=D().eleves.find(function(z){return z.id===id;});if(e&&(c.ecoles||[]).indexOf(e.ecole_id)<0){c.ecoles=c.ecoles||[];c.ecoles.push(e.ecole_id);}
+      y.journal.push({date:today(),eleve:id,vers:c.id,de:cur?cur.id:null});});
+    if(y.journal.length>600)y.journal.splice(0,y.journal.length-600);
+    ownerSave(o);notif('✅ '+add+' affecté(s), '+mv+' déplacé(s)'+(bl?', '+bl+' bloqué(s) (centre d’origine clôturé)':'')+'.','success');render();},
+  unassignC:function(){var o=ownerU();if(!o||!canEC())return;var y=Y(o,S.annee),c=y.centres.find(function(x){return x.id===S.centre;});if(!c||c.statut==='cloture')return;
+    var ids=selected();c.eleves=c.eleves.filter(function(id){return ids.indexOf(id)<0;});ownerSave(o);render();},
+  selAllC:function(){document.querySelectorAll('#cm2-root .cm-sel').forEach(function(x){x.checked=true;});},
+  xlsCentre:function(d){var o=ownerU(),y=YR(o,S.annee),c=y.centres.find(function(x){return x.id===d.i;});if(!c)return;
+    var els=c.eleves.map(function(id){return D().eleves.find(function(e){return e.id===id;});}).filter(Boolean).sort(cmpNom);
+    xlsAoa([['Centre : '+c.nom+' ('+c.code+')','Session : '+sessLabel(c.session),'École d’accueil : '+ecoleNom(c.accueil)],[],['N° table','Matricule','Nom','Prénoms','Genre','École d’origine']].concat(els.map(function(e,i){return [i+1,e.matricule||'',e.nom||'',e.prenoms||'',genre(e),ecoleNom(e.ecole_id)];})),'Centre','liste_centre_'+c.code+'.xlsx',[9,14,24,28,7,28]);},
+  prtCentre:function(d){var o=ownerU(),y=YR(o,S.annee),c=y.centres.find(function(x){return x.id===d.i;});if(!c)return;
+    var els=c.eleves.map(function(id){return D().eleves.find(function(e){return e.id===id;});}).filter(Boolean).sort(cmpNom);var sc=scopeOf(o)[0]||{};
+    printHTML('Centre '+c.nom,enteteHTML({nom:ecoleNom(c.accueil),code:'',drena:sc.drena,iepp:o.structure_val},S.annee,'LISTE NOMINATIVE — '+c.nom+' ('+sessLabel(c.session)+')').replace('· Code : <b>………</b> &nbsp;·&nbsp; Cours : <b>CM2</b>','')+
+      '<table class="t"><thead><tr><th>N°</th><th>Matricule</th><th>Nom</th><th>Prénoms</th><th>Genre</th><th>École d’origine</th></tr></thead><tbody>'+els.map(function(e,i){return '<tr><td>'+(i+1)+'</td><td>'+esc(e.matricule||'')+'</td><td class="n">'+esc(e.nom)+'</td><td class="n">'+esc(e.prenoms)+'</td><td>'+esc(genre(e))+'</td><td class="n">'+esc(ecoleNom(e.ecole_id))+'</td></tr>';}).join('')+'</tbody></table>');},
+  consult:function(d){S.recEc=d.e;S.recN=d.n;render();},consultClose:function(){S.recEc='';render();},
+  /* ── consolidation ── */
+  xlsConsol:function(){var o=ownerU();if(!o)return;var d=consolData(o),T=d.C.total,hd=['','Inscrits','Présents','Absents','Admis M','Admis F','Admis','Taux','Moy /20'];
+    var r=function(l,B){return [l,B.insT,B.presT,B.abs,B.adm.M,B.adm.F,B.admT,B.taux==null?'':+(B.taux*100).toFixed(2),B.moyClasse==null?'':+B.moyClasse.toFixed(2)];};
+    var a=[['CONSOLIDATION — '+COMPS[d.n]+' — IEPP '+(o.structure_val||'')+' — '+S.annee],[],['CIRCONSCRIPTION'].concat(hd.slice(1)),r('Circonscription',T),[],['PAR ÉCOLE'].concat(hd.slice(1))];
+    d.C.parEcole.forEach(function(B){a.push(r(B.ec.nom+(B.transmis?'':' (non transmise)'),B));});a.push([],['PAR CENTRE'].concat(hd.slice(1)));d.centres.forEach(function(x){a.push(r(x.c.nom+' ('+sessLabel(x.c.session)+')',x.B));});
+    a.push([],['DISCIPLINE','Garçons ayant la moyenne','Filles ayant la moyenne','Total','Taux (présents) %']);matOf(d.n).forEach(function(m){a.push([m.n,T.disc[m.k].M,T.disc[m.k].F,T.disc[m.k].M+T.disc[m.k].F,T.tauxDisc[m.k]==null?'':+(T.tauxDisc[m.k]*100).toFixed(2)]);});
+    xlsAoa(a,'Consolidation','consolidation_'+d.n+'_'+S.annee+'.xlsx',[34,10,10,10,10,10,10,10,10]);},
+  prtConsol:function(){var o=ownerU();if(!o)return;var d=consolData(o),T=d.C.total,sc=scopeOf(o)[0]||{};
+    var row=function(l,B){return '<tr><td class="n">'+l+'</td><td>'+B.insT+'</td><td>'+B.presT+'</td><td>'+B.abs+'</td><td>'+B.adm.M+'</td><td>'+B.adm.F+'</td><td><b>'+B.admT+'</b></td><td>'+pct(B.taux)+'</td><td>'+(B.moyClasse==null?'—':fx(B.moyClasse))+'</td></tr>';};
+    var th='<thead><tr><th></th><th>Inscrits</th><th>Présents</th><th>Absents</th><th>Admis M</th><th>Admis F</th><th>Admis</th><th>Taux</th><th>Moy /20</th></tr></thead>';
+    printHTML('Consolidation',enteteHTML({nom:'Circonscription '+(o.structure_val||''),code:'',drena:sc.drena,iepp:o.structure_val},S.annee,'CONSOLIDATION — '+COMPS[d.n].toUpperCase()+' — CM2').replace(/École :.*?<\/div>/,'')+
+      '<table class="t">'+th+'<tbody>'+row('<b>CIRCONSCRIPTION</b>',T)+'</tbody></table><h4>Par école</h4><table class="t">'+th+'<tbody>'+d.C.parEcole.map(function(B){return row(esc(B.ec.nom),B);}).join('')+'</tbody></table><h4>Par centre</h4><table class="t">'+th+'<tbody>'+d.centres.map(function(x){return row(esc(x.c.nom),x.B);}).join('')+'</tbody></table>'+
+      '<h4>Par discipline et genre</h4><table class="t"><thead><tr><th>Discipline</th><th>Garçons</th><th>Filles</th><th>Total</th><th>Taux</th></tr></thead><tbody>'+matOf(d.n).map(function(m){return '<tr><td class="n">'+esc(m.n)+'</td><td>'+T.disc[m.k].M+'</td><td>'+T.disc[m.k].F+'</td><td>'+(T.disc[m.k].M+T.disc[m.k].F)+'</td><td>'+pct(T.tauxDisc[m.k])+'</td></tr>';}).join('')+'</tbody></table>');},
+  freeze:function(){var o=ownerU();if(!o||!canEC())return;var d=consolData(o),T=d.C.total,y=Y(o,S.annee);
+    y.archives[d.n+'-'+today()]={comp:COMPS[d.n],date:today(),ecoles:d.C.parEcole.length,ins:T.insT,pres:T.presT,adm:T.admT,taux:T.taux,moy:T.moyClasse};ownerSave(o);notif('✅ Consolidation figée dans l’archivage.','success');},
+  /* ── convocations ── */
+  prtConv:function(d){
+    var o=ownerU(),L=convList(o),c=L.c;if(!c)return;var sc=scopeOf(o)[0]||{},ids=d.all==='1'?null:selected();
+    var list=L.list.filter(function(e){return (!S.filEc||e.ecole_id===S.filEc)&&(!ids||ids.indexOf(e.id)>=0);});
+    if(!list.length){notif('Aucun candidat à convoquer.','error');return;}
+    var arm=armoiries(),h='';
+    list.forEach(function(e,i){
+      h+='<div class="cv">'+hdrBlock(sc.drena,o.structure_val,S.annee)+
+        '<h2>CONVOCATION À L’'+esc(sessLabel(c.session).toUpperCase())+' — CM2</h2>'+
+        '<table><tr><td width="28%">Candidat(e)</td><td><b>'+who(e)+'</b></td></tr><tr><td>Matricule</td><td>'+esc(e.matricule||'')+'</td></tr><tr><td>Né(e) le · à</td><td>'+esc(fr(e.ddn))+' · '+esc(e.lieu||'')+'</td></tr><tr><td>École d’origine</td><td>'+esc(ecoleNom(e.ecole_id))+'</td></tr>'+
+        '<tr><td>Centre d’examen</td><td><b>'+esc(c.nom)+'</b> ('+esc(c.code)+') — École d’accueil : '+esc(ecoleNom(c.accueil))+'</td></tr><tr><td>Date et heure</td><td><b>'+esc(c.date?fr(c.date):'………')+'</b> à <b>'+esc(c.heure||'……')+'</b></td></tr><tr><td>N° de table</td><td><b>'+e._tbl+'</b></td></tr></table>'+
+        '<p style="font-size:10.5px;margin:6px 0 0">Le (la) candidat(e) doit se présenter muni(e) de sa convocation et de son matériel (stylos, règle, équerre, compas). Toute absence ou retard doit être justifié.</p>'+
+        '<p style="text-align:right;margin:8px 0 0">Le Responsable du centre : '+esc(c.resp||'……………………')+' &nbsp;&nbsp;&nbsp; L’Inspecteur</p></div>'+((i%2===1)?'<div class="brk"></div>':'');});
+    printHTML('Convocations',h,'@page{size:A4 portrait;margin:10mm}');},
+  xlsConv:function(){var o=ownerU(),L=convList(o);if(!L.c)return;xlsAoa([['N° table','Matricule','Nom','Prénoms','École d’origine','Centre','Session','Date','Heure']].concat(L.list.map(function(e){return [e._tbl,e.matricule||'',e.nom||'',e.prenoms||'',ecoleNom(e.ecole_id),L.c.nom,sessLabel(L.c.session),L.c.date||'',L.c.heure||''];})),'Convocations','convocations_'+L.c.code+'.xlsx',[9,14,24,28,28,26,16,12,8]);},
+  /* ── CEAP / CAP ── */
+  newCeap:function(){S.cepEdit='new';render();},editCeap:function(d){S.cepEdit=d.i;render();},cancelCeap:function(){S.cepEdit=null;render();},
+  saveCeap:function(d){
+    var o=ownerU();if(!o||!canEC())return;var y=Y(o,S.annee),isNew=d.i==='new',c=isNew?{id:uid('cp')}:y.ceap.find(function(x){return x.id===d.i;});if(!c)return;
+    if(!val('cp-nom')){notif('Le nom est obligatoire.','error');return;}
+    c.nom=val('cp-nom').toUpperCase();c.prenoms=val('cp-pre');c.sexe=val('cp-sx');c.ddn=val('cp-dn');c.lieu=val('cp-ln');c.statut=val('cp-st');c.type=val('cp-ty');c.provenance=val('cp-pv');c.ecole=val('cp-ec');c.classe=val('cp-cl');c.encadreur=val('cp-en');c.duree=val('cp-du');
+    c.portfolio=[0,1,2,3].map(function(i){var t=num(val('cp-t'+i)),n=num(val('cp-n'+i));return {matiere:val('cp-m'+i),note:n,total:t};}).filter(function(p){return p.matiere||p.note!=null||p.total!=null;});
+    for(var i=0;i<c.portfolio.length;i++){var p=c.portfolio[i];if(p.note!=null&&p.total!=null&&p.note>p.total){notif('Note supérieure au total pour « '+p.matiere+' ».','error');return;}}
+    if(isNew)y.ceap.push(c);ownerSave(o);S.cepEdit=null;notif('✅ Candidat enregistré.','success');render();},
+  delCeap:function(d){var o=ownerU();if(!o||!canEC())return;var y=Y(o,S.annee);if(!confirm('Supprimer ce candidat ?'))return;y.ceap=y.ceap.filter(function(x){return x.id!==d.i;});ownerSave(o);render();},
+  viewCeap:function(d){var o=ownerU(),y=YR(o,S.annee),c=y.ceap.find(function(x){return x.id===d.i;});if(c)printHTML('Fiche '+c.nom,ceapFiche(o,c),'@page{size:A4 portrait}');},
+  prtCeapListe:function(){var o=ownerU(),y=YR(o,S.annee),sc=scopeOf(o)[0]||{};
+    printHTML('CEAP/CAP',enteteHTML({nom:'Circonscription '+(o.structure_val||''),drena:sc.drena,iepp:o.structure_val,code:''},S.annee,'CANDIDATS CEAP / CAP').replace(/École :.*?<\/div>/,'')+'<table class="t"><thead><tr><th>N°</th><th>Nom et prénoms</th><th>Sexe</th><th>Statut</th><th>Type</th><th>École de stage</th><th>Classe</th><th>Encadreur</th><th>Moy /20</th></tr></thead><tbody>'+y.ceap.map(function(c,i){var m=ceapMoy(c);return '<tr><td>'+(i+1)+'</td><td class="n">'+who(c)+'</td><td>'+esc(c.sexe)+'</td><td>'+esc(c.statut)+'</td><td>'+esc(c.type)+'</td><td>'+esc(c.ecole)+'</td><td>'+esc(c.classe)+'</td><td>'+esc(c.encadreur)+'</td><td>'+(m==null?'':fx(m))+'</td></tr>';}).join('')+'</tbody></table>');},
+  xlsCeap:function(){var o=ownerU(),y=YR(o,S.annee);xlsAoa([CEAP_COLS].concat(y.ceap.map(function(c){var p=c.portfolio||[];return [c.nom,c.prenoms,c.sexe,c.ddn,c.lieu,c.statut,c.type,c.provenance,c.ecole,c.classe,c.encadreur,c.duree].concat([0,1,2,3].reduce(function(a,i){return a.concat([(p[i]||{}).matiere||'',(p[i]||{}).note==null?'':p[i].note,(p[i]||{}).total==null?'':p[i].total]);},[]));})),'CEAP-CAP','candidats_ceap_cap_'+S.annee+'.xlsx');},
+  xlsCeapModele:function(){xlsAoa([CEAP_COLS,['KOUASSI','Jean','M','1990-05-12','Korhogo',CEAP_STATUTS[1],'CEAP','CAP de Korhogo','EPP Exemple 1','CE1','M. TRAORE','1 an','Lecture',40,50,'Maths',42,50,'Éveil',35,50,'EPS',15,20]],'Modèle','modele_candidats_ceap_cap.xlsx');},
+  /* ── matrices ── */
+  newMx:function(){S.mxEdit='new';render();},editMx:function(d){S.mxEdit=d.i;render();},cancelMx:function(){S.mxEdit=null;render();},
+  saveMx:function(d){var o=ownerU();if(!o||!(isCorr()||isSA()))return;var rows=MX(o,d.k,S.annee),r=mxRow(d.k);if(!r.activite){notif('L’activité est obligatoire.','error');return;}
+    if(d.i==='new')rows.push(r);else{var ix=rows.findIndex(function(x){return x.id===d.i;});if(ix>=0){r.id=d.i;rows[ix]=r;}}ownerSave(o);S.mxEdit=null;render();},
+  delMx:function(d){var o=ownerU();if(!o)return;var rows=MX(o,d.k,S.annee),ix=rows.findIndex(function(x){return x.id===d.i;});if(ix>=0&&confirm('Supprimer cette activité ?')){rows.splice(ix,1);ownerSave(o);render();}},
+  startMx:function(d){var o=ownerU();if(!o)return;var cfg=MXCFG[d.k],rows=MX(o,d.k,S.annee);cfg.start.forEach(function(a){var r={id:uid('mx')};cfg.cols.forEach(function(c,i){r[c.k]=a[i]||'';});rows.push(r);});ownerSave(o);notif('✅ Matrice type chargée — adaptez les dates à votre calendrier.','success');render();},
+  xlsMx:function(d){var o=ownerU(),cfg=MXCFG[d.k];xlsAoa([cfg.cols.map(function(c){return c.l;})].concat(MXR(o,d.k,S.annee).map(function(r){return cfg.cols.map(function(c){return r[c.k]||'';});})),'Matrice','matrice_'+d.k+'_'+S.annee+'.xlsx',[16,22,50,20,14,24]);},
+  xlsMxModele:function(d){var cfg=MXCFG[d.k];xlsAoa([cfg.cols.map(function(c){return c.l;}),cfg.start[0]],'Modèle','modele_matrice_'+d.k+'.xlsx',[16,22,50,20,14,24]);},
+  prtMx:function(d){var o=ownerU(),cfg=MXCFG[d.k],sc=scopeOf(o)[0]||{};
+    printHTML(cfg.titre,enteteHTML({nom:'',code:'',drena:sc.drena,iepp:o&&o.structure_val},S.annee,cfg.titre.toUpperCase()).replace(/École :.*?<\/div>/,'')+'<table class="t"><thead><tr>'+cfg.cols.map(function(c){return '<th>'+c.l+'</th>';}).join('')+'</tr></thead><tbody>'+MXR(o,d.k,S.annee).map(function(r){return '<tr>'+cfg.cols.map(function(c){return '<td class="n">'+esc(r[c.k]||'')+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table>');},
+  saveDesig:function(){if(!isSA())return;var ch=[];document.querySelectorAll('#cm2-root .cm-desig').forEach(function(x){var u=D().users.find(function(z){return z.login===x.value;});if(u&&!!u.ec_designe!==x.checked){u.ec_designe=x.checked;ch.push(u);}});if(ch.length)persist('users',ch);notif('✅ Désignation enregistrée ('+ch.length+' compte(s) mis à jour).','success');applyRole();render();}
+};
+var CEAP_COLS=['NOM','PRENOMS','SEXE','DATE DE NAISSANCE','LIEU DE NAISSANCE','STATUT','TYPE','CAP DE PROVENANCE','ECOLE DE STAGE','CLASSE','ENCADREUR','DUREE','MATIERE 1','NOTE 1','TOTAL 1','MATIERE 2','NOTE 2','TOTAL 2','MATIERE 3','NOTE 3','TOTAL 3','MATIERE 4','NOTE 4','TOTAL 4'];
+var CH={
+  ecole:function(el){S.eid=el.value;S.imp=null;S.cls='';render();},annee:function(el){S.annee=el.value;S.imp=null;S.cls='';S.centreEdit=null;render();},cls:function(el){S.cls=el.value;render();},
+  owner:function(el){S.owner=el.value;S.centre='';render();},comp:function(el){S.comp=el.value;render();},
+  centre:function(el){S.centre=el.value;render();},filec:function(el){S.filEc=el.value;render();},
+  q:function(el){S.q=el.value;var p=el.selectionStart;render();var n=$('cm-q');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}},
+  cepq:function(el){S.cepQ=el.value;var p=el.selectionStart;render();var n=$('cm-cq');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}},
+  mxq:function(el){S.mxQ=el.value;var p=el.selectionStart;render();var n=$('cm-mq');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}},
+  cons:function(el){S.consComp=el.value;render();},consonly:function(el){S.consOnly=el.value==='1';render();},
+  cpPick:function(el){var u=D().users.find(function(x){return x.login===el.value;});if(!u)return;var m=/^(\S+)\s+(.*)$/.exec(String(u.nom||'').trim());var set=function(i,v){var e=$(i);if(e)e.value=v||'';};
+    set('cp-nom',m?m[1]:u.nom);set('cp-pre',m?m[2]:'');set('cp-cl',u.structure_val);var ec=D().ecoles.find(function(e){return e.id===u.ecole_val;});if(ec)set('cp-ec',ec.nom);},
+  impfile:function(el){var f=el.files&&el.files[0];if(!f)return;var n=el.getAttribute('data-n'),ec=curEc();if(!needX())return;
+    var rd=new FileReader();rd.onload=function(){try{var wb=XLSX.read(rd.result,{type:'array'}),r=parseReleve(wb,ec,n,S.annee);r.n=n;S.imp=r;render();}catch(e){S.imp={n:n,error:'Fichier illisible : '+e.message};render();}};rd.readAsArrayBuffer(f);},
+  ceapfile:function(el){var f=el.files&&el.files[0];if(!f)return;var o=ownerU();if(!o||!canEC())return;
+    readFirstSheet(f,function(rows){var y=Y(o,S.annee),n=0;rows.forEach(function(r){var nom=colv(r,['NOM']);if(!nom)return;var p=[];for(var i=1;i<=4;i++){var m=colv(r,['MATIERE '+i]);if(m)p.push({matiere:m,note:num(colv(r,['NOTE '+i])),total:num(colv(r,['TOTAL '+i]))});}
+      var sx=colv(r,['SEXE']).toUpperCase().charAt(0);y.ceap.push({id:uid('cp'),nom:nom.toUpperCase(),prenoms:colv(r,['PRENOMS']),sexe:sx==='F'?'F':'M',ddn:colv(r,['DATE DE NAISSANCE']),lieu:colv(r,['LIEU DE NAISSANCE']),statut:colv(r,['STATUT'])||CEAP_STATUTS[1],type:colv(r,['TYPE']).toUpperCase()==='CAP'?'CAP':'CEAP',provenance:colv(r,['CAP DE PROVENANCE']),ecole:colv(r,['ECOLE DE STAGE']),classe:colv(r,['CLASSE']),encadreur:colv(r,['ENCADREUR']),duree:colv(r,['DUREE']),portfolio:p});n++;});
+      ownerSave(o);notif('✅ '+n+' candidat(s) importé(s).','success');render();});el.value='';},
+  mxfile:function(el){var f=el.files&&el.files[0];if(!f)return;var o=ownerU();if(!o)return;var k=el.getAttribute('data-k'),cfg=MXCFG[k];
+    readFirstSheet(f,function(rows){var list=MX(o,k,S.annee),n=0;rows.forEach(function(r){var row={id:uid('mx')};cfg.cols.forEach(function(c){row[c.k]=colv(r,[c.l,c.k]);});if(row.activite){list.push(row);n++;}});ownerSave(o);notif('✅ '+n+' activité(s) importée(s).','success');render();});el.value='';}
+};
+
+/* ═══════════════ INSTALLATION (menus, page, CSS) ═══════════════ */
+function installCSS(){
+  if($('cm2-css'))return;var st=document.createElement('style');st.id='cm2-css';
+  st.textContent='#page-cm2ec{max-width:100%;overflow-x:hidden}#cm2-root{min-width:0}#cm2-root textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border,#ddd);border-radius:8px;font:inherit;font-size:13px}'+
+  '#cm2-root .og-h{margin:6px 0 12px;font-size:16px;color:var(--bleu,#1A3D6E)}#cm2-root .og-top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px}#cm2-root .og-school{font-size:13.5px;padding:8px 0}'+
+  '#cm2-root .og-f{display:flex;flex-direction:column;gap:4px;min-width:150px;flex:1 1 170px;max-width:100%}#cm2-root .og-f>span{font-size:11px;font-weight:700;color:var(--text2,#555);text-transform:uppercase;letter-spacing:.4px}'+
+  '#cm2-root .og-f input:not([type=checkbox]),#cm2-root .og-f select{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border,#ddd);border-radius:8px;font:inherit;font-size:13px;background:#fff;min-width:0}'+
+  '#cm2-root .og-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:10px}#cm2-root .og-form{background:#F9FAFB;border:1px solid var(--border,#ddd);border-radius:10px;padding:12px;margin-bottom:14px}'+
+  '#cm2-root .og-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}#cm2-root .og-b{padding:7px 12px;font-size:12.5px}#cm2-root .og-card{margin-bottom:14px}#cm2-root .og-body{padding:12px 14px}#cm2-root .og-stats{margin-bottom:14px}'+
+  '#cm2-root .og-t,#cm2-root table.t{width:100%;table-layout:auto;border-collapse:collapse}#cm2-root .og-t th,#cm2-root .og-t td,#cm2-root table.t th,#cm2-root table.t td{padding:6px 6px;font-size:12px;text-align:left;white-space:normal;word-break:break-word;border-bottom:1px solid var(--border,#eee);vertical-align:middle}'+
+  '#cm2-root table.t th,#cm2-root table.t td{border:1px solid var(--border,#ddd);text-align:center;padding:4px}#cm2-root table.t td.n{text-align:left}#cm2-root table.t th{background:#F3F4F6}#cm2-root .og-t th{white-space:normal}'+
+  '#cm2-root .og-hint{background:#EFF6FF;border-left:3px solid var(--bleu,#1A3D6E);padding:8px 12px;border-radius:6px;font-size:12.5px;margin:8px 0 12px;color:#334155}#cm2-root .og-ro{background:#FFFBEB;border-left:3px solid #F59E0B;padding:8px 12px;border-radius:6px;font-size:12.5px;margin-bottom:12px}'+
+  '#cm2-root .og-warn{color:#B45309;font-size:12.5px;margin:6px 0}#cm2-root .og-empty{padding:18px;text-align:center;color:var(--text2,#777);font-size:13px}#cm2-root .og-sub{font-size:12px;color:var(--text2,#666);margin:6px 0}'+
+  '#cm2-root .og-scroll{max-width:100%;overflow-x:auto}#cm2-root .cm-n{width:100%;min-width:38px;max-width:64px;box-sizing:border-box;padding:5px 3px;border:1px solid var(--border,#ccc);border-radius:6px;text-align:center;font-size:12.5px;background:#FFF8E1;color:#1D4ED8}'+
+  '#cm2-root .cm-n.cm-bad{border-color:#DC2626;background:#FEE2E2}#cm2-root .cm-rel td{padding:3px 3px}#cm2-root canvas.sg{width:100%;max-width:420px;height:140px;border:1.5px dashed #94A3B8;border-radius:8px;background:#fff;touch-action:none;display:block}'+
+  '@media(max-width:900px){#cm2-root .cm-h{display:none}#cm2-root .og-t th,#cm2-root .og-t td{font-size:11px;padding:4px 2px}#cm2-root .cm-bil th,#cm2-root .cm-bil td{font-size:9.5px;padding:2px}}@media(max-width:700px){#cm2-root .og-f{flex:1 1 100%}}';
+  document.head.appendChild(st);
+}
+function mkGrp(id,label,headId,headTxt,icon,zone,items,afterId){
+  if($(id))return true;var anchor=$(afterId)||$('grp-orgp')||$('grp-espaces');if(!anchor||!anchor.parentNode)return false;
+  var g=document.createElement('div');g.className='nav-group';g.id=id;g.style.display='none';
+  g.innerHTML='<div class="nav-group-label">'+label+'</div><div class="nav-item nav-esp-head" id="'+headId+'" style="display:flex"><span class="nav-icon">'+icon+'</span> '+headTxt+' <span class="esp-chevron">▸</span></div>'+
+    '<div class="nav-sub" id="'+headId+'-sub">'+items.map(function(i){return '<div class="nav-item nav-subitem" data-z="'+zone+'" data-v="'+i[0]+'"><span class="nav-icon">'+i[1]+'</span> '+i[2]+'</div>';}).join('')+'</div>';
+  anchor.parentNode.insertBefore(g,anchor.nextSibling);
+  $(headId).addEventListener('click',function(){var s=$(headId+'-sub'),h=$(headId),o=!s.classList.contains('open');s.classList.toggle('open',o);h.classList.toggle('open',o);});
+  $(headId+'-sub').addEventListener('click',function(ev){var it=ev.target.closest('.nav-subitem');if(it)go(it.getAttribute('data-z'),it.getAttribute('data-v'));});
+  return true;
+}
+function applyRole(){
+  var a=$('grp-cm2dir'),b=$('grp-cm2ec'),c=$('grp-cm2cf');
+  if(a)a.style.display=canDir()?'':'none';if(b)b.style.display=canEC()?'':'none';if(c)c.style.display=canCF()?'':'none';
+  var d=document.querySelector('#grp-cm2ec [data-v="desig"]');if(d)d.style.display=isSA()?'':'none';
+}
+function go(zone,view){
+  var ok=zone==='dir'?canDir():zone==='ec'?canEC():canCF();if(!ok)return;
+  S.zone=zone;S.view=view;S.centreEdit=null;S.mxEdit=null;S.cepEdit=null;S.imp=null;S.recEc='';S.q='';
+  if(zone==='dir'&&(view==='sign')&&!S.comp)S.comp='c1';
+  if(typeof showPage==='function')showPage('cm2ec');
+  var sub=$({dir:'cm2-head-d',ec:'cm2-head-e',cf:'cm2-head-c'}[zone]+'-sub'),hd=$({dir:'cm2-head-d',ec:'cm2-head-e',cf:'cm2-head-c'}[zone]);if(sub)sub.classList.add('open');if(hd)hd.classList.add('open');
+  render();
+}
+function installPage(){
+  if($('page-cm2ec'))return true;var host=$('page-orgp')||$('page-espace-directeur')||document.querySelector('.content .page');if(!host||!host.parentNode)return false;
+  var p=document.createElement('div');p.id='page-cm2ec';p.className='page';
+  p.innerHTML='<div class="esp-banner di"><span class="esp-emoji">🎓</span><div><h2>Gestion CM2 · Compositions et examens blancs</h2><p id="cm2-sub-title"></p></div></div><div id="cm2-root"></div>';
+  host.parentNode.insertBefore(p,host.nextSibling);
+  p.addEventListener('click',function(ev){var b=ev.target.closest('[data-a]');if(!b)return;var f=ACT[b.getAttribute('data-a')];if(!f)return;var d={};for(var i=0;i<b.attributes.length;i++){var n=b.attributes[i].name;if(n.indexOf('data-')===0&&n!=='data-a')d[n.slice(5)]=b.attributes[i].value;}
+    try{f(d,b);}catch(e){console.error('[PGEC]',e);notif('Erreur : '+e.message,'error');}});
+  p.addEventListener('change',function(ev){var el=ev.target,c=el.getAttribute&&el.getAttribute('data-c');if(c&&c!=='q'&&c!=='cepq'&&c!=='mxq'&&CH[c]){try{CH[c](el);}catch(e){console.error(e);}}});
+  p.addEventListener('input',function(ev){var el=ev.target;if(el.classList&&el.classList.contains('cm-n')){liveNote(el);return;}var c=el.getAttribute&&el.getAttribute('data-c');if(c==='q'||c==='cepq'||c==='mxq')CH[c](el);});
+  return true;
+}
+function install(){
+  installCSS();var ok=installPage();
+  ok=mkGrp('grp-cm2dir','Gestion CM2','cm2-head-d','Compositions CM2','🧮','dir',DIR_ITEMS,'grp-orgp')&&ok;
+  ok=mkGrp('grp-cm2ec','Examens et concours','cm2-head-e','Examens blancs & CEAP/CAP','🎓','ec',EC_ITEMS,'grp-cm2dir')&&ok;
+  ok=mkGrp('grp-cm2cf','Correspondant fichier','cm2-head-c','Matrice d’activités','🗓️','cf',CF_ITEMS,'grp-cm2ec')&&ok;
+  try{if(typeof PAGE_LABELS!=='undefined')PAGE_LABELS.cm2ec='Gestion CM2';}catch(e){}
+  applyRole();return ok;
+}
+function boot(){
+  if(!install()){setTimeout(boot,500);return;}
+  wrapApp();
+  var last='';
+  setInterval(function(){var u=me(),k=u?u.login+'|'+u.role+'|'+(u.ec_designe?1:0):'';if(k!==last){last=k;applyRole();}},1200);
+  try{if(typeof applyEspacesRoleUI==='function'&&!applyEspacesRoleUI.__cm2){var o=applyEspacesRoleUI,w=function(){var x=o.apply(this,arguments);try{applyRole();}catch(e){}return x;};w.__cm2=true;window.applyEspacesRoleUI=w;}}catch(e){}
+}
+function storeSign(n,w,url){var ec=curEc();if(!ec||!CFGN[n]||!canSignW(w)||!url)return;var f=fiche(ec,S.annee,n);if(f.transmis&&!isSA())return;f.sign[w]=url;persist('ecoles',[ec]);notif('✅ Signature enregistrée.','success');render();}
+/* ── intégration additive à l'application : l'organisation des classes s'affiche dans les listes ── */
+function labelOptions(){var se=$('sel-eleve');if(!se)return;var an=anneeCourante();Array.prototype.forEach.call(se.options,function(o){if(!o.value||o.getAttribute('data-cm2'))return;var e=D().eleves.find(function(x){return String(x.id)===o.value;});var c=e&&clsNom(e,an);if(c){o.text=o.text+' — '+c;o.setAttribute('data-cm2','1');}});}
+function tagEleves(){var an=anneeCourante();document.querySelectorAll('#table-eleves input.eleve-row-check').forEach(function(cb){var id=cb.getAttribute('data-eleve-id'),e=D().eleves.find(function(x){return String(x.id)===id;}),c=e&&clsNom(e,an);if(!c)return;var tr=cb.closest('tr'),td=tr&&tr.querySelector('td:nth-child(3)');if(td&&!td.querySelector('.cm-cls'))td.insertAdjacentHTML('beforeend','<br><small class="cm-cls" style="color:#7C3AED">🏫 '+esc(c)+'</small>');});}
+function wrapApp(){
+  [['populateSaisieEleves',labelOptions],['renderEleves',tagEleves]].forEach(function(p){
+    try{var o=window[p[0]];if(typeof o==='function'&&!o.__cm2){var w=function(){var x=o.apply(this,arguments);try{p[1]();}catch(e){}return x;};w.__cm2=true;window[p[0]]=w;}}catch(e){}
+  });
+}
+window.PGEC={go:go,S:S,ACT:ACT,CH:CH,calcRow:calcRow,bilanOf:bilanOf,consolidate:consolidate,bilanCentre:bilanCentre,storeSign:storeSign,rowOf:rowOf,writeCell:writeCell,flushNotes:flushNotes,_render:render,version:'2.0'};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+console.log('✅ PGNEP : module « Gestion CM2 · compositions et examens blancs » chargé');
+})();
+
+</script>
+
 </body>
 </html>
