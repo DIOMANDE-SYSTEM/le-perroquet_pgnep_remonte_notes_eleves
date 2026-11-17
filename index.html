@@ -29124,14 +29124,14 @@ var DIR_ITEMS=[['c1-releve','📝','Composition 1 · Relevé de notes'],['c1-bil
                ['eb1-releve','📝','Examen blanc 1 · Relevé de notes'],['eb1-bilan','📊','Examen blanc 1 · Bilan'],['eb2-releve','📝','Examen blanc 2 · Relevé de notes'],['eb2-bilan','📊','Examen blanc 2 · Bilan'],
                ['sign','✍️','PDF, signature et transmission'],['synth','↔️','Synthèse comparative'],['entree6','🎓','Entrée en 6ème · sortie du CM2'],['arch','🗄️','Archivage']];
 var EC_ITEMS=[['dash','📊','Tableau de bord'],['centre1','🏫','Création du centre 1'],['centre2','🏫','Création du centre 2'],['ecoles','🔗','Affectation libre des écoles'],['repart','🧒','Répartition des candidats'],
-              ['recep','📥','Réception des fiches'],['consol','🧮','Contrôle et consolidation'],['conv','📨','Convocations EB1 / EB2'],['ceap','🎓','CEAP / CAP'],['matrice','📋','Matrice d’action'],['arch','🗄️','Archivage'],['desig','🔑','Désignation (Super Admin)']];
+              ['recep','📥','Réception des fiches'],['consol','🧮','Contrôle et consolidation'],['conv','📨','Convocations EB1 / EB2'],['ceap','🎓','CEAP / CAP'],['matrice','📋','Matrice d’activité'],['arch','🗄️','Archivage'],['desig','🔑','Désignation (Super Admin)']];
 var CF_ITEMS=[['matrice-cf','🗓️','Matrice d’activités']];
 var MXCFG={
-  ec:{titre:'Matrice d’action — Examens & Concours',cols:[{k:'phase',l:'Phase',opts:['Préparation','Déroulement','Après-examen']},{k:'periode',l:'Période'},{k:'activite',l:'Activité',wide:1},{k:'resp',l:'Responsable'},{k:'statut',l:'Statut',opts:['Programmée','En cours','Réalisée','Reportée']},{k:'obs',l:'Observation'}],
+  ec:{titre:'Matrice d’activités — Correspondant Fichier SECO',cols:[{k:'phase',l:'Phase',opts:['Préparation','Déroulement','Après-examen']},{k:'periode',l:'Période'},{k:'activite',l:'Activité',wide:1},{k:'resp',l:'Responsable'},{k:'statut',l:'Statut',opts:['Programmée','En cours','Réalisée','Reportée']},{k:'obs',l:'Observation'}],
     start:[['Préparation','15–30 Avril','Réception et impression des sujets','Secrétariat','Programmée',''],['Préparation','1–10 Mai','Élaboration de la liste des centres d’examen et attribution des surveillants','Inspecteur','Programmée',''],
            ['Préparation','10–20 Mai','Convocation des candidats et distribution des convocations','Directeurs','Programmée',''],['Déroulement','Période des épreuves','Déroulement des épreuves','Surveillants','Programmée',''],
            ['Déroulement','Fin des épreuves','Saisie et encodage des notes en direct','CPI / Secrétariat','Programmée',''],['Après-examen','Après les épreuves','Délibération et proclamation des résultats','Inspecteur','Programmée','']]},
-  cf:{titre:'Matrice d’activités du Correspondant Fichier',cols:[{k:'trim',l:'Trimestre',opts:['1er Trimestre','2ème Trimestre','3ème Trimestre']},{k:'periode',l:'Périodes / dates'},{k:'activite',l:'Activités',wide:1},{k:'obs',l:'Observations'}],
+  cf:{titre:'Matrice d’activités — Correspondant Fichier DEPS',cols:[{k:'trim',l:'Trimestre',opts:['1er Trimestre','2ème Trimestre','3ème Trimestre']},{k:'periode',l:'Périodes / dates'},{k:'activite',l:'Activités',wide:1},{k:'obs',l:'Observations'}],
     start:[['1er Trimestre','04 au 20 Septembre','Réception des points de recrutement du CP1.',''],['1er Trimestre','21 au 29 Septembre','Réception des rapports de rentrée.',''],['1er Trimestre','29 Septembre','Dépôt des rapports au service informatique.',''],
            ['1er Trimestre','08 au 20 Décembre','Réception des rapports du 1er Trimestre.',''],['1er Trimestre','22 Décembre','Dépôt des rapports du 1er Trimestre au service informatique.',''],
            ['2ème Trimestre','1er au 30 Janvier','Réception, distribution, remplissage des fiches de recensement annuel des écoles.',''],['2ème Trimestre','1er au 28 Février','Saisie des fiches de recensement des écoles.','']]}
@@ -29466,24 +29466,31 @@ function ceapFiche(o,c){
     '<div class="sg"><div>Le candidat<br><br><br></div><div>L’encadreur<br><br><br></div><div>L’Inspecteur<br><br><br></div></div>';
 }
 /* ── Matrices (E&C et Fichier) ── */
+var PILL={'Programmée':'#B45309|#FEF3C7','En cours':'#1D4ED8|#DBEAFE','Réalisée':'#047857|#D1FAE5','Reportée':'#B91C1C|#FEE2E2','Préparation':'#6D28D9|#EDE9FE','Déroulement':'#0369A1|#E0F2FE','Après-examen':'#047857|#D1FAE5','1er Trimestre':'#1D4ED8|#DBEAFE','2ème Trimestre':'#B45309|#FEF3C7','3ème Trimestre':'#047857|#D1FAE5'};
+function pill(v){if(!v)return '';var c=(PILL[v]||'#475569|#F1F5F9').split('|');return '<span class="mx-pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(v)+'</span>';}
+function mxList(o,kind){var cfg=MXCFG[kind],q=norm(S.mxQ),fk=cfg.cols[0].k;return MXR(o,kind,S.annee).filter(function(r){return (!S.mxF||r[fk]===S.mxF)&&(!q||norm(cfg.cols.map(function(c){return r[c.k];}).join(' ')).indexOf(q)>=0);});}
 function viewMatrice(o,kind){
-  var cfg=MXCFG[kind],an=S.annee,rows=MXR(o,kind,an),q=norm(S.mxQ);
-  var list=rows.filter(function(r){return !q||norm(cfg.cols.map(function(c){return r[c.k];}).join(' ')).indexOf(q)>=0;});
-  var h='<div class="og-top">'+fld('Recherche','<input id="cm-mq" data-c="mxq" value="'+esc(S.mxQ)+'" placeholder="Phase, activité, responsable…">')+'</div>';
-  h+='<div class="og-actions">'+btn('newMx','➕ Nouvelle activité',{k:kind},'btn-primary')+btn('xlsMx','⬇️ Export Excel',{k:kind})+btn('xlsMxModele','📄 Modèle Excel',{k:kind})+
-    '<label class="btn btn-secondary og-b" style="cursor:pointer">📥 Importer<input type="file" accept=".xlsx,.xls" data-c="mxfile" data-k="'+kind+'" style="display:none"></label>'+btn('prtMx','🖨️ Imprimer / PDF',{k:kind})+
-    (rows.length?'':btn('startMx','📋 Charger la matrice type',{k:kind}))+'</div>';
+  var cfg=MXCFG[kind],an=S.annee,rows=MXR(o,kind,an),list=mxList(o,kind),fc=cfg.cols[0],sel=S.mxSel||{},nsel=list.filter(function(r){return sel[r.id];}).length;
+  var isEc=kind==='ec',sub=isEc?'Planification des activités des Examens et Concours (SECO)':'Planification des activités du Correspondant Fichier DEPS';
+  var h='<div class="mx-ban"><div class="mx-ban-t"><span>'+(isEc?'🎓':'🗓️')+'</span><div><h3>'+esc(cfg.titre)+'</h3><p>'+esc(sub)+' · '+esc(an)+'</p></div></div><div class="mx-ban-n">'+rows.length+' '+(isEc?'action(s)':'activité(s)')+'</div></div>';
+  h+='<div class="mx-bar"><input id="cm-mq" data-c="mxq" class="mx-q" value="'+esc(S.mxQ)+'" placeholder="🔍 Rechercher…"><select data-c="mxf" class="mx-f"><option value="">Tous — '+esc(fc.l)+'</option>'+fc.opts.map(function(x){return opt(x,x,S.mxF===x);}).join('')+'</select></div>';
+  h+='<div class="og-actions mx-act">'+btn('delSelMx','🗑️ Supprimer sélection'+(nsel?' ('+nsel+')':''),{k:kind},'btn-danger')+btn('xlsSelMx','⬇️ Exporter sélection'+(nsel?' ('+nsel+')':''),{k:kind})+btn('prtMx','🖨️ Imprimer',{k:kind})+btn('xlsMx','📊 Export Excel',{k:kind})+btn('wordMx','📝 Word',{k:kind})+
+    '<label class="btn btn-secondary og-b" style="cursor:pointer">📥 Importer<input type="file" accept=".xlsx,.xls" data-c="mxfile" data-k="'+kind+'" style="display:none"></label>'+btn('xlsMxModele','📄 Modèle',{k:kind})+
+    (rows.length?'':btn('startMx','📋 Charger la matrice type',{k:kind}))+btn('newMx','➕ Nouvelle '+(isEc?'action':'activité'),{k:kind},'btn-primary')+'</div>';
   if(S.mxEdit){
     var r=S.mxEdit==='new'?{}:(rows.find(function(x){return x.id===S.mxEdit;})||{});
-    h+=card(S.mxEdit==='new'?'Nouvelle activité':'Modifier l’activité','<div class="og-form"><div class="og-grid">'+cfg.cols.map(function(c){
+    h+=card(S.mxEdit==='new'?'Nouvelle '+(isEc?'action':'activité'):'Modifier','<div class="og-form"><div class="og-grid">'+cfg.cols.map(function(c){
       return fld(c.l,c.opts?'<select id="mx-'+c.k+'">'+c.opts.map(function(x){return opt(x,x,r[c.k]===x);}).join('')+'</select>':(c.wide?'<textarea id="mx-'+c.k+'" rows="3">'+esc(r[c.k]||'')+'</textarea>':'<input id="mx-'+c.k+'" value="'+esc(r[c.k]||'')+'">'),c.wide?2:0);}).join('')+
       '</div><div class="og-actions">'+btn('saveMx','💾 Enregistrer',{k:kind,i:S.mxEdit},'btn-primary')+btn('cancelMx','Annuler')+'</div></div>');
   }
-  h+=card('📋 '+esc(cfg.titre)+' — '+esc(an),tbl(cfg.cols.map(function(c){return c.l;}).concat(['']),list.map(function(r){
-    return cfg.cols.map(function(c){var v=esc(r[c.k]||'');return c.k==='statut'?'<span class="badge badge-'+({'Réalisée':'vert','En cours':'bleu','Reportée':'red'}[r.statut]||'orange')+'">'+v+'</span>':v;}).concat([btn('editMx','✏️',{k:kind,i:r.id})+' '+btn('delMx','🗑️',{k:kind,i:r.id},'btn-danger')]);}),
-    'Aucune activité. Utilisez « Charger la matrice type » (modifiable) ou « Nouvelle activité ».'));
+  var allc=list.length&&nsel===list.length;
+  var head='<th style="width:30px"><input type="checkbox" data-c="mxall"'+(allc?' checked':'')+'></th>'+cfg.cols.map(function(c){return '<th>'+esc(c.l)+'</th>';}).join('')+'<th style="width:80px">Actions</th>';
+  var body=list.map(function(r){return '<tr><td><input type="checkbox" data-c="mxsel" data-i="'+esc(r.id)+'"'+(sel[r.id]?' checked':'')+'></td>'+cfg.cols.map(function(c){var v=r[c.k]||'';return '<td class="n">'+(c.opts?pill(v):esc(v))+'</td>';}).join('')+
+    '<td style="white-space:nowrap">'+btn('editMx','✏️',{k:kind,i:r.id})+' '+btn('delMx','🗑️',{k:kind,i:r.id},'btn-danger')+'</td></tr>';}).join('');
+  h+='<div class="card og-card"><div class="og-scroll"><table class="og-t mx-t"><thead><tr>'+head+'</tr></thead><tbody>'+(body||'<tr><td colspan="'+(cfg.cols.length+2)+'" class="og-empty">Aucune '+(isEc?'action':'activité')+'. Utilisez « Charger la matrice type » (modifiable) ou « Nouvelle '+(isEc?'action':'activité')+' ».</td></tr>')+'</tbody></table></div></div>';
   return h;
 }
+function dlBlob(name,mime,data){var b=new Blob([data],{type:mime}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){try{document.body.removeChild(a);URL.revokeObjectURL(a.href);}catch(e){}},500);}
 function viewArchEC(o){
   var ys=Object.keys((o.ec2&&o.ec2.annees)||{}).sort().reverse();
   var rows=[];ys.forEach(function(an){var y=o.ec2.annees[an];Object.keys(y.archives||{}).forEach(function(k){var a=y.archives[k];rows.push([esc(an),esc(a.comp),esc(fr(a.date)),a.ecoles,a.ins,a.pres,a.adm,pct(a.taux),a.moy==null?'—':fx(a.moy)]);});});
@@ -29713,6 +29720,13 @@ var ACT={
   saveMx:function(d){var o=ownerU();if(!o||!(isCorr()||isSA()))return;var rows=MX(o,d.k,S.annee),r=mxRow(d.k);if(!r.activite){notif('L’activité est obligatoire.','error');return;}
     if(d.i==='new')rows.push(r);else{var ix=rows.findIndex(function(x){return x.id===d.i;});if(ix>=0){r.id=d.i;rows[ix]=r;}}ownerSave(o);S.mxEdit=null;render();},
   delMx:function(d){var o=ownerU();if(!o)return;var rows=MX(o,d.k,S.annee),ix=rows.findIndex(function(x){return x.id===d.i;});if(ix>=0&&confirm('Supprimer cette activité ?')){rows.splice(ix,1);ownerSave(o);render();}},
+  delSelMx:function(d){var o=ownerU();if(!o)return;var rows=MX(o,d.k,S.annee),ids=Object.keys(S.mxSel||{}).filter(function(k){return S.mxSel[k];});if(!ids.length){notif('Cochez d’abord une ou plusieurs lignes.','error');return;}
+    if(!confirm('Supprimer '+ids.length+' ligne(s) sélectionnée(s) ?'))return;for(var i=rows.length-1;i>=0;i--)if(ids.indexOf(rows[i].id)>=0)rows.splice(i,1);S.mxSel={};ownerSave(o);render();},
+  xlsSelMx:function(d){var o=ownerU(),cfg=MXCFG[d.k],ids=S.mxSel||{},l=MXR(o,d.k,S.annee).filter(function(r){return ids[r.id];});if(!l.length){notif('Cochez d’abord une ou plusieurs lignes.','error');return;}
+    xlsAoa([cfg.cols.map(function(c){return c.l;})].concat(l.map(function(r){return cfg.cols.map(function(c){return r[c.k]||'';});})),'Sélection','matrice_'+d.k+'_selection.xlsx',[16,22,50,20,14,24]);},
+  wordMx:function(d){var o=ownerU(),cfg=MXCFG[d.k],l=MXR(o,d.k,S.annee);
+    var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>'+esc(cfg.titre)+'</title></head><body style="font-family:Arial"><h2 style="text-align:center">'+esc(cfg.titre)+'</h2><p style="text-align:center">Année scolaire : '+esc(S.annee)+'</p><table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;width:100%"><tr>'+cfg.cols.map(function(c){return '<th style="background:#E5E7EB">'+esc(c.l)+'</th>';}).join('')+'</tr>'+l.map(function(r){return '<tr>'+cfg.cols.map(function(c){return '<td>'+esc(r[c.k]||'')+'</td>';}).join('')+'</tr>';}).join('')+'</table></body></html>';
+    dlBlob('matrice_'+d.k+'_'+S.annee+'.doc','application/msword',html);},
   startMx:function(d){var o=ownerU();if(!o)return;var cfg=MXCFG[d.k],rows=MX(o,d.k,S.annee);cfg.start.forEach(function(a){var r={id:uid('mx')};cfg.cols.forEach(function(c,i){r[c.k]=a[i]||'';});rows.push(r);});ownerSave(o);notif('✅ Matrice type chargée — adaptez les dates à votre calendrier.','success');render();},
   xlsMx:function(d){var o=ownerU(),cfg=MXCFG[d.k];xlsAoa([cfg.cols.map(function(c){return c.l;})].concat(MXR(o,d.k,S.annee).map(function(r){return cfg.cols.map(function(c){return r[c.k]||'';});})),'Matrice','matrice_'+d.k+'_'+S.annee+'.xlsx',[16,22,50,20,14,24]);},
   xlsMxModele:function(d){var cfg=MXCFG[d.k];xlsAoa([cfg.cols.map(function(c){return c.l;}),cfg.start[0]],'Modèle','modele_matrice_'+d.k+'.xlsx',[16,22,50,20,14,24]);},
@@ -29728,6 +29742,9 @@ var CH={
   q:function(el){S.q=el.value;var p=el.selectionStart;render();var n=$('cm-q');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}},
   cepq:function(el){S.cepQ=el.value;var p=el.selectionStart;render();var n=$('cm-cq');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}},
   mxq:function(el){S.mxQ=el.value;var p=el.selectionStart;render();var n=$('cm-mq');if(n){n.focus();try{n.setSelectionRange(p,p);}catch(e){}}},
+  mxf:function(el){S.mxF=el.value;render();},
+  mxsel:function(el){S.mxSel=S.mxSel||{};S.mxSel[el.getAttribute('data-i')]=el.checked;render();},
+  mxall:function(el){var o=ownerU();S.mxSel=S.mxSel||{};mxList(o,S.zone==='cf'?'cf':'ec').forEach(function(r){S.mxSel[r.id]=el.checked;});render();},
   cons:function(el){S.consComp=el.value;render();},consonly:function(el){S.consOnly=el.value==='1';render();},
   cpPick:function(el){var u=D().users.find(function(x){return x.login===el.value;});if(!u)return;var m=/^(\S+)\s+(.*)$/.exec(String(u.nom||'').trim());var set=function(i,v){var e=$(i);if(e)e.value=v||'';};
     set('cp-nom',m?m[1]:u.nom);set('cp-pre',m?m[2]:'');set('cp-cl',u.structure_val);var ec=D().ecoles.find(function(e){return e.id===u.ecole_val;});if(ec)set('cp-ec',ec.nom);},
@@ -29756,30 +29773,60 @@ function installCSS(){
   '#cm2-root .og-warn{color:#B45309;font-size:12.5px;margin:6px 0}#cm2-root .og-empty{padding:18px;text-align:center;color:var(--text2,#777);font-size:13px}#cm2-root .og-sub{font-size:12px;color:var(--text2,#666);margin:6px 0}'+
   '#cm2-root .og-scroll{max-width:100%;overflow-x:auto}#cm2-root .cm-n{width:100%;min-width:38px;max-width:64px;box-sizing:border-box;padding:5px 3px;border:1px solid var(--border,#ccc);border-radius:6px;text-align:center;font-size:12.5px;background:#FFF8E1;color:#1D4ED8}'+
   '#cm2-root .cm-n.cm-bad{border-color:#DC2626;background:#FEE2E2}#cm2-root .cm-rel td{padding:3px 3px}#cm2-root canvas.sg{width:100%;max-width:420px;height:140px;border:1.5px dashed #94A3B8;border-radius:8px;background:#fff;touch-action:none;display:block}'+
+  '#cm2-root .mx-ban{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(135deg,#1A3D6E,#7C3AED);color:#fff;border-radius:12px;padding:14px 18px;margin-bottom:12px}#cm2-root .mx-ban-t{display:flex;gap:12px;align-items:center}#cm2-root .mx-ban-t>span{font-size:28px}#cm2-root .mx-ban h3{margin:0;font-size:17px;color:#fff}#cm2-root .mx-ban p{margin:2px 0 0;font-size:12.5px;opacity:.9}#cm2-root .mx-ban-n{background:rgba(255,255,255,.2);border-radius:20px;padding:5px 14px;font-weight:700;font-size:13px}'+
+  '#cm2-root .mx-bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}#cm2-root .mx-q{flex:1 1 220px;min-width:0;padding:9px 12px;border:1px solid var(--border,#ddd);border-radius:10px;font:inherit;font-size:13px}#cm2-root .mx-f{flex:0 1 220px;min-width:0;padding:9px 10px;border:1px solid var(--border,#ddd);border-radius:10px;font:inherit;font-size:13px;background:#fff}'+
+  '#cm2-root .mx-pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11.5px;font-weight:700;white-space:nowrap}#cm2-root .mx-t thead th{background:#F1F5F9}#cm2-root .mx-t td.n{vertical-align:top}'+
   '@media(max-width:900px){#cm2-root .cm-h{display:none}#cm2-root .og-t th,#cm2-root .og-t td{font-size:11px;padding:4px 2px}#cm2-root .cm-bil th,#cm2-root .cm-bil td{font-size:9.5px;padding:2px}}@media(max-width:700px){#cm2-root .og-f{flex:1 1 100%}}';
   document.head.appendChild(st);
 }
+function closeHeads(except){['cm2-head-d','cm2-head-e','orgp-head','esp-head-sa','esp-head-cf','esp-head-ma','esp-head-di'].forEach(function(id){if(id===except)return;var h=$(id),sb=$(id==='orgp-head'?'orgp-sub':id.indexOf('esp-')===0?id.replace('head','sub'):id+'-sub');if(h)h.classList.remove('open');if(sb)sb.classList.remove('open');});}
+function sbScroll(el){try{var sb=document.querySelector('aside.sidebar')||document.querySelector('.sidebar');if(!el||!sb)return;setTimeout(function(){var d=el.getBoundingClientRect().top-sb.getBoundingClientRect().top-70;if(sb.scrollTo)sb.scrollTo({top:sb.scrollTop+d,behavior:'smooth'});else sb.scrollTop+=d;},60);}catch(e){}}
 function mkGrp(id,label,headId,headTxt,icon,zone,items,afterId){
   if($(id))return true;var anchor=$(afterId)||$('grp-orgp')||$('grp-espaces');if(!anchor||!anchor.parentNode)return false;
   var g=document.createElement('div');g.className='nav-group';g.id=id;g.style.display='none';
   g.innerHTML='<div class="nav-group-label">'+label+'</div><div class="nav-item nav-esp-head" id="'+headId+'" style="display:flex"><span class="nav-icon">'+icon+'</span> '+headTxt+' <span class="esp-chevron">▸</span></div>'+
     '<div class="nav-sub" id="'+headId+'-sub">'+items.map(function(i){return '<div class="nav-item nav-subitem" data-z="'+zone+'" data-v="'+i[0]+'"><span class="nav-icon">'+i[1]+'</span> '+i[2]+'</div>';}).join('')+'</div>';
   anchor.parentNode.insertBefore(g,anchor.nextSibling);
-  $(headId).addEventListener('click',function(){var s=$(headId+'-sub'),h=$(headId),o=!s.classList.contains('open');s.classList.toggle('open',o);h.classList.toggle('open',o);});
+  $(headId).addEventListener('click',function(){var s=$(headId+'-sub'),h=$(headId),o=!s.classList.contains('open');if(o)closeHeads(headId);s.classList.toggle('open',o);h.classList.toggle('open',o);if(o)sbScroll(h);});
   $(headId+'-sub').addEventListener('click',function(ev){var it=ev.target.closest('.nav-subitem');if(it)go(it.getAttribute('data-z'),it.getAttribute('data-v'));});
   return true;
 }
+/* Correspondant Fichier DEPS : renommage + sous-menu « Matrice d’activités » dans l’espace existant */
+function installCF(){
+  var h=$('esp-head-cf'),sub=$('esp-sub-cf');if(!h||!sub)return false;
+  if(!h.getAttribute('data-cm2')){var tn=null;for(var i=0;i<h.childNodes.length;i++){var n=h.childNodes[i];if(n.nodeType===3&&/Correspondant/.test(n.nodeValue)){tn=n;break;}}if(tn)tn.nodeValue=' Correspondant Fichier DEPS ';h.setAttribute('data-cm2','1');}
+  if(!sub.querySelector('[data-cm2-mx]')){var d=document.createElement('div');d.className='nav-item nav-subitem';d.setAttribute('data-cm2-mx','1');d.innerHTML='<span class="nav-icon">🗓️</span> Matrice d’activités';d.addEventListener('click',function(ev){ev.stopPropagation();go('cf','matrice-cf');});sub.appendChild(d);}
+  return true;
+}
+/* Ordre du menu : Guide d’utilisation, Tableau de bord, puis les espaces */
+function reorderNav(){
+  var esp=$('grp-espaces');if(!esp||!esp.parentNode)return false;
+  var items=Array.prototype.slice.call(document.querySelectorAll('aside.sidebar .nav-item,.sidebar .nav-item')),pick=function(p){return items.find(function(x){return (x.getAttribute('onclick')||'').indexOf(p)>=0;});};
+  var guide=pick("showPage('guide')"),dash=pick("showPage('dashboard')");if(!guide||!dash)return false;
+  var top=$('grp-cm2top');if(!top){top=document.createElement('div');top.className='nav-group';top.id='grp-cm2top';esp.parentNode.insertBefore(top,esp.parentNode.querySelector('.nav-group'));}
+  if(guide.parentNode!==top)top.appendChild(guide);if(dash.parentNode!==top)top.appendChild(dash);
+  if(top.nextElementSibling!==esp&&esp.previousElementSibling!==top){/* les espaces suivent immédiatement le haut du menu */top.parentNode.insertBefore(esp,top.nextSibling);}
+  /* groupes module placés juste après les espaces (conserver l’ordre relatif) */
+  ['grp-orgp','grp-cm2dir','grp-cm2ec'].reduce(function(prev,id){var g=$(id);if(g&&prev&&prev.nextElementSibling!==g)prev.parentNode.insertBefore(g,prev.nextSibling);return g||prev;},esp);
+  document.querySelectorAll('.sidebar .nav-group').forEach(function(g){if(g.id==='grp-cm2top')return;var vis=Array.prototype.some.call(g.querySelectorAll('.nav-item'),function(x){return true;});if(!vis)g.style.display='none';});
+  return true;
+}
+function wrapSidebar(){
+  try{if(typeof window.toggleEspHead==='function'&&!window.toggleEspHead.__cm2){var o=window.toggleEspHead,w=function(k){var r=o.apply(this,arguments);try{var h=$('esp-head-'+k),open=h&&h.classList.contains('open');if(open){closeHeads('esp-head-'+k);sbScroll(h);}}catch(e){}return r;};w.__cm2=true;window.toggleEspHead=w;}}catch(e){}
+  try{if(typeof window.goEsp==='function'&&!window.goEsp.__cm2){var o2=window.goEsp,w2=function(p){var r=o2.apply(this,arguments);try{var k={superadmin:'sa',correspondant:'cf',maitre:'ma',directeur:'di'}[p];closeHeads('esp-head-'+k);}catch(e){}return r;};w2.__cm2=true;window.goEsp=w2;}}catch(e){}
+}
 function applyRole(){
-  var a=$('grp-cm2dir'),b=$('grp-cm2ec'),c=$('grp-cm2cf');
-  if(a)a.style.display=canDir()?'':'none';if(b)b.style.display=canEC()?'':'none';if(c)c.style.display=canCF()?'':'none';
+  var a=$('grp-cm2dir'),b=$('grp-cm2ec');
+  if(a)a.style.display=canDir()?'':'none';if(b)b.style.display=canEC()?'':'none';
   var d=document.querySelector('#grp-cm2ec [data-v="desig"]');if(d)d.style.display=isSA()?'':'none';
+  var m=document.querySelector('#esp-sub-cf [data-cm2-mx]');if(m)m.style.display=canCF()?'':'none';
 }
 function go(zone,view){
   var ok=zone==='dir'?canDir():zone==='ec'?canEC():canCF();if(!ok)return;
-  S.zone=zone;S.view=view;S.centreEdit=null;S.mxEdit=null;S.cepEdit=null;S.imp=null;S.recEc='';S.q='';
+  S.zone=zone;S.view=view;S.mxSel={};S.mxF='';S.centreEdit=null;S.mxEdit=null;S.cepEdit=null;S.imp=null;S.recEc='';S.q='';
   if(zone==='dir'&&(view==='sign')&&!S.comp)S.comp='c1';
   if(typeof showPage==='function')showPage('cm2ec');
-  var sub=$({dir:'cm2-head-d',ec:'cm2-head-e',cf:'cm2-head-c'}[zone]+'-sub'),hd=$({dir:'cm2-head-d',ec:'cm2-head-e',cf:'cm2-head-c'}[zone]);if(sub)sub.classList.add('open');if(hd)hd.classList.add('open');
+  var hid={dir:'cm2-head-d',ec:'cm2-head-e',cf:'esp-head-cf'}[zone],hsub=zone==='cf'?'esp-sub-cf':hid+'-sub';closeHeads(hid);var sub=$(hsub),hd=$(hid);if(sub)sub.classList.add('open');if(hd)hd.classList.add('open');sbScroll(hd);
   render();
 }
 function installPage(){
@@ -29796,8 +29843,8 @@ function installPage(){
 function install(){
   installCSS();var ok=installPage();
   ok=mkGrp('grp-cm2dir','Gestion CM2','cm2-head-d','Compositions CM2','🧮','dir',DIR_ITEMS,'grp-orgp')&&ok;
-  ok=mkGrp('grp-cm2ec','Examens et concours','cm2-head-e','Examens blancs & CEAP/CAP','🎓','ec',EC_ITEMS,'grp-cm2dir')&&ok;
-  ok=mkGrp('grp-cm2cf','Correspondant fichier','cm2-head-c','Matrice d’activités','🗓️','cf',CF_ITEMS,'grp-cm2ec')&&ok;
+  ok=mkGrp('grp-cm2ec','Correspondant Fichier SECO','cm2-head-e','Examens & Concours (SECO)','🎓','ec',EC_ITEMS,'grp-cm2dir')&&ok;
+  ok=installCF()&&ok;wrapSidebar();reorderNav();
   try{if(typeof PAGE_LABELS!=='undefined')PAGE_LABELS.cm2ec='Gestion CM2';}catch(e){}
   applyRole();return ok;
 }
@@ -29820,6 +29867,86 @@ function wrapApp(){
 window.PGEC={go:go,S:S,ACT:ACT,CH:CH,calcRow:calcRow,bilanOf:bilanOf,consolidate:consolidate,bilanCentre:bilanCentre,storeSign:storeSign,rowOf:rowOf,writeCell:writeCell,flushNotes:flushNotes,_render:render,version:'2.0'};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 console.log('✅ PGNEP : module « Gestion CM2 · compositions et examens blancs » chargé');
+})();
+
+</script>
+
+<script id="pgnep-pwview">
+/* ═══════════ PGNEP — Consultation des mots de passe (Directeur · Correspondant · Super Admin) ═══════════
+   Module ADDITIF : n'altère aucune donnée (lecture seule de u.passPlain / u.pass), ne remplace
+   aucun fichier. Le Super Administrateur garde la fenêtre d'origine. Directeur et Correspondant
+   voient uniquement les comptes de leur périmètre (getScopeUsers) et jamais les comptes de gestion. */
+(function(){
+  'use strict';
+  if(window.__pgnepPw)return;window.__pgnepPw=true;
+  var PROTEGES=['admin','coordinateur','correspondant','cabinet','cppp','lecteur'];
+  function cu(){try{return currentUser;}catch(e){return null;}}
+  function isSA(u){return !!u&&(u.role==='admin'||u.login==='diomande');}
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function role(){var u=cu();return u&&(u.role==='directeur'||u.role==='correspondant')?u.role:'';}
+  function inScope(login){try{return getScopeUsers().some(function(x){return x.login===login;});}catch(e){return false;}}
+  function peutVoir(login){
+    var u=cu();if(!u)return false;if(isSA(u))return true;
+    if(!role()||login===u.login||login==='diomande')return false;
+    var t=DB.users.find(function(x){return x.login===login;});
+    return !!t&&PROTEGES.indexOf(t.role)<0&&inScope(login);
+  }
+  function clair(t){
+    var p=t.passPlain;
+    if(p==null||p==='')try{p=decodePass(t.pass);}catch(e){p=null;}
+    return p;
+  }
+  function modal(t,pw){
+    var old=document.getElementById('pw-view-modal');if(old)old.remove();
+    var m=document.createElement('div');m.id='pw-view-modal';
+    m.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    m.innerHTML='<div style="background:#fff;border-radius:14px;padding:22px;max-width:400px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.3);">'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span style="font-size:28px">🔐</span><div><div style="font-weight:800;font-size:15px;color:#1F2937">Mot de passe — '+esc(t.nom)+'</div><div style="font-size:11px;color:#6B7280">Identifiant : <b>'+esc(t.login)+'</b></div></div></div>'+
+      '<div style="background:#FEF3C7;border:2px solid #F59E0B;border-radius:8px;padding:14px;text-align:center;margin-bottom:12px"><div style="font-size:10px;color:#92400E;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:6px">Mot de passe actuel</div>'+
+      '<div id="pw-clear" style="font-family:monospace;font-size:18px;font-weight:800;color:#78350F;letter-spacing:1px;word-break:break-all">'+esc(pw)+'</div></div>'+
+      '<div id="pw-countdown" style="text-align:center;font-size:11px;color:#6B7280;margin-bottom:12px">Cette fenêtre se fermera automatiquement dans <strong>10</strong> secondes</div>'+
+      '<div style="display:flex;gap:8px"><button id="pw-copy" style="flex:1;border:1px solid #D1D5DB;background:#fff;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer">📋 Copier</button>'+
+      '<button id="pw-close" style="flex:1;border:none;background:#1F2937;color:#fff;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer">Fermer</button></div>'+
+      '<div style="font-size:10px;color:#9CA3AF;margin-top:10px;text-align:center">Information confidentielle — ne la communiquez qu’à la personne concernée.</div></div>';
+    document.body.appendChild(m);
+    var sec=10,tm=setInterval(function(){sec--;var c=document.getElementById('pw-countdown');if(c)c.innerHTML='Cette fenêtre se fermera automatiquement dans <strong>'+sec+'</strong> seconde'+(sec>1?'s':'');
+      if(sec<=0||!document.getElementById('pw-view-modal')){clearInterval(tm);var x=document.getElementById('pw-view-modal');if(x)x.remove();}},1000);
+    document.getElementById('pw-close').onclick=function(){clearInterval(tm);m.remove();};
+    document.getElementById('pw-copy').onclick=function(){var b=this;try{navigator.clipboard.writeText(pw).then(function(){b.textContent='✅ Copié';setTimeout(function(){b.textContent='📋 Copier';},1500);});}catch(e){}};
+    m.addEventListener('click',function(ev){if(ev.target===m){clearInterval(tm);m.remove();}});
+  }
+  /* viewUserPassword : Super Admin → fenêtre d'origine ; Directeur / Correspondant → périmètre autorisé */
+  var orig=window.viewUserPassword;
+  window.viewUserPassword=function(login){
+    var u=cu();
+    if(isSA(u)&&typeof orig==='function')return orig(login);
+    if(!peutVoir(login)){alert('Vous ne pouvez consulter que les mots de passe des comptes de votre école / circonscription.');return;}
+    var t=DB.users.find(function(x){return x.login===login;});
+    var pw=t&&clair(t);
+    if(pw==null||pw===''){alert('Mot de passe non récupérable pour ce compte.\n\nDemandez au Super Administrateur de le réinitialiser.');return;}
+    modal(t,pw);
+  };
+  /* liste « Comptes utilisateurs » : bouton œil cliquable pour Directeur / Correspondant */
+  function decorer(){
+    if(!role())return;
+    var box=document.getElementById('users-list');if(!box)return;
+    box.querySelectorAll('tbody tr').forEach(function(tr){
+      var cell=tr.querySelector('td'),m=cell&&/@([^\s<]+)\s*$/.exec((cell.querySelector('div')||{}).textContent||'');
+      var ac=tr.querySelector('.actions-cell');if(!m||!ac||ac.querySelector('[data-pwv]'))return;
+      var login=m[1];if(!peutVoir(login))return;
+      var b=document.createElement('button');b.className='icon-btn';b.setAttribute('data-pwv','1');b.setAttribute('data-login',login);
+      b.title='Voir le mot de passe';b.style.color='#0369A1';b.textContent='👁️‍🗨️';b.onclick=function(){window.viewUserPassword(login);};
+      ac.insertBefore(b,ac.firstChild);
+    });
+  }
+  function wrap(){
+    if(typeof window.renderUsersList==='function'&&!window.renderUsersList.__pw){
+      var o=window.renderUsersList,w=function(){var r=o.apply(this,arguments);try{decorer();}catch(e){console.warn(e);}return r;};w.__pw=true;window.renderUsersList=w;
+    }
+  }
+  wrap();
+  window.PGPW={peutVoir:peutVoir};
+  console.log('✅ PGNEP : consultation des mots de passe (Directeur / Correspondant / Super Admin) chargée');
 })();
 
 </script>
