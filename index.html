@@ -27783,7 +27783,7 @@ function rid(v){try{return (typeof resolveEcoleId==='function')?resolveEcoleId(v
 function notif(m,t){try{if(typeof showNotif==='function')showNotif(m,t||'info');else console.log(m);}catch(e){}}
 function canEdit(){var u=me();return !!u&&(u.role==='admin'||u.role==='directeur'||u.role==='correspondant'||u.login==='diomande');}
 function isSA(){var u=me();return !!u&&(u.role==='admin'||u.login==='diomande');}
-function canSee(){var u=me();return !!u&&(['admin','directeur','correspondant','cppp','coordinateur','cabinet','lecteur'].indexOf(u.role)>=0||u.login==='diomande');}
+function canSee(){var u=me();return !!u&&(['admin','superadmin','super_admin'].indexOf(u.role)>=0||u.login==='diomande');} /* menu réservé au Super Administrateur */
 function today(){return new Date().toISOString().slice(0,10);}
 function anneeCourante(){return (typeof ANNEE_SCOLAIRE!=='undefined'&&ANNEE_SCOLAIRE)?ANNEE_SCOLAIRE:(window.ANNEE_SCOLAIRE||'2026-2027');}
 function anneesListe(){
