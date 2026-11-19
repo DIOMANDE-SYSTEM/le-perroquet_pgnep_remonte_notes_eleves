@@ -1660,6 +1660,14 @@ tr:hover td{background:#F9FAFB;}
 <style id="pgnep-role-security-css">
 .pgnep-role-banner{display:flex;align-items:center;gap:8px;margin:8px 0;padding:8px 12px;border-radius:9px;background:#F4F8F6;border:1px solid #D7E7DF;font-size:12px}
 .pgnep-role-banner strong{font-weight:800}.pgnep-readonly{background:#FFF7ED;border-color:#FED7AA}
+</style>
+<style id="pgnep-actions-wrap">
+/* Boutons Exporter / Excel / Word / PDF / Imprimer : retour à la ligne automatique (écrans étroits) au lieu de sortir de l'écran */
+.card-header{flex-wrap:wrap;gap:8px 12px;}
+.card-header h3{min-width:0;}
+.card-actions{flex-wrap:wrap;justify-content:flex-end;max-width:100%;}
+.card-actions .btn,.card-header .btn{white-space:nowrap;}
+@media (max-width:640px){.card-header{padding:12px 14px;}.card-header>.card-actions{width:100%;justify-content:flex-start;}}
 </style></head>
 <!-- PGNEP V3 : Instituteur=classe | Directeur=école | Correspondant/Inspecteur=IEPP | DRENAET=gestion IEPP/CF + consultation niveau école | DESPS=lecture seule | Superadministrateur=total. DFA : Instituteur -> Directeur -> Correspondant/Inspecteur. -->
 <body>
@@ -6464,7 +6472,7 @@ function checkXLSX() {
 
 function dlXLSX(workbook, filename) {
   const wbout = XLSX.write(workbook, { bookType:'xlsx', type:'array' });
-  const blob = new Blob([wbout], { type:'application/octet-stream' });
+  const blob = new Blob([wbout], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
@@ -21729,18 +21737,21 @@ function importEcoles(){
       var nom=S(g(r,'Nom','École','Ecole','Nom de l\'école')),code=S(g(r,'Code')),iepp=S(g(r,'IEPP')),dr=S(g(r,'DRENAET','DRENA'));
       if(!nom){bad++;return;}
       var ex=E.find(function(e){return (code&&String(e.code||e.id)===code)||nk(e.nom)===nk(nom);});
+      if(!isSA()){var SC=ecolesScope(),okEx=ex&&SC.some(function(s){return s.id===ex.id;}),okIe=!iepp||SC.some(function(s){return nk(s.iepp)===nk(iepp);});if((ex&&!okEx)||(!ex&&!okIe)){bad++;return;}}
       if(ex)upd.push({e:ex,nom:nom,code:code,iepp:iepp,drena:dr});else add.push({nom:nom,code:code,iepp:iepp,drena:dr});
     });
     if(!add.length&&!upd.length){alert('Aucune école exploitable dans ce fichier.');return;}
-    if(!confirm('Import de « '+f.name+' »\n\n• '+add.length+' école(s) à ajouter\n• '+upd.length+' école(s) à mettre à jour\n• '+bad+' ligne(s) ignorée(s) (nom manquant)\n\nAppliquer ?'))return;
+    if(!confirm('Import de « '+f.name+' »\n\n• '+add.length+' école(s) à ajouter\n• '+upd.length+' école(s) à mettre à jour\n• '+bad+' ligne(s) ignorée(s) (nom manquant ou hors de votre périmètre)\n\nAppliquer ?'))return;
     add.forEach(function(a){var id=a.code||('ec'+Date.now().toString(36)+Math.random().toString(36).slice(2,5));E.push({id:id,code:a.code,nom:a.nom,iepp:a.iepp,drena:a.drena});});
     upd.forEach(function(u){u.e.nom=u.nom;if(u.code)u.e.code=u.code;if(u.iepp)u.e.iepp=u.iepp;if(u.drena)u.e.drena=u.drena;});
     persist(['ecoles']);try{if(typeof updateStats==='function')updateStats();if(typeof renderEcoles==='function')renderEcoles();}catch(e){}
     notif('✅ '+add.length+' école(s) ajoutée(s), '+upd.length+' mise(s) à jour','success');
   });}).catch(function(e){alert('Import impossible : '+((e&&e.message)||e));});
 }
+/* périmètre de l'utilisateur : l'administrateur voit tout, les autres uniquement leurs écoles (circonscription, DRENAET, école…) */
+function ecolesScope(){try{if(typeof getScopeEcoles==='function')return getScopeEcoles()||[];}catch(e){}return isSA()?(DBo().ecoles||[]):[];}
 function exportEcoles(){
-  var X=XL();if(!X)return;var rows=[['Nom','Code','IEPP','DRENAET']].concat((DBo().ecoles||[]).map(function(e){return [e.nom||'',e.code||'',e.iepp||'',e.drena||''];}));
+  var X=XL();if(!X)return;var rows=[['Nom','Code','IEPP','DRENAET']].concat(ecolesScope().map(function(e){return [e.nom||'',e.code||'',e.iepp||'',e.drena||''];}));
   writeBook('ecoles_'+today(),[{name:'Écoles',aoa:rows}]);
 }
 function importComptes(){
@@ -25515,6 +25526,7 @@ console.log('✅ PGNEP : annonce de mise à jour par numéro de version');
   }
 
   function exporter() {
+    if (!isSuper()) { note('🔒 Réservé au super administrateur.', 'error'); return; }
     var A = agregats(), us = usersFiltres(A), sch = ecolesFiltrees();
     var cptes = us.map(function (u) { var g = userGeo(u, A.EM), es = etatUser(u); var per = ''; try { per = getStructureLabel(u).replace(/^[^\wÀ-ÿ]+/, ''); } catch (e) { }
       return { Nom: u.nom || '', Identifiant: u.login, Rôle: roleLabel(u.role), Périmètre: per, IEPP: g.iepp, DRENAET: g.drena, École: g.ecole ? g.ecole.nom : '', État: es[0], Début: u.date_debut || '', Fin: u.date_fin || '', 'Créé par': u.cree_par || u.demande_par || '' }; });
@@ -30781,6 +30793,142 @@ console.log('✅ PGNEP : anti-doublons DRENAET / IEPP / écoles chargé');
  document.addEventListener('click',function(){setTimeout(prune,0);},true);
 
  W.PGSECO={isSeco:isSeco,prune:prune};
+})();
+
+</script>
+<script id="pgnep-export-scope">
+/* PGNEP — Exports et impressions limités au périmètre de l'utilisateur (module additif).
+   Les exports de listes/résultats/rapports s'appuient déjà sur le périmètre ; ce module verrouille les documents « par élève »
+   (bulletins : aperçu, impression, PDF, Excel, Word) : un élève hors périmètre (classe, école, circonscription, DRENAET) ne peut
+   ni être affiché ni être exporté, même si son identifiant est forcé. Aucune donnée n'est modifiée. */
+(function(){
+ if(window.PGEXPS)return;
+ var W=window;
+ function ev(n){try{return (0,eval)(n);}catch(e){return undefined;}}
+ function inScope(id){
+   try{if(typeof getScopeEleves!=='function')return true;var l=getScopeEleves()||[];for(var i=0;i<l.length;i++){if(l[i].id===id)return true;}return false;}catch(e){return true;}
+ }
+ function ok(){
+   var s=document.getElementById('bul-eleve');if(!s||!s.value)return true;
+   if(inScope(s.value))return true;
+   try{(typeof showNotif==='function'?showNotif:alert)('⛔ Cet élève n’appartient pas à votre périmètre : document non généré','error');}catch(e){}
+   return false;
+ }
+ function wrap(name){
+   var o=ev('typeof '+name+'==="function"?'+name+':null');if(!o||o.__pgexps)return;
+   var w=function(){if(!ok())return;return o.apply(this,arguments);};w.__pgexps=1;
+   W[name]=w;try{(0,eval)(name+'=window.'+name);}catch(e){}
+ }
+ ['genBulletin','printBulletin','printBulletinDFA','exportBulletinExcel','exportBulletinWord'].forEach(wrap);
+ W.PGEXPS={inScope:inScope};
+})();
+
+</script>
+<script id="pgnep-xlsx-dl">
+/* PGNEP — Téléchargement Excel : vrai fichier .xlsx (type MIME correct + extension garantie), y compris sous Android / WebView / WhatsApp.
+   Module additif : n'altère aucune donnée ni le contenu des fichiers. */
+(function(){
+ if(window.PGXDL)return;
+ var W=window,MIME='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+ function save(arr,name){
+   var b=new Blob([arr],{type:MIME}),a=document.createElement('a'),u=URL.createObjectURL(b);
+   a.href=u;a.download=name;a.style.display='none';document.body.appendChild(a);a.click();
+   setTimeout(function(){try{document.body.removeChild(a);URL.revokeObjectURL(u);}catch(e){}},4000);
+ }
+ function patch(X){
+   if(!X||!X.writeFile||X.__pgdl)return X;
+   var o=X.writeFile;
+   X.writeFile=function(wb,name,opts){
+     try{
+       var n=String(name||'export.xlsx');
+       if(/\.(csv|txt|ods|xls|html|json)$/i.test(n))return o.apply(this,arguments);
+       if(!/\.xlsx$/i.test(n))n=n.replace(/\.[A-Za-z0-9]{1,5}$/,'')+'.xlsx';
+       var out=X.write(wb,Object.assign({},opts||{},{bookType:'xlsx',type:'array'}));
+       save(out,n);return;
+     }catch(e){return o.apply(this,arguments);}
+   };
+   X.__pgdl=1;return X;
+ }
+ var cur=W.XLSX;
+ try{
+   Object.defineProperty(W,'XLSX',{configurable:true,enumerable:true,get:function(){return cur;},set:function(v){cur=v;try{patch(v);}catch(e){}}});
+ }catch(e){}
+ if(cur)patch(cur);
+ var n=0,t=setInterval(function(){try{if(W.XLSX)patch(W.XLSX);}catch(e){}if(++n>90)clearInterval(t);},1000);
+ W.PGXDL={patch:patch,save:save,MIME:MIME};
+})();
+
+</script>
+<script id="pgnep-csv2xlsx">
+/* PGNEP — Tout export « CSV » devient un vrai fichier Excel .xlsx (module additif, sans toucher aux données ni aux fonctions d'export).
+   Intercepte les téléchargements *.csv générés par la plateforme, convertit leur contenu en classeur Excel et télécharge « nom.xlsx ».
+   Si la bibliothèque Excel n'est pas disponible, le CSV d'origine est téléchargé (repli). */
+(function(){
+ if(window.PGCSVX)return;
+ var W=window,URLS={};
+ function parse(t){
+   t=String(t||'').replace(/^﻿/,'');
+   var first=t.split(/\r?\n/)[0]||'',q=false,sc=0,cc=0,tc=0;
+   for(var i=0;i<first.length;i++){var c=first[i];if(c==='"')q=!q;else if(!q){if(c===';')sc++;else if(c===',')cc++;else if(c==='\t')tc++;}}
+   var sep=tc>sc&&tc>cc?'\t':(sc>=cc&&sc>0?';':(cc>0?',':';'));
+   var rows=[],row=[],f='',inq=false;
+   for(var k=0;k<t.length;k++){
+     var ch=t[k];
+     if(inq){if(ch==='"'){if(t[k+1]==='"'){f+='"';k++;}else inq=false;}else f+=ch;}
+     else if(ch==='"')inq=true;
+     else if(ch===sep){row.push(f);f='';}
+     else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&t[k+1]==='\n')k++;row.push(f);rows.push(row);row=[];f='';}
+     else f+=ch;
+   }
+   if(f!==''||row.length){row.push(f);rows.push(row);}
+   while(rows.length&&rows[rows.length-1].every(function(x){return x==='';}))rows.pop();
+   return rows;
+ }
+ function conv(v,r){ /* nombres réels en nombres Excel ; matricules, téléphones, codes à zéro initial restent du texte */
+   if(r===0||typeof v!=='string')return v;
+   var s=v.trim();
+   if(/^-?\d{1,9}([.,]\d+)?$/.test(s)&&!/^0\d/.test(s)){var n=parseFloat(s.replace(',','.'));if(isFinite(n))return n;}
+   return v;
+ }
+ function toX(text,name){
+   var X=W.XLSX;if(!X||!X.utils||!X.write)return null;
+   var aoa=parse(text).map(function(r,ri){return r.map(function(v){return conv(v,ri);});});
+   if(!aoa.length)aoa=[['']];
+   var ws=X.utils.aoa_to_sheet(aoa),wc=[];
+   aoa.slice(0,200).forEach(function(r){r.forEach(function(v,i){var l=String(v==null?'':v).length;wc[i]=Math.max(wc[i]||8,Math.min(l+2,45));});});
+   ws['!cols']=wc.map(function(w){return {wch:w};});
+   var wb=X.utils.book_new(),sn=String(name).replace(/\.csv$/i,'').replace(/[\\\/\?\*\[\]:]/g,' ').slice(0,31)||'Feuille1';
+   X.utils.book_append_sheet(wb,ws,sn);
+   return X.write(wb,{bookType:'xlsx',type:'array'});
+ }
+ function save(out,name){
+   if(W.PGXDL&&W.PGXDL.save){W.PGXDL.save(out,name);return;}
+   var b=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),a=document.createElement('a');
+   a.href=URL.createObjectURL(b);a.download=name;a.style.display='none';document.body.appendChild(a);a.__pgraw=1;a.click();setTimeout(function(){try{document.body.removeChild(a);}catch(e){}},3000);
+ }
+ function intercept(blob,name,fallback){
+   if(!blob||!/\.csv$/i.test(name||'')||!W.XLSX)return false;
+   if(!/csv|text\/plain|^$/i.test(blob.type||''))return false;
+   var rd=new FileReader();
+   rd.onload=function(){
+     var out=null;try{out=toX(rd.result,name);}catch(e){}
+     if(out)save(out,String(name).replace(/\.csv$/i,'.xlsx'));else fallback();
+   };
+   rd.onerror=fallback;rd.readAsText(blob,'utf-8');
+   return true;
+ }
+ var oc=URL.createObjectURL;
+ URL.createObjectURL=function(o){var u=oc.apply(this,arguments);try{if(o&&o.size!==undefined)URLS[u]=o;}catch(e){}return u;};
+ var click=HTMLAnchorElement.prototype.click;
+ HTMLAnchorElement.prototype.click=function(){
+   var a=this,nm=a.download;
+   if(!a.__pgraw&&nm&&/\.csv$/i.test(nm)&&URLS[a.href]){
+     if(intercept(URLS[a.href],nm,function(){a.__pgraw=1;click.call(a);}))return;
+   }
+   return click.apply(this,arguments);
+ };
+ if(typeof W.saveAs==='function'){var os=W.saveAs;W.saveAs=function(b,n){if(!intercept(b,n,function(){os(b,n);}))return os.apply(this,arguments);};}
+ W.PGCSVX={parse:parse,toX:toX};
 })();
 
 </script>
